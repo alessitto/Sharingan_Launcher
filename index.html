@@ -67,6 +67,7 @@
               <option value="upcoming">Próximamente</option>
             </select>
           </div>
+          <div id="discoverIndexBar" class="index-bar"></div>
           <div id="gamesList" class="cards-grid"></div>
           <div class="load-more-wrap">
             <button id="loadMoreBtn" class="filter-btn" onclick="loadMoreDiscoverGames()" style="display:none;">
@@ -301,6 +302,7 @@
       let discoverSearchShown = 0;
 
       async function loadDiscoverGames() {
+        renderDiscoverIndexBar();
         discoverOffset = 0;
         discoverSearchPool = null;
         discoverSearchShown = 0;
@@ -868,6 +870,7 @@
         const div = document.createElement("div");
         div.className = "game-card";
         div.dataset.gameId = game.id;
+        div.dataset.letter = letterBucket(game.name);
 
         const name = game.name || "Sin nombre";
         const safeAttrName = name.replace(/"/g, "&quot;");
@@ -893,9 +896,9 @@
         return div;
       }
 
-      // Cubetas del índice A-Z de la biblioteca: símbolos, números y letras
-      // (con la Ñ en su sitio, como en cualquier listado en español).
-      const LIBRARY_INDEX_BUCKETS = [
+      // Cubetas del índice A-Z (biblioteca y Descubrir): símbolos, números y
+      // letras (con la Ñ en su sitio, como en cualquier listado en español).
+      const INDEX_BUCKETS = [
         "#", "0-9", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L",
         "M", "N", "Ñ", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z",
       ];
@@ -915,7 +918,7 @@
         if (!bar) return;
 
         const present = new Set(gamesShown.map((g) => letterBucket(g.sortKey || g.name)));
-        bar.innerHTML = LIBRARY_INDEX_BUCKETS.map((b) => {
+        bar.innerHTML = INDEX_BUCKETS.map((b) => {
           const has = present.has(b);
           return `<button type="button" class="index-btn" data-bucket="${b}" ${has ? "" : "disabled"}>${b}</button>`;
         }).join("");
@@ -928,6 +931,69 @@
             if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
           };
         });
+      }
+
+      // Índice de Descubrir: aquí NO se sabe de antemano qué letras existen
+      // (hay paginación, tanto server-side como sobre el pool de búsqueda),
+      // así que nunca se deshabilita ningún botón - al pulsar una letra que
+      // aún no está pintada, se van pidiendo más páginas (o revelando más
+      // del pool ya descargado en el caso de búsqueda) hasta encontrarla o
+      // agotar los resultados.
+      let discoverIndexBarBuilt = false;
+
+      function renderDiscoverIndexBar() {
+        const bar = document.getElementById("discoverIndexBar");
+        if (!bar || discoverIndexBarBuilt) return;
+        discoverIndexBarBuilt = true;
+
+        bar.innerHTML = INDEX_BUCKETS.map(
+          (b) => `<button type="button" class="index-btn" data-bucket="${b}">${b}</button>`
+        ).join("");
+
+        bar.querySelectorAll(".index-btn").forEach((btn) => {
+          btn.onclick = () => jumpToDiscoverLetter(btn.dataset.bucket);
+        });
+      }
+
+      async function jumpToDiscoverLetter(bucket) {
+        const selector = `#gamesList [data-letter="${CSS.escape(bucket)}"]`;
+        let target = document.querySelector(selector);
+        if (target) {
+          target.scrollIntoView({ behavior: "smooth", block: "start" });
+          return;
+        }
+
+        if (discoverSearchPool) {
+          while (!target && discoverSearchShown < discoverSearchPool.length) {
+            const next = discoverSearchPool.slice(
+              discoverSearchShown,
+              discoverSearchShown + DISCOVER_PAGE_SIZE
+            );
+            discoverSearchShown += next.length;
+            appendDiscoverGames(next);
+            target = document.querySelector(selector);
+          }
+          updateLoadMoreButton(discoverSearchShown < discoverSearchPool.length);
+        } else {
+          const genreId = document.getElementById("genreFilter")?.value || null;
+          const sort = document.getElementById("sortFilter")?.value || "popular";
+          let guard = 0;
+          while (!target && discoverHasMore && guard < 15) {
+            guard++;
+            discoverOffset += DISCOVER_PAGE_SIZE;
+            const res = await window.electronAPI.discoverGames({
+              query: "",
+              genreId,
+              sort,
+              offset: discoverOffset,
+            });
+            applyDiscoverPage(res, false);
+            target = document.querySelector(selector);
+          }
+        }
+
+        if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+        else showNotification(`No hay ningún juego por "${bucket}" con estos filtros.`, "error");
       }
 
       function displayGames(containerId, games, mode) {
@@ -1164,12 +1230,12 @@
           const rows = saga.gameIds
             .map((gid, idx) => {
               return `
-              <div style="display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid rgba(255,255,255,.06);">
-                <span style="opacity:.5; font-size:12px; width:18px;">${idx + 1}</span>
-                <span style="flex:1; font-size:13px;">${esc(gameName(gid))}</span>
-                <button type="button" data-saga-up="${saga.id}" data-game="${gid}" style="padding:4px 8px;" ${idx === 0 ? "disabled" : ""}>↑</button>
-                <button type="button" data-saga-down="${saga.id}" data-game="${gid}" style="padding:4px 8px;" ${idx === saga.gameIds.length - 1 ? "disabled" : ""}>↓</button>
-                <button type="button" data-saga-remove="${saga.id}" data-game="${gid}" style="padding:4px 8px; color:#ff6b6b;">✕</button>
+              <div class="saga-game-row">
+                <span class="saga-game-index">${idx + 1}</span>
+                <span class="saga-game-name">${esc(gameName(gid))}</span>
+                <button type="button" class="saga-icon-btn" data-saga-up="${saga.id}" data-game="${gid}" ${idx === 0 ? "disabled" : ""} title="Subir">↑</button>
+                <button type="button" class="saga-icon-btn" data-saga-down="${saga.id}" data-game="${gid}" ${idx === saga.gameIds.length - 1 ? "disabled" : ""} title="Bajar">↓</button>
+                <button type="button" class="saga-icon-btn danger" data-saga-remove="${saga.id}" data-game="${gid}" title="Quitar de la saga">✕</button>
               </div>
             `;
             })
@@ -1185,20 +1251,20 @@
             .join("");
 
           return `
-          <div style="border:1px solid rgba(255,255,255,.1); border-radius:12px; padding:12px; margin-bottom:14px; text-align:left;">
-            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
-              <b>📚 ${esc(saga.name)}</b>
-              <button type="button" data-saga-delete="${saga.id}" style="color:#ff6b6b;">Eliminar saga</button>
+          <div class="saga-card">
+            <div class="saga-card-header">
+              <span class="saga-card-title">📚 ${esc(saga.name)}</span>
+              <button type="button" class="saga-delete-btn" data-saga-delete="${saga.id}">Eliminar saga</button>
             </div>
-            <div style="margin-top:8px;">
-              ${rows || '<p style="font-size:12px; opacity:.6;">Sin juegos todavía.</p>'}
+            <div class="saga-games">
+              ${rows || '<p class="saga-empty">Sin juegos todavía — añade alguno abajo.</p>'}
             </div>
-            <div style="display:flex; gap:6px; margin-top:10px;">
-              <select data-saga-addselect="${saga.id}" style="flex:1; background:#171516; color:#f3efe6; border:1px solid #302c2e; border-radius:8px; padding:6px;">
+            <div class="saga-add-row">
+              <select class="saga-select" data-saga-addselect="${saga.id}">
                 <option value="">${addableOptions ? "Añadir juego..." : "No hay más juegos disponibles"}</option>
                 ${addableOptions}
               </select>
-              <button type="button" data-saga-addbtn="${saga.id}">Añadir</button>
+              <button type="button" class="primary" data-saga-addbtn="${saga.id}">Añadir</button>
             </div>
           </div>
         `;
@@ -1207,14 +1273,13 @@
         function render() {
           const sagasHtml = sagas.length
             ? sagas.map(sagaBlock).join("")
-            : '<p style="font-size:13px; opacity:.7; margin-bottom:14px;">Todavía no tienes ninguna saga creada.</p>';
+            : '<p class="saga-empty" style="margin-bottom:16px;">Todavía no tienes ninguna saga creada.</p>';
 
           return `
-          <div style="text-align:left;">
+          <div class="sagas-wrap">
             ${sagasHtml}
-            <div style="display:flex; gap:6px; border-top:1px solid rgba(255,255,255,.1); padding-top:12px;">
-              <input type="text" id="newSagaName" placeholder="Nombre de la nueva saga (ej. The Legend of Zelda)"
-                     style="flex:1; background:#171516; color:#f3efe6; border:1px solid #302c2e; border-radius:8px; padding:8px;">
+            <div class="saga-new-row">
+              <input type="text" id="newSagaName" placeholder="Nombre de la nueva saga (ej. The Legend of Zelda)">
               <button type="button" id="newSagaBtn" class="primary">+ Nueva saga</button>
             </div>
           </div>
@@ -1307,6 +1372,7 @@
           html: render(),
           showConfirmButton: false,
           showCloseButton: true,
+          customClass: { popup: "sagas-popup" },
           didRender: () => bind(),
         });
 

@@ -605,6 +605,149 @@ button.primary:hover {
   margin: 0 0 18px;
 }
 
+/* Sagas */
+.sagas-popup {
+  font-size: 14px;
+}
+
+.sagas-wrap {
+  text-align: left;
+}
+
+.saga-card {
+  background: var(--ink-900);
+  border: 1px solid var(--ink-700);
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.saga-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.saga-card-title {
+  font-family: "Shippori Mincho", serif;
+  font-size: 17px;
+  color: var(--washi-100);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.saga-delete-btn {
+  background: transparent;
+  color: var(--ink-300);
+  font-size: 12px;
+  padding: 5px 10px;
+}
+
+.saga-delete-btn:hover {
+  background: rgba(188, 0, 45, 0.15);
+  color: var(--red-400);
+}
+
+.saga-games {
+  margin: 12px 0 0;
+}
+
+.saga-game-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 2px;
+  border-bottom: 1px solid var(--ink-800);
+}
+
+.saga-game-row:last-child {
+  border-bottom: none;
+}
+
+.saga-game-index {
+  width: 20px;
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--gold-500);
+  text-align: center;
+}
+
+.saga-game-name {
+  flex: 1;
+  font-size: 13px;
+  color: var(--washi-100);
+}
+
+.saga-icon-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.saga-icon-btn:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+.saga-icon-btn:disabled:hover {
+  background: var(--ink-800);
+  transform: none;
+}
+
+.saga-icon-btn.danger:hover {
+  background: rgba(188, 0, 45, 0.15);
+  color: var(--red-400);
+}
+
+.saga-empty {
+  font-size: 13px;
+  color: var(--ink-300);
+  padding: 4px 2px 2px;
+}
+
+.saga-add-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.saga-select {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--ink-700);
+  background: var(--ink-900);
+  color: var(--washi-100);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+}
+
+.saga-select:focus {
+  border-color: var(--red-500);
+}
+
+.saga-new-row {
+  display: flex;
+  gap: 8px;
+  border-top: 1px solid var(--ink-700);
+  padding-top: 16px;
+}
+
+.saga-new-row input[type="text"] {
+  max-width: none;
+  margin-bottom: 0;
+  flex: 1;
+}
+
 /* Importar */
 .import-popup {
   font-size: 14px;
