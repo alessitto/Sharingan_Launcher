@@ -506,8 +506,25 @@ function discoverSortClause(sort) {
   }
 }
 
+// Filtro de prefijo para el indice A-Z: IGDB no soporta comparacion de texto
+// (">="/"<" da error de sintaxis con strings), pero si un wildcard tipo
+// glob con "=" - verificado contra la API real: `name = "P"*` devuelve solo
+// los que empiezan por P, en una sola peticion, instantaneo pase lo que pase
+// de grande que sea el catalogo. "0-9" se arma como OR de los 10 digitos
+// (tambien verificado). "#" (simbolos sueltos) no tiene filtro fiable
+// posible en Apicalypse, asi que ese caso se resuelve en el renderer con lo
+// que ya haya cargado, sin pedir nada al servidor.
+function letterPrefixClause(bucket) {
+  if (bucket === "0-9") {
+    const digits = "0123456789".split("").map((d) => `name = "${d}"*`);
+    return `(${digits.join(" | ")})`;
+  }
+  if (bucket === "#") return null;
+  return `name = "${String(bucket).replace(/"/g, '\\"')}"*`;
+}
+
 ipcMain.handle("igdb:discover", async (_e, opts = {}) => {
-  const { query = "", genreId = null, sort = "popular", offset = 0 } = opts;
+  const { query = "", genreId = null, sort = "popular", offset = 0, letterPrefix = null } = opts;
 
   const whereParts = [
     `game_type = ${IGDB_REAL_GAME_TYPES}`,
@@ -525,6 +542,17 @@ ipcMain.handle("igdb:discover", async (_e, opts = {}) => {
     // sin texto queremos juegos de verdad conocidos. Al buscar por nombre no
     // se aplica, para no perder resultados legitimos poco valorados.
     whereParts.push("total_rating_count > 20");
+  } else if ((sort === "az" || sort === "za") && !trimmedQuery) {
+    // Sin este filtro, el principio (y el final) del catalogo ordenado por
+    // nombre esta lleno de fichas basura con nombres de simbolos sueltos
+    // ("^_^", "_____", "***"...) que no son juegos de verdad - con al menos
+    // 1 valoracion ya desaparecen, verificado contra la API real.
+    whereParts.push("total_rating_count > 0");
+  }
+
+  if (letterPrefix && !trimmedQuery) {
+    const clause = letterPrefixClause(letterPrefix);
+    if (clause) whereParts.push(clause);
   }
 
   const fields =
@@ -543,9 +571,10 @@ ipcMain.handle("igdb:discover", async (_e, opts = {}) => {
     return { items: sortDiscoverResults(results, sort), hasMore: false, fullPool: true };
   }
 
-  // Sin busqueda de texto: aqui "sort" de Apicalypse si funciona bien junto
-  // con "offset", asi que se pagina de verdad contra la API en vez de traer
-  // un lote fijo - se puede seguir pidiendo "cargar mas" sin tope artificial.
+  // Resto de casos (popular/ano/proximamente/alfabetico, con o sin letra
+  // concreta): "sort" + "offset" de Apicalypse funcionan bien juntos al no
+  // llevar "search", asi que se pagina de verdad contra la API. Con
+  // letterPrefix, esto pagina dentro de esa letra (por si hay mas de 60).
   const sortClause = discoverSortClause(sort);
   const safeOffset = Math.max(0, Number(offset) || 0);
   const body = `${fields} ${whereClause} ${sortClause}; limit ${DISCOVER_PAGE_SIZE}; offset ${safeOffset};`;

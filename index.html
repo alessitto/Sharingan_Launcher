@@ -327,12 +327,17 @@
       let discoverHasMore = false;
       let discoverSearchPool = null;
       let discoverSearchShown = 0;
+      // Letra activa del índice (solo aplica navegando, sin texto de
+      // búsqueda) - "Cargar más" la mantiene para seguir paginando DENTRO
+      // de esa letra en vez de volver al listado general.
+      let discoverActiveLetter = null;
 
       async function loadDiscoverGames() {
         renderDiscoverIndexBar();
         discoverOffset = 0;
         discoverSearchPool = null;
         discoverSearchShown = 0;
+        discoverActiveLetter = null;
         gamesTemp = [];
         currentSearchGames = [];
 
@@ -340,11 +345,11 @@
         const genreId = document.getElementById("genreFilter")?.value || null;
         const sort = document.getElementById("sortFilter")?.value || "popular";
 
-        // El indice de letras solo tiene sentido con orden alfabetico - con
-        // "mas popular", "ano" o "proximamente" saltar a una letra no
-        // corresponde a ninguna posicion real.
+        // El índice de letras solo tiene sentido navegando en alfabético sin
+        // texto de búsqueda (con "más popular"/año/próximamente o buscando
+        // por nombre, saltar a una letra no corresponde a nada coherente).
         const bar = document.getElementById("discoverIndexBar");
-        if (bar) bar.style.display = sort === "az" || sort === "za" ? "" : "none";
+        if (bar) bar.style.display = (sort === "az" || sort === "za") && !query ? "" : "none";
 
         const res = await window.electronAPI.discoverGames({ query, genreId, sort, offset: 0 });
         applyDiscoverPage(res, true);
@@ -372,6 +377,7 @@
           genreId,
           sort,
           offset: discoverOffset,
+          letterPrefix: discoverActiveLetter,
         });
         applyDiscoverPage(res, false);
       }
@@ -988,45 +994,46 @@
         });
       }
 
+      // IGDB soporta un filtro de prefijo ("name = \"P\"*") que devuelve
+      // solo los juegos que empiezan por esa letra en una única petición,
+      // sea cual sea el tamaño del catálogo - por eso esto es instantáneo y
+      // no puede "no encontrar" una letra que sí existe (antes se pedían
+      // páginas en serie desde donde se había quedado la búsqueda, lo que
+      // con catálogos grandes podía tardar mucho y acabar fallando igual).
       async function jumpToDiscoverLetter(bucket) {
-        const selector = `#gamesList [data-letter="${CSS.escape(bucket)}"]`;
-        let target = document.querySelector(selector);
-        if (target) {
-          target.scrollIntoView({ behavior: "smooth", block: "start" });
+        if (bucket === "#") {
+          // Apicalypse no tiene forma fiable de filtrar "no empieza por
+          // letra ni número" - se comprueba solo lo que ya hay cargado.
+          const target = document.querySelector('#gamesList [data-letter="#"]');
+          if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+          else showNotification('No hay juegos con nombres de símbolos con estos filtros.', "error");
           return;
         }
 
-        if (discoverSearchPool) {
-          while (!target && discoverSearchShown < discoverSearchPool.length) {
-            const next = discoverSearchPool.slice(
-              discoverSearchShown,
-              discoverSearchShown + DISCOVER_PAGE_SIZE
-            );
-            discoverSearchShown += next.length;
-            appendDiscoverGames(next);
-            target = document.querySelector(selector);
-          }
-          updateLoadMoreButton(discoverSearchShown < discoverSearchPool.length);
-        } else {
-          const genreId = document.getElementById("genreFilter")?.value || null;
-          const sort = document.getElementById("sortFilter")?.value || "popular";
-          let guard = 0;
-          while (!target && discoverHasMore && guard < 15) {
-            guard++;
-            discoverOffset += DISCOVER_PAGE_SIZE;
-            const res = await window.electronAPI.discoverGames({
-              query: "",
-              genreId,
-              sort,
-              offset: discoverOffset,
-            });
-            applyDiscoverPage(res, false);
-            target = document.querySelector(selector);
-          }
-        }
+        const genreId = document.getElementById("genreFilter")?.value || null;
+        const sort = document.getElementById("sortFilter")?.value || "popular";
 
-        if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
-        else showNotification(`No hay ningún juego por "${bucket}" con estos filtros.`, "error");
+        discoverActiveLetter = bucket;
+        discoverOffset = 0;
+        discoverSearchPool = null;
+        discoverSearchShown = 0;
+        gamesTemp = [];
+        currentSearchGames = [];
+
+        const res = await window.electronAPI.discoverGames({
+          query: "",
+          genreId,
+          sort,
+          offset: 0,
+          letterPrefix: bucket,
+        });
+        applyDiscoverPage(res, true);
+
+        if (res?.items?.length) {
+          document.getElementById("gamesList")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        } else {
+          showNotification(`No hay ningún juego por "${bucket}" con estos filtros.`, "error");
+        }
       }
 
       function displayGames(containerId, games, mode) {
