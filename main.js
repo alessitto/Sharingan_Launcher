@@ -10,6 +10,7 @@ const si = require("systeminformation"); // npm install systeminformation
 let win;
 let games = [];
 let completedGames = [];
+let sagas = []; // [{ id, name, gameIds: [id, ...] }] - orden de gameIds = orden dentro de la saga
 
 // === Config (credenciales) ===
 // Nunca hardcodeadas en el codigo: config.json esta en .gitignore (el repo
@@ -84,9 +85,18 @@ function loadData() {
         ...g,
         sortKey: g.sortKey || g.name || "",
       }));
-      completedGames = (parsed.completedGames || []).map((g) => ({
+      completedGames = (parsed.completedGames || []).map((g, idx) => ({
         ...g,
         sortKey: g.sortKey || g.name || "",
+        // Datos antiguos sin fecha real: se usa el indice (siempre menor que
+        // cualquier Date.now() real) para conservar el orden de finalizacion
+        // que ya tenian por como se iban guardando (push al completar).
+        completedAt: g.completedAt || idx,
+      }));
+      sagas = (parsed.sagas || []).map((s) => ({
+        id: s.id,
+        name: s.name || "",
+        gameIds: Array.isArray(s.gameIds) ? s.gameIds.map(Number) : [],
       }));
       console.log("Library loaded from", dataFilePath);
     }
@@ -97,7 +107,7 @@ function loadData() {
 
 function saveData() {
   try {
-    const payload = JSON.stringify({ games, completedGames }, null, 2);
+    const payload = JSON.stringify({ games, completedGames, sagas }, null, 2);
     fs.writeFileSync(dataFilePath, payload, "utf8");
   } catch (err) {
     console.error("Error saving library.json", err);
@@ -430,46 +440,73 @@ async function igdbGamesQuery(body, endpoint = "games", isRetry = false) {
 // Main Game, asi que esas seguiran saliendo aparte del juego base.
 const IGDB_REAL_GAME_TYPES = "(0,8,9,10)";
 
+// Ordena en JS en vez de confiar en el "sort" de Apicalypse: IGDB lo ignora
+// en cuanto la query lleva "search" (ordena siempre por relevancia de texto),
+// que es justo por lo que el filtro de orden no hacia nada al buscar.
+// Haciendolo aqui, orden y busqueda funcionan siempre juntos.
+function sortDiscoverResults(list, sort) {
+  const byName = (a, b) =>
+    (a.name || "").localeCompare(b.name || "", "es", { sensitivity: "base" });
+  const arr = list.slice();
+  switch (sort) {
+    case "az":
+      return arr.sort(byName);
+    case "za":
+      return arr.sort((a, b) => byName(b, a));
+    case "year_desc":
+      return arr.sort(
+        (a, b) => (b.first_release_date || 0) - (a.first_release_date || 0)
+      );
+    case "year_asc":
+    case "upcoming":
+      return arr.sort(
+        (a, b) => (a.first_release_date || 0) - (b.first_release_date || 0)
+      );
+    default:
+      // "popular": total_rating_count (critica + usuarios) en vez del rating
+      // medio a secas, si no un indie de nicho con 11 notas de 10 le gana a
+      // un juego masivo con miles de notas de 8.
+      return arr.sort(
+        (a, b) =>
+          (b.total_rating_count || b.rating_count || 0) -
+          (a.total_rating_count || a.rating_count || 0)
+      );
+  }
+}
+
 ipcMain.handle("igdb:discover", async (_e, opts = {}) => {
   const { query = "", genreId = null, sort = "popular" } = opts;
 
-  const whereParts = [`game_type = ${IGDB_REAL_GAME_TYPES}`];
+  const whereParts = [
+    `game_type = ${IGDB_REAL_GAME_TYPES}`,
+    "cover != null", // sin caratula = ficha basura/sin documentar, fuera
+    "themes != (42)", // 42 = Erotic (verificado contra /v4/themes), fuera contenido adulto
+  ];
   if (genreId) whereParts.push(`genres = (${Number(genreId)})`);
 
-  let sortClause = "sort rating desc";
-  switch (sort) {
-    case "az":
-      sortClause = "sort name asc";
-      break;
-    case "za":
-      sortClause = "sort name desc";
-      break;
-    case "year_desc":
-      sortClause = "sort first_release_date desc";
-      break;
-    case "year_asc":
-      sortClause = "sort first_release_date asc";
-      break;
-    case "upcoming":
-      whereParts.push(`first_release_date > ${Math.floor(Date.now() / 1000)}`);
-      sortClause = "sort first_release_date asc";
-      break;
-    default:
-      // "popular": el rating solo es un buen indicador con un minimo de votos.
-      whereParts.push("rating != null", "rating_count > 10");
-      break;
+  const trimmedQuery = (query || "").trim();
+
+  if (sort === "upcoming") {
+    whereParts.push(`first_release_date > ${Math.floor(Date.now() / 1000)}`);
+  } else if (sort === "popular" && !trimmedQuery) {
+    // Este umbral solo se aplica al navegar (sin buscar): en "Mas popular"
+    // sin texto queremos juegos de verdad conocidos. Al buscar por nombre no
+    // se aplica, para no perder resultados legitimos poco valorados.
+    whereParts.push("total_rating_count > 20");
   }
 
   const fields =
-    "fields id,name,cover.image_id,rating,rating_count,platforms,first_release_date,genres.name;";
+    "fields id,name,cover.image_id,rating,rating_count,total_rating,total_rating_count,platforms,first_release_date,genres.name;";
   const whereClause = `where ${whereParts.join(" & ")};`;
 
-  const trimmedQuery = (query || "").trim();
   const body = trimmedQuery
-    ? `search "${trimmedQuery.replace(/"/g, '\\"')}"; ${fields} ${whereClause} limit 60;`
-    : `${fields} ${whereClause} ${sortClause}; limit 60;`;
+    ? `search "${trimmedQuery.replace(/"/g, '\\"')}"; ${fields} ${whereClause} limit 120;`
+    : `${fields} ${whereClause} limit 60;`;
 
-  return igdbGamesQuery(body);
+  const results = await igdbGamesQuery(body);
+  if (!Array.isArray(results)) return results;
+
+  return sortDiscoverResults(results, sort).slice(0, 60);
 });
 
 ipcMain.handle("igdb:genres", async () => {
@@ -556,6 +593,7 @@ ipcMain.handle("games:completed", (_e, id) => {
   const idx = games.findIndex((x) => x.id === gameId);
   if (idx >= 0) {
     const g = games.splice(idx, 1)[0];
+    g.completedAt = Date.now();
     completedGames.push(g);
     saveData();
   }
@@ -577,8 +615,82 @@ ipcMain.handle("games:remove", (_e, id) => {
   const gameId = Number(id);
   games = games.filter((g) => g.id !== gameId);
   completedGames = completedGames.filter((g) => g.id !== gameId);
+  sagas.forEach((s) => {
+    s.gameIds = s.gameIds.filter((gid) => gid !== gameId);
+  });
   saveData();
   return { games, completedGames };
+});
+
+// -------------------- Sagas IPC --------------------
+function makeSagaId() {
+  return `saga_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+ipcMain.handle("sagas:get", () => sagas);
+
+ipcMain.handle("sagas:create", (_e, name) => {
+  const trimmed = (name || "").trim();
+  if (trimmed) {
+    sagas.push({ id: makeSagaId(), name: trimmed, gameIds: [] });
+    saveData();
+  }
+  return sagas;
+});
+
+ipcMain.handle("sagas:rename", (_e, { id, name }) => {
+  const s = sagas.find((x) => x.id === id);
+  const trimmed = (name || "").trim();
+  if (s && trimmed) {
+    s.name = trimmed;
+    saveData();
+  }
+  return sagas;
+});
+
+ipcMain.handle("sagas:delete", (_e, id) => {
+  sagas = sagas.filter((x) => x.id !== id);
+  saveData();
+  return sagas;
+});
+
+ipcMain.handle("sagas:addGame", (_e, { sagaId, gameId }) => {
+  const gid = Number(gameId);
+  const target = sagas.find((x) => x.id === sagaId);
+  if (!target) return sagas;
+  // Un juego solo pertenece a una saga a la vez (modelo tipo "carpeta").
+  sagas.forEach((s) => {
+    s.gameIds = s.gameIds.filter((id) => id !== gid);
+  });
+  target.gameIds.push(gid);
+  saveData();
+  return sagas;
+});
+
+ipcMain.handle("sagas:removeGame", (_e, { sagaId, gameId }) => {
+  const gid = Number(gameId);
+  const target = sagas.find((x) => x.id === sagaId);
+  if (target) {
+    target.gameIds = target.gameIds.filter((id) => id !== gid);
+    saveData();
+  }
+  return sagas;
+});
+
+ipcMain.handle("sagas:moveGame", (_e, { sagaId, gameId, direction }) => {
+  const gid = Number(gameId);
+  const target = sagas.find((x) => x.id === sagaId);
+  if (!target) return sagas;
+  const idx = target.gameIds.indexOf(gid);
+  if (idx < 0) return sagas;
+  const swapWith = direction === "up" ? idx - 1 : idx + 1;
+  if (swapWith < 0 || swapWith >= target.gameIds.length) return sagas;
+  [target.gameIds[idx], target.gameIds[swapWith]] = [
+    target.gameIds[swapWith],
+    target.gameIds[idx],
+  ];
+  saveData();
+  return sagas;
 });
 
 ipcMain.handle("games:unlink", (_e, id) => {

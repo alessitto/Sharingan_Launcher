@@ -33,4 +33,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Specs del equipo, para comparar contra los requisitos del juego
   getSystemSpecs: () => ipcRenderer.invoke('system:getSpecs'),
+
+  // Sagas / carpetas de juegos
+  getSagas: () => ipcRenderer.invoke('sagas:get'),
+  createSaga: (name) => ipcRenderer.invoke('sagas:create', name),
+  renameSaga: (id, name) => ipcRenderer.invoke('sagas:rename', { id, name }),
+  deleteSaga: (id) => ipcRenderer.invoke('sagas:delete', id),
+  addGameToSaga: (sagaId, gameId) => ipcRenderer.invoke('sagas:addGame', { sagaId, gameId }),
+  removeGameFromSaga: (sagaId, gameId) => ipcRenderer.invoke('sagas:removeGame', { sagaId, gameId }),
+  moveGameInSaga: (sagaId, gameId, direction) => ipcRenderer.invoke('sagas:moveGame', { sagaId, gameId, direction }),
 });

@@ -86,6 +86,10 @@
             <button class="filter-btn importBtn" onclick="openImportModal()">
               Importar instalados
             </button>
+
+            <button class="filter-btn" onclick="openSagasModal()">
+              Sagas
+            </button>
           </div>
 
           <div id="libraryList" class="cards-grid"></div>
@@ -110,6 +114,8 @@
       let currentSearchGames = [];
       let showOnlyLinked = false;
       let libraryGamesCache = [];
+      let completedGamesCache = [];
+      let sagasCache = [];
       let dartacanPlayed = false;
 
       // Gamepad state
@@ -292,6 +298,7 @@
       // ===============================
       async function loadLibrary() {
         let { games, completedGames } = await window.electronAPI.getGames();
+        sagasCache = (await window.electronAPI.getSagas()) || [];
 
         libraryIds.clear();
         if (Array.isArray(games)) games.forEach((g) => libraryIds.add(g.id));
@@ -304,16 +311,95 @@
           return ak.localeCompare(bk, "es", { sensitivity: "base" });
         });
 
-        completedGames = completedGames.slice().sort((a, b) => {
-          const ak = (a.sortKey || a.name || "").toString();
-          const bk = (b.sortKey || b.name || "").toString();
-          return ak.localeCompare(bk, "es", { sensitivity: "base" });
+        libraryGamesCache = games;
+        completedGamesCache = Array.isArray(completedGames) ? completedGames : [];
+        applyLibraryFilter();
+        renderCompletedList();
+        updateGamepadFocus(true);
+      }
+
+      // Busca la saga (si hay) a la que pertenece un juego.
+      function sagaForGame(gameId) {
+        const gid = Number(gameId);
+        return sagasCache.find((s) => s.gameIds.includes(gid));
+      }
+
+      // "Juegos pasados" ya no se ordena por nombre: se ordena por fecha de
+      // finalización (más reciente arriba). Los juegos de una misma saga no
+      // se dispersan por la línea de tiempo — se agrupan en un único bloque,
+      // anclado a la fecha en que se completó el PRIMER juego de esa saga
+      // (así, si te pasas 2 y 3 mucho después que 1, siguen "arrastrados"
+      // junto a 1 en vez de aparecer sueltos por su propia fecha).
+      function buildCompletedTimeline(completedGames, sagas) {
+        const gameById = new Map(completedGames.map((g) => [g.id, g]));
+        const sagaOfGame = new Map();
+        sagas.forEach((s) =>
+          s.gameIds.forEach((id) => {
+            if (!sagaOfGame.has(id)) sagaOfGame.set(id, s);
+          })
+        );
+
+        const entries = [];
+        const consumed = new Set();
+
+        completedGames.forEach((g) => {
+          const saga = sagaOfGame.get(g.id);
+          if (saga) {
+            if (consumed.has(saga.id)) return;
+            consumed.add(saga.id);
+            const members = saga.gameIds.map((id) => gameById.get(id)).filter(Boolean);
+            if (!members.length) return;
+            const anchor = Math.min(...members.map((m) => m.completedAt || 0));
+            entries.push({ type: "saga", saga, games: members, date: anchor });
+          } else {
+            entries.push({ type: "game", game: g, date: g.completedAt || 0 });
+          }
         });
 
-        libraryGamesCache = games;
-        applyLibraryFilter();
-        displayGames("completedList", completedGames, "completed");
-        updateGamepadFocus(true);
+        entries.sort((a, b) => b.date - a.date);
+        return entries;
+      }
+
+      function renderCompletedList() {
+        const container = document.getElementById("completedList");
+        container.innerHTML = "";
+
+        if (!completedGamesCache.length) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <p class="empty-title">Aún no has completado ningún juego.</p>
+              <p class="empty-text">Es hora de jugar. Cuando termines un juego podrás marcarlo como pasado.</p>
+              <button class="primary" onclick="showSection('library', document.querySelectorAll('.topnav-item')[1])">
+                Ir a mi biblioteca
+              </button>
+            </div>
+          `;
+          return;
+        }
+
+        const entries = buildCompletedTimeline(completedGamesCache, sagasCache);
+
+        entries.forEach((entry) => {
+          if (entry.type === "game") {
+            container.appendChild(buildGameCard(entry.game, "completed"));
+            return;
+          }
+
+          const wrap = document.createElement("div");
+          wrap.className = "saga-group";
+
+          const header = document.createElement("div");
+          header.className = "saga-group-header";
+          header.innerHTML = `📚 ${escapeHtml(entry.saga.name)}`;
+          wrap.appendChild(header);
+
+          const grid = document.createElement("div");
+          grid.className = "saga-group-grid";
+          entry.games.forEach((g) => grid.appendChild(buildGameCard(g, "completed")));
+          wrap.appendChild(grid);
+
+          container.appendChild(wrap);
+        });
       }
 
       function refreshSearchUI() {
@@ -697,6 +783,58 @@
       // ===============================
       // Pintar cards reutilizable
       // ===============================
+      // Card de un juego "pasado" (completado) — usada tanto para sueltos
+      // como para los que van dentro de un bloque de saga.
+      function buildGameCard(game, mode) {
+        const div = document.createElement("div");
+        div.className = "game-card";
+        div.dataset.gameId = game.id;
+
+        const name = game.name || "Sin nombre";
+        const safeAttrName = name.replace(/"/g, "&quot;");
+
+        const coverUrl =
+          game.coverUrl ||
+          (game.cover && game.cover.image_id
+            ? `https://images.igdb.com/igdb/image/upload/t_cover_big/${game.cover.image_id}.jpg`
+            : "assets/no-cover.png");
+
+        const hasExe = !!game.executable;
+        const exeStatus = hasExe
+          ? `<button class="linked-btn" onclick="confirmUnlink('${game.id}')">Vinculado</button>`
+          : `<button onclick="setExecutable('${game.id}')">Vincular</button>`;
+        const playButton = hasExe
+          ? `<button class="primary" onclick="launchGame('${game.id}')">Jugar</button>`
+          : "";
+
+        const platText = game.isPlatinum ? "Desmarcar Platino" : "Marcar Platino 👑";
+        if (game.isPlatinum) div.classList.add("platinum-card");
+        const crownHtml = game.isPlatinum ? `<div class="platinum-crown">👑</div>` : "";
+
+        const buttonsHtml = `
+          ${crownHtml}
+          ${exeStatus}
+          ${playButton}
+          <div class="action-menu">
+            <button class="more-btn" onclick="toggleDropdown(event, '${game.id}')">⋯</button>
+            <div id="dropdown-${game.id}" class="dropdown-content">
+               <div class="dropdown-item" onclick="openInfoModal('${game.id}')">Información</div>
+               <div class="dropdown-item" onclick="togglePlatinum('${game.id}')">${platText}</div>
+               <div class="dropdown-item" onclick="returnToLibrary('${game.id}')">Volver a biblioteca</div>
+               <div class="dropdown-item" onclick="removeFromLibrary('${game.id}')" style="color: #ff6b6b;">Quitar de pasados</div>
+            </div>
+          </div>
+        `;
+
+        div.innerHTML = `
+          <img src="${coverUrl}" alt="${safeAttrName}">
+          <h3>${escapeHtml(name)}</h3>
+          <div class="card-actions">${buttonsHtml}</div>
+        `;
+
+        return div;
+      }
+
       function displayGames(containerId, games, mode) {
         const container = document.getElementById(containerId);
         container.innerHTML = "";
@@ -717,18 +855,6 @@
             return;
           }
 
-          if (mode === "completed") {
-            container.innerHTML = `
-            <div class="empty-state">
-              <p class="empty-title">Aún no has completado ningún juego.</p>
-              <p class="empty-text">Es hora de jugar. Cuando termines un juego podrás marcarlo como pasado.</p>
-              <button class="primary" onclick="showSection('library', document.querySelectorAll('.topnav-item')[1])">
-                Ir a mi biblioteca
-              </button>
-            </div>
-          `;
-            return;
-          }
         }
 
         games.forEach((game) => {
@@ -779,47 +905,15 @@
               </div>
             </div>
           `;
-          } else if (mode === "completed") {
-            const hasExe = !!game.executable;
-            const exeStatus = hasExe
-              ? `<button class="linked-btn" onclick="confirmUnlink('${game.id}')">Vinculado</button>`
-              : `<button onclick="setExecutable('${game.id}')">Vincular</button>`;
-            const playButton = hasExe
-              ? `<button class="primary" onclick="launchGame('${game.id}')">Jugar</button>`
-              : "";
-
-            // Platino logic
-            const platText = game.isPlatinum
-              ? "Desmarcar Platino"
-              : "Marcar Platino 👑";
-            if (game.isPlatinum) {
-              div.classList.add("platinum-card");
-            }
-            const crownHtml = game.isPlatinum
-              ? `<div class="platinum-crown">👑</div>`
-              : "";
-
-            // Dropdown para completados
-            buttonsHtml = `
-            ${crownHtml}
-            ${exeStatus}
-            ${playButton}
-            <div class="action-menu">
-              <button class="more-btn" onclick="toggleDropdown(event, '${game.id}')">⋯</button>
-              <div id="dropdown-${game.id}" class="dropdown-content">
-                 <div class="dropdown-item" onclick="openInfoModal('${game.id}')">Información</div>
-                 <div class="dropdown-item" onclick="togglePlatinum('${game.id}')">${platText}</div>
-                 <div class="dropdown-item" onclick="returnToLibrary('${game.id}')">Volver a biblioteca</div>
-                 <div class="dropdown-item" onclick="openSortKeyEditor('${game.id}')">Cambiar orden</div>
-                 <div class="dropdown-item" onclick="removeFromLibrary('${game.id}')" style="color: #ff6b6b;">Quitar de pasados</div>
-              </div>
-            </div>
-          `;
           }
+
+          const saga = mode === "library" ? sagaForGame(game.id) : null;
+          const sagaTagHtml = saga ? `<div class="saga-tag">📚 ${escapeHtml(saga.name)}</div>` : "";
 
           div.innerHTML = `
           <img src="${coverUrl}" alt="${safeAttrName}">
           <h3>${escapeHtml(name)}</h3>
+          ${sagaTagHtml}
           <div class="card-actions">${buttonsHtml}</div>
         `;
 
@@ -945,6 +1039,188 @@
           console.error(err);
           showNotification("Error al actualizar el orden.", "error");
         }
+      }
+
+      // ===============================
+      // Sagas (carpetas de juegos, con orden propio)
+      // ===============================
+      async function openSagasModal() {
+        let sagas = (await window.electronAPI.getSagas()) || [];
+        const { games: libGames, completedGames: doneGames } =
+          await window.electronAPI.getGames();
+        const allOwned = [...(libGames || []), ...(doneGames || [])];
+
+        const esc = (s) =>
+          s
+            ? String(s)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+            : "";
+
+        function gameName(id) {
+          const g = allOwned.find((x) => Number(x.id) === Number(id));
+          return g ? g.name : `#${id}`;
+        }
+
+        function sagaOwnerName(gameId, exceptSagaId) {
+          const owner = sagas.find(
+            (s) => s.id !== exceptSagaId && s.gameIds.includes(Number(gameId))
+          );
+          return owner ? owner.name : null;
+        }
+
+        function sagaBlock(saga) {
+          const rows = saga.gameIds
+            .map((gid, idx) => {
+              return `
+              <div style="display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid rgba(255,255,255,.06);">
+                <span style="opacity:.5; font-size:12px; width:18px;">${idx + 1}</span>
+                <span style="flex:1; font-size:13px;">${esc(gameName(gid))}</span>
+                <button type="button" data-saga-up="${saga.id}" data-game="${gid}" style="padding:4px 8px;" ${idx === 0 ? "disabled" : ""}>↑</button>
+                <button type="button" data-saga-down="${saga.id}" data-game="${gid}" style="padding:4px 8px;" ${idx === saga.gameIds.length - 1 ? "disabled" : ""}>↓</button>
+                <button type="button" data-saga-remove="${saga.id}" data-game="${gid}" style="padding:4px 8px; color:#ff6b6b;">✕</button>
+              </div>
+            `;
+            })
+            .join("");
+
+          const addableOptions = allOwned
+            .filter((g) => !saga.gameIds.includes(Number(g.id)))
+            .map((g) => {
+              const otherSaga = sagaOwnerName(g.id, saga.id);
+              const label = otherSaga ? `${g.name} (en: ${otherSaga})` : g.name;
+              return `<option value="${g.id}">${esc(label)}</option>`;
+            })
+            .join("");
+
+          return `
+          <div style="border:1px solid rgba(255,255,255,.1); border-radius:12px; padding:12px; margin-bottom:14px; text-align:left;">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+              <b>📚 ${esc(saga.name)}</b>
+              <button type="button" data-saga-delete="${saga.id}" style="color:#ff6b6b;">Eliminar saga</button>
+            </div>
+            <div style="margin-top:8px;">
+              ${rows || '<p style="font-size:12px; opacity:.6;">Sin juegos todavía.</p>'}
+            </div>
+            <div style="display:flex; gap:6px; margin-top:10px;">
+              <select data-saga-addselect="${saga.id}" style="flex:1; background:#171516; color:#f3efe6; border:1px solid #302c2e; border-radius:8px; padding:6px;">
+                <option value="">${addableOptions ? "Añadir juego..." : "No hay más juegos disponibles"}</option>
+                ${addableOptions}
+              </select>
+              <button type="button" data-saga-addbtn="${saga.id}">Añadir</button>
+            </div>
+          </div>
+        `;
+        }
+
+        function render() {
+          const sagasHtml = sagas.length
+            ? sagas.map(sagaBlock).join("")
+            : '<p style="font-size:13px; opacity:.7; margin-bottom:14px;">Todavía no tienes ninguna saga creada.</p>';
+
+          return `
+          <div style="text-align:left;">
+            ${sagasHtml}
+            <div style="display:flex; gap:6px; border-top:1px solid rgba(255,255,255,.1); padding-top:12px;">
+              <input type="text" id="newSagaName" placeholder="Nombre de la nueva saga (ej. The Legend of Zelda)"
+                     style="flex:1; background:#171516; color:#f3efe6; border:1px solid #302c2e; border-radius:8px; padding:8px;">
+              <button type="button" id="newSagaBtn" class="primary">+ Nueva saga</button>
+            </div>
+          </div>
+        `;
+        }
+
+        function bind() {
+          const popup = Swal.getPopup();
+          if (!popup) return;
+
+          const refresh = async () => {
+            sagas = (await window.electronAPI.getSagas()) || [];
+            Swal.update({ html: render() });
+          };
+
+          popup.querySelectorAll("[data-saga-up]").forEach((btn) => {
+            btn.onclick = async () => {
+              await window.electronAPI.moveGameInSaga(
+                btn.dataset.sagaUp,
+                btn.dataset.game,
+                "up"
+              );
+              refresh();
+            };
+          });
+          popup.querySelectorAll("[data-saga-down]").forEach((btn) => {
+            btn.onclick = async () => {
+              await window.electronAPI.moveGameInSaga(
+                btn.dataset.sagaDown,
+                btn.dataset.game,
+                "down"
+              );
+              refresh();
+            };
+          });
+          popup.querySelectorAll("[data-saga-remove]").forEach((btn) => {
+            btn.onclick = async () => {
+              await window.electronAPI.removeGameFromSaga(
+                btn.dataset.sagaRemove,
+                btn.dataset.game
+              );
+              refresh();
+            };
+          });
+          popup.querySelectorAll("[data-saga-delete]").forEach((btn) => {
+            btn.onclick = async () => {
+              const { isConfirmed } = await Swal.fire({
+                background: "#100e10",
+                color: "#f3efe6",
+                title: "¿Eliminar esta saga?",
+                text: "Los juegos no se borran, solo dejan de estar agrupados.",
+                icon: "warning",
+                showCancelButton: true,
+                confirmButtonColor: "#bc002d",
+                confirmButtonText: "Eliminar",
+                cancelButtonText: "Cancelar",
+              });
+              if (!isConfirmed) return;
+              await window.electronAPI.deleteSaga(btn.dataset.sagaDelete);
+              refresh();
+            };
+          });
+          popup.querySelectorAll("[data-saga-addbtn]").forEach((btn) => {
+            btn.onclick = async () => {
+              const sagaId = btn.dataset.sagaAddbtn;
+              const select = popup.querySelector(`[data-saga-addselect="${sagaId}"]`);
+              if (!select || !select.value) return;
+              await window.electronAPI.addGameToSaga(sagaId, select.value);
+              refresh();
+            };
+          });
+
+          const newBtn = popup.querySelector("#newSagaBtn");
+          if (newBtn) {
+            newBtn.onclick = async () => {
+              const input = popup.querySelector("#newSagaName");
+              const name = (input?.value || "").trim();
+              if (!name) return;
+              await window.electronAPI.createSaga(name);
+              refresh();
+            };
+          }
+        }
+
+        await Swal.fire({
+          background: "#100e10",
+          color: "#f3efe6",
+          title: "Sagas",
+          width: 760,
+          html: render(),
+          showConfirmButton: false,
+          showCloseButton: true,
+          didRender: () => bind(),
+        });
+
+        await loadLibrary();
       }
 
       // ===============================

@@ -177,13 +177,13 @@ input[type="text"]:focus {
 
 @media (max-width: 1400px) {
   .cards-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 1000px) {
   .cards-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
@@ -274,6 +274,42 @@ button.primary:hover {
   padding: 6px 10px;
   border-radius: 999px;
   background: rgba(95, 127, 71, 0.15);
+}
+
+/* Etiqueta de saga en una card suelta (biblioteca / pasados) */
+
+.saga-tag {
+  font-size: 11px;
+  color: var(--gold-500);
+  opacity: 0.85;
+  margin-top: -4px;
+}
+
+/* Bloque de saga en "Juegos pasados": agrupa sus juegos en vez de
+   dispersarlos por la linea de tiempo de completados. */
+
+.saga-group {
+  grid-column: 1 / -1;
+  border: 1px solid var(--ink-700);
+  border-radius: 14px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.saga-group-header {
+  font-family: "Shippori Mincho", serif;
+  font-size: 16px;
+  color: var(--washi-100);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.saga-group-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 14px;
 }
 
 .badge-owned {
