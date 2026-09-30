@@ -3,6 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <title>Sharingan Launcher</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
@@ -104,6 +110,18 @@
       };
       let focusedIndex = 0;
       let focusedContainerId = "gamesList"; // cambia según sección
+
+      // Nombres de juegos "sin plataforma" vienen literalmente del nombre de
+      // carpeta que elige el usuario — nunca se insertan en innerHTML sin
+      // pasar por aquí antes.
+      function escapeHtml(str) {
+        return String(str ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
 
       // ===============================
       // Navegación lateral
@@ -286,8 +304,8 @@
           if (result.canceled) return;
 
           const { value: platform } = await Swal.fire({
-            background: "#141821",
-            color: "#fff",
+            background: "#100e10",
+            color: "#f3efe6",
             title: "¿Desde qué plataforma se ejecuta?",
             text: "Así podremos usar guardado en la nube si está disponible",
             icon: "question",
@@ -378,16 +396,23 @@
       }
 
       async function removeFromLibrary(id) {
-        if (
-          confirm(
-            "¿Estás seguro de que quieres eliminar este juego de la biblioteca?"
-          )
-        ) {
-          await window.electronAPI.removeGame(Number(id));
-          await loadLibrary();
-          refreshSearchUI();
-          showNotification("Juego eliminado de la biblioteca.");
-        }
+        const { isConfirmed } = await Swal.fire({
+          background: "#100e10",
+          color: "#f3efe6",
+          title: "¿Eliminar de la biblioteca?",
+          text: "Esta acción no se puede deshacer.",
+          icon: "warning",
+          showCancelButton: true,
+          confirmButtonColor: "#bc002d",
+          confirmButtonText: "Eliminar",
+          cancelButtonText: "Cancelar",
+        });
+        if (!isConfirmed) return;
+
+        await window.electronAPI.removeGame(Number(id));
+        await loadLibrary();
+        refreshSearchUI();
+        showNotification("Juego eliminado de la biblioteca.");
       }
 
       function toggleDropdown(e, id) {
@@ -445,7 +470,18 @@
           console.error(err);
         }
 
+        // 3b. Specs del equipo (para comparar RAM de forma fiable)
+        let mySpecs = null;
+        try {
+          mySpecs = await window.electronAPI.getSystemSpecs();
+        } catch (err) {
+          console.error(err);
+        }
+
         // --- HELPER: Función para embellecer el texto de Steam ---
+        // Si la línea es de RAM y tenemos las specs del equipo, se compara
+        // numéricamente (única comparación fiable sin una base de datos de
+        // benchmarks — CPU/GPU se muestran informativos, sin veredicto).
         const formatSteamReqs = (text) => {
           if (!text || text.includes("No disponible"))
             return '<p class="req-val" style="opacity:0.5">Información no disponible.</p>';
@@ -478,20 +514,28 @@
 
               // Limpiar viñetas si las hay
               const cleanKey = key.replace(/•/g, "").trim();
+              const safeKey = escapeHtml(cleanKey);
+              const safeVal = escapeHtml(val);
+
+              let lineClass = "req-line";
+              if (mySpecs?.ram && /memoria|ram/i.test(cleanKey)) {
+                const requiredGb = parseFloat((val.match(/(\d+(?:[.,]\d+)?)\s*GB/i) || [])[1]);
+                if (!Number.isNaN(requiredGb)) {
+                  lineClass += mySpecs.ram >= requiredGb ? " req-pass" : " req-fail";
+                }
+              }
 
               html += `
-               <div class="req-line">
-                 <span class="req-key">${cleanKey}</span>
-                 <span class="req-val">${val}</span>
+               <div class="${lineClass}">
+                 <span class="req-key">${safeKey}</span>
+                 <span class="req-val">${safeVal}</span>
                </div>
              `;
             } else {
               // Es una linea de texto normal o una nota
               html += `
                <div class="req-line">
-                 <span class="req-val">${cleanLine
-                   .replace(/•/g, "")
-                   .trim()}</span>
+                 <span class="req-val">${escapeHtml(cleanLine.replace(/•/g, "").trim())}</span>
                </div>
              `;
             }
@@ -499,6 +543,10 @@
           html += "</div>";
           return html;
         };
+
+        const mySpecsHtml = mySpecs
+          ? `<p class="my-specs">Tu equipo: ${escapeHtml(mySpecs.cpu)} · ${mySpecs.ram} GB RAM · ${escapeHtml(mySpecs.gpu)}</p>`
+          : "";
 
         // 4. Renderizar
         const coverUrl = details?.cover?.image_id
@@ -510,8 +558,8 @@
         <div class="info-modal-grid">
           <div><img src="${coverUrl}" class="info-cover"></div>
           <div class="info-details">
-             <h3>${game.name}</h3>
-             <p style="font-size:12px; color:#888;">${genres}</p>
+             <h3>${escapeHtml(game.name)}</h3>
+             <p style="font-size:12px; color:#888;">${escapeHtml(genres)}</p>
              
              <div class="req-real-container">
                 <div class="req-box">
@@ -524,6 +572,7 @@
                 </div>
              </div>
              
+             ${mySpecsHtml}
              <p style="font-size:10px; opacity:0.3; margin-top:10px; text-align:center;">
                Datos provistos por Steam Store API
              </p>
@@ -534,8 +583,8 @@
         Swal.fire({
           html: html,
           width: 950,
-          background: "#141821",
-          color: "#fff",
+          background: "#100e10",
+          color: "#f3efe6",
           showConfirmButton: false,
           showCloseButton: true,
           customClass: { popup: "info-popup" },
@@ -666,7 +715,7 @@
 
           div.innerHTML = `
           <img src="${coverUrl}" alt="${safeAttrName}">
-          <h3>${name}</h3>
+          <h3>${escapeHtml(name)}</h3>
           <div class="card-actions">${buttonsHtml}</div>
         `;
 
@@ -718,8 +767,17 @@
       }
 
       async function confirmUnlink(id) {
-        const ok = confirm("¿Quieres desvincular el ejecutable de este juego?");
-        if (!ok) return;
+        const { isConfirmed } = await Swal.fire({
+          background: "#100e10",
+          color: "#f3efe6",
+          title: "¿Desvincular ejecutable?",
+          icon: "question",
+          showCancelButton: true,
+          confirmButtonColor: "#bc002d",
+          confirmButtonText: "Desvincular",
+          cancelButtonText: "Cancelar",
+        });
+        if (!isConfirmed) return;
 
         try {
           await window.electronAPI.unlinkExecutable(id);
@@ -756,13 +814,13 @@
             : "assets/no-cover.png");
 
         const { value: newSortKey } = await Swal.fire({
-          background: "#141821",
-          color: "#fff",
+          background: "#100e10",
+          color: "#f3efe6",
           title: "Nombre para ordenar",
           html: `
           <div class="sortkey-modal">
-            <img src="${coverUrl}" alt="${name}" class="sortkey-cover">
-            <p>${name}</p>
+            <img src="${coverUrl}" alt="${escapeHtml(name)}" class="sortkey-cover">
+            <p>${escapeHtml(name)}</p>
           </div>
         `,
           input: "text",
@@ -922,8 +980,8 @@
         }
 
         const result = await Swal.fire({
-          background: "#141821",
-          color: "#fff",
+          background: "#100e10",
+          color: "#f3efe6",
           title: "Importar juegos instalados",
           width: 760,
           html: render(),
@@ -951,8 +1009,8 @@
 
         try {
           Swal.fire({
-            background: "#141821",
-            color: "#fff",
+            background: "#100e10",
+            color: "#f3efe6",
             title: "Importando...",
             allowOutsideClick: false,
             didOpen: () => Swal.showLoading(),
@@ -969,8 +1027,8 @@
           );
 
           Swal.fire({
-            background: "#141821",
-            color: "#fff",
+            background: "#100e10",
+            color: "#f3efe6",
             icon: "success",
             title: "Importación completada",
             text: `Juegos importados correctamente: ${enrich?.updated ?? 0}/${
@@ -980,8 +1038,8 @@
         } catch (err) {
           console.error(err);
           Swal.fire({
-            background: "#141821",
-            color: "#fff",
+            background: "#100e10",
+            color: "#f3efe6",
             icon: "error",
             title: "Error importando",
             text: String(err?.message || err),

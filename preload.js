@@ -29,7 +29,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Diálogos del Sistema
   openFileDialog: () => ipcRenderer.invoke('dialog:openFile'),
-  openDirectoryDialog: (opts) => ipcRenderer.invoke('dialog:openDirectory', opts)
-  
-  //getSystemSpecs: () => ipcRenderer.invoke('system:getSpecs'), 
+  openDirectoryDialog: (opts) => ipcRenderer.invoke('dialog:openDirectory', opts),
+
+  // Specs del equipo, para comparar contra los requisitos del juego
+  getSystemSpecs: () => ipcRenderer.invoke('system:getSpecs'),
 });

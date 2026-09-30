@@ -1,5 +1,32 @@
 :root {
   color-scheme: dark;
+
+  --washi-50: #faf8f4;
+  --washi-100: #f3efe6;
+  --washi-200: #e6dfd0;
+  --washi-300: #d2c7ae;
+  --washi-400: #a99d84;
+
+  --ink-100: #e9e7e6;
+  --ink-200: #cac6c4;
+  --ink-300: #9b9592;
+  --ink-400: #6b6461;
+  --ink-500: #454042;
+  --ink-600: #302c2e;
+  --ink-700: #211e20;
+  --ink-800: #171516;
+  --ink-900: #100e10;
+  --ink-950: #0a0809;
+
+  --red-100: #f9c7cf;
+  --red-400: #bc002d;
+  --red-500: #bc002d;
+  --red-600: #970025;
+
+  --gold-400: #c9a44c;
+  --gold-500: #ab8632;
+
+  --green-500: #5f7f47;
 }
 
 * {
@@ -8,10 +35,16 @@
 
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
-  background: #050509;
-  color: #f5f5f5;
+  font-family: "Zen Kaku Gothic New", "Hiragino Sans", system-ui, sans-serif;
+  background: var(--ink-950);
+  color: var(--washi-200);
+}
+
+h1,
+h2,
+h3 {
+  font-family: "Shippori Mincho", "Zen Kaku Gothic New", serif;
+  color: var(--washi-50);
 }
 
 /* Layout general */
@@ -23,18 +56,21 @@ body {
 
 .sidebar {
   width: 220px;
-  background: #0b0c10;
-  border-right: 1px solid #1f2230;
-  padding: 16px 12px;
+  background: var(--ink-900);
+  border-right: 1px solid var(--ink-800);
+  padding: 20px 14px;
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
 .sidebar-title {
-  font-size: 18px;
-  font-weight: 600;
-  margin-bottom: 10px;
+  font-family: "Shippori Mincho", serif;
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--washi-50);
+  margin-bottom: 14px;
+  padding: 0 10px;
 }
 
 .sidebar ul {
@@ -44,29 +80,33 @@ body {
 }
 
 .sidebar li {
-  padding: 8px 10px;
-  border-radius: 6px;
+  padding: 9px 12px;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 14px;
-  color: #c7c9d9;
+  color: var(--ink-300);
   transition: background 0.15s, color 0.15s;
 }
 
 .sidebar li:hover,
 .sidebar li.active {
-  background: #151827;
-  color: #ffffff;
+  background: var(--ink-800);
+  color: var(--washi-50);
+}
+
+.sidebar li.active {
+  border-left: 2px solid var(--red-500);
 }
 
 .main-content {
   flex: 1;
-  padding: 18px 22px;
+  padding: 20px 24px;
   overflow: auto;
 }
 
 .section-title {
-  font-size: 20px;
-  margin-bottom: 14px;
+  font-size: 22px;
+  margin-bottom: 16px;
 }
 
 /* Inputs */
@@ -74,22 +114,23 @@ body {
 input[type="text"] {
   width: 100%;
   max-width: 380px;
-  padding: 9px 11px;
-  border-radius: 6px;
-  border: 1px solid #262a3c;
-  background: #0c0f18;
-  color: #f5f5f5;
-  margin-bottom: 16px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--ink-700);
+  background: var(--ink-900);
+  color: var(--washi-100);
+  margin-bottom: 18px;
   outline: none;
   font-size: 14px;
+  font-family: inherit;
 }
 
 input[type="text"]::placeholder {
-  color: #6d7289;
+  color: var(--ink-400);
 }
 
 input[type="text"]:focus {
-  border-color: #5660ff;
+  border-color: var(--red-500);
 }
 
 /* Grid de cards */
@@ -99,8 +140,6 @@ input[type="text"]:focus {
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 14px;
 }
-
-/* Responsive */
 
 @media (max-width: 1400px) {
   .cards-grid {
@@ -124,16 +163,15 @@ input[type="text"]:focus {
 
 .game-card {
   position: relative;
-  background: #0c0f18;
-  border-radius: 10px;
+  background: var(--ink-900);
+  border-radius: 12px;
   padding: 10px;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  border: 1px solid #191c29;
+  border: 1px solid var(--ink-800);
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.45);
-  transition: transform 0.15s ease, box-shadow 0.15s ease,
-    border-color 0.15s ease;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
   height: 100%;
   z-index: 1;
 }
@@ -141,7 +179,7 @@ input[type="text"]:focus {
 .game-card:hover {
   transform: translateY(-3px);
   box-shadow: 0 15px 35px rgba(0, 0, 0, 0.55);
-  border-color: #5660ff;
+  border-color: var(--red-500);
 }
 
 .game-card img {
@@ -152,10 +190,11 @@ input[type="text"]:focus {
 }
 
 .game-card h3 {
+  font-family: inherit;
   font-size: 14px;
   font-weight: 500;
   margin: 4px 0 0;
-  color: #e4e6f0;
+  color: var(--washi-100);
 }
 
 /* Botones */
@@ -165,43 +204,49 @@ input[type="text"]:focus {
   flex-wrap: wrap;
   gap: 6px;
   margin-top: auto;
-  align-items: center; /* Alineación vertical */
+  align-items: center;
 }
 
 button {
   border: none;
   border-radius: 999px;
-  padding: 6px 10px;
+  padding: 6px 12px;
   font-size: 12px;
+  font-family: inherit;
   cursor: pointer;
-  background: #1c2033;
-  color: #e4e6f0;
+  background: var(--ink-800);
+  color: var(--washi-100);
   transition: background 0.15s, transform 0.1s;
 }
 
 button.primary {
-  background: #5660ff;
+  background: var(--red-500);
+  color: #fff;
 }
 
 button:hover {
-  background: #2a3150;
+  background: var(--ink-700);
   transform: translateY(-1px);
 }
 
+button.primary:hover {
+  background: var(--red-600);
+}
+
 .linked {
-  color: #2ecc71;
+  color: var(--green-500);
   font-weight: bold;
   font-size: 12px;
   padding: 6px 10px;
   border-radius: 999px;
-  background: rgba(46, 204, 113, 0.15);
+  background: rgba(95, 127, 71, 0.15);
 }
 
 .badge-owned {
   display: block;
   text-align: center;
   padding: 6px 0px;
-  color: #4cd137; /* Verde brillante */
+  color: var(--green-500);
   font-weight: bold;
   font-size: 12px;
   cursor: default;
@@ -231,20 +276,20 @@ button:hover {
 
 .notification {
   padding: 12px 24px;
-  border-radius: 8px;
+  border-radius: 999px;
   color: white;
-  font-weight: bold;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
   opacity: 0;
   animation: fadeInOut 3s forwards;
 }
 
 .notification.success {
-  background-color: #28a745; /* Verde */
+  background-color: var(--green-500);
 }
 
 .notification.error {
-  background-color: #dc3545; /* Rojo */
+  background-color: var(--red-500);
 }
 
 @keyframes fadeInOut {
@@ -273,8 +318,8 @@ button:hover {
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: #050509; /* Mismo fondo que el body o negro */
-  z-index: 9999; /* Por encima de todo, incluidas notificaciones */
+  background-color: var(--ink-950);
+  z-index: 9999;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -282,39 +327,33 @@ button:hover {
   transition: opacity 0.8s ease-out, visibility 0.8s ease-out;
 }
 
-/* Clase para ocultar la intro suavemente */
 #intro-screen.hidden {
   opacity: 0;
   visibility: hidden;
-  pointer-events: none; /* Para que puedas hacer click en la app mientras se desvanece */
+  pointer-events: none;
 }
 
 .intro-content {
   text-align: center;
 }
 
-/* El Icono */
 .intro-logo {
-  width: 80px; /* Tamaño del icono */
-  height: 80px;
-  margin-bottom: 20px;
-  border-radius: 50%; /* Si quieres que sea redondo */
-
-  /* Animación de giro */
+  width: 84px;
+  height: 84px;
+  margin-bottom: 22px;
+  border-radius: 50%;
   animation: spin 3s linear infinite;
 }
 
-/* El Título */
 .intro-title {
-  font-size: 32px;
-  font-weight: bold;
-  color: #f5f5f5;
-  letter-spacing: 2px;
-  text-transform: uppercase;
+  font-family: "Shippori Mincho", serif;
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--washi-50);
+  letter-spacing: 1px;
   margin: 0;
 }
 
-/* Definición de animaciones */
 @keyframes spin {
   0% {
     transform: rotate(0deg);
@@ -324,25 +363,15 @@ button:hover {
   }
 }
 
-@keyframes fadeUp {
-  0% {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Definición de vinculados solo */
+/* Filtros */
 .filter-btn {
   border-radius: 999px;
-  padding: 6px 14px;
+  padding: 7px 16px;
   font-size: 12px;
-  background: #1c2033;
-  color: #c7c9d9;
-  border: 1px solid #262a3c;
+  font-family: inherit;
+  background: var(--ink-800);
+  color: var(--ink-200);
+  border: 1px solid var(--ink-700);
   cursor: pointer;
   transition: all 0.15s ease;
   margin: 10px;
@@ -354,13 +383,13 @@ button:hover {
 }
 
 .filter-btn:hover {
-  background: #2a3150;
+  border-color: var(--red-500);
 }
 
 .filter-btn.active {
-  background: #5660ff;
+  background: var(--red-500);
   color: white;
-  border-color: #5660ff;
+  border-color: var(--red-500);
 }
 
 .library-header {
@@ -373,31 +402,31 @@ button:hover {
 
 /* Ocultar scrollbar globalmente */
 * {
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE / Edge antiguo */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 *::-webkit-scrollbar {
-  display: none; /* Chrome, Edge, Electron */
+  display: none;
 }
 
 /* Boton vinculado clickable */
 .linked-btn {
-  color: #2ecc71;
+  color: var(--green-500);
   font-weight: bold;
   font-size: 12px;
   padding: 6px 10px;
   border-radius: 999px;
-  background: rgba(46, 204, 113, 0.15);
-  border: 1px solid rgba(46, 204, 113, 0.35);
+  background: rgba(95, 127, 71, 0.15);
+  border: 1px solid rgba(95, 127, 71, 0.4);
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .linked-btn:hover {
-  background: rgba(231, 76, 60, 0.2);
-  border-color: #e74c3c;
-  color: #e74c3c;
+  background: rgba(188, 0, 45, 0.15);
+  border-color: var(--red-500);
+  color: var(--red-400);
 }
 
 /* Swal */
@@ -419,8 +448,9 @@ button:hover {
 .swal-platform-popup .platform-card {
   width: 110px;
   padding: 10px;
-  border-radius: 10px;
-  border: 2px solid transparent;
+  border-radius: 12px;
+  border: 2px solid var(--ink-700);
+  background: var(--ink-900);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -436,20 +466,18 @@ button:hover {
 
 .swal-platform-popup .platform-card span {
   font-size: 13px;
-  color: #000000;
+  color: var(--washi-100);
   text-align: center;
 }
 
-/* Hover */
 .swal-platform-popup .platform-option:hover .platform-card {
   transform: translateY(-2px);
-  border-color: #5660ff;
+  border-color: var(--red-500);
 }
 
-/* Seleccionado */
 .swal-platform-popup .platform-option input:checked + .platform-card {
-  border-color: #5660ff;
-  box-shadow: 0 0 10px rgba(71, 89, 255, 0.6);
+  border-color: var(--red-500);
+  box-shadow: 0 0 10px rgba(188, 0, 45, 0.5);
 }
 
 /* SortKey */
@@ -462,13 +490,13 @@ button:hover {
 
 .sortkey-cover {
   max-width: 120px;
-  border-radius: 6px;
+  border-radius: 8px;
 }
 
 .more-btn {
   background: transparent;
   border: none;
-  color: #fff;
+  color: var(--washi-200);
   padding: 4px 8px;
   cursor: pointer;
   font-size: 18px;
@@ -476,23 +504,33 @@ button:hover {
 
 /* Vacio */
 .empty-state {
-  padding: 24px;
-  border-radius: 8px;
-  background: #141821;
+  padding: 32px 24px;
+  border-radius: 12px;
+  background: var(--ink-900);
+  border: 1px solid var(--ink-800);
   text-align: center;
-  color: #fff;
-
-  /* que use todo el ancho de la grid */
+  color: var(--washi-200);
   grid-column: 1 / -1;
 }
 
-/* Importar */
-/* Popup del import */
-.import-popup {
-  font-size: 14px; /* tamaño base del popup */
+.empty-title {
+  font-family: "Shippori Mincho", serif;
+  font-size: 18px;
+  color: var(--washi-50);
+  margin: 0 0 8px;
 }
 
-/* Botones "Seleccionar..." */
+.empty-text {
+  font-size: 13px;
+  color: var(--ink-300);
+  margin: 0 0 18px;
+}
+
+/* Importar */
+.import-popup {
+  font-size: 14px;
+}
+
 .import-popup #pickSteam,
 .import-popup #pickEpic,
 .import-popup #pickGog,
@@ -501,10 +539,9 @@ button:hover {
   font-size: 13px;
   padding: 8px 12px;
   min-height: 34px;
-  border-radius: 8px;
+  border-radius: 999px;
 }
 
-/* Botón confirmar/cancelar del SweetAlert */
 .import-confirm {
   font-size: 14px !important;
   padding: 10px 16px !important;
@@ -514,14 +551,6 @@ button:hover {
   font-size: 14px !important;
   padding: 10px 16px !important;
 }
-
-/* Gamepad focus 
-.game-card.gp-focused {
-  outline: 2px solid #5660ff;
-  box-shadow: 0 0 0 3px rgba(86, 96, 255, 0.25), 0 15px 35px rgba(0, 0, 0, 0.65);
-  transform: translateY(-3px);
-}
-*/
 
 /* --- Dropdown Menu --- */
 .action-menu {
@@ -535,12 +564,12 @@ button:hover {
   position: absolute;
   bottom: 100%;
   right: 0;
-  background-color: #2b2b2b;
+  background-color: var(--ink-800);
   min-width: 180px;
-  box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.6);
+  box-shadow: 0px 8px 20px rgba(0, 0, 0, 0.55);
   z-index: 100;
-  border-radius: 6px;
-  border: 1px solid #444;
+  border-radius: 10px;
+  border: 1px solid var(--ink-700);
   padding: 5px 0;
   margin-bottom: 5px;
 }
@@ -552,53 +581,47 @@ button:hover {
 .dropdown-item {
   padding: 10px 15px;
   cursor: pointer;
-  color: #e0e0e0;
+  color: var(--washi-200);
   text-align: left;
   font-size: 0.9rem;
   transition: background 0.2s;
 }
 
 .dropdown-item:hover {
-  background-color: #3d3d3d;
-  color: #fff;
+  background-color: var(--ink-700);
+  color: var(--washi-50);
 }
 
 /* --- Estilos Platino --- */
-/* Animación de respiración (Brillo y Borde) */
 @keyframes platinumBreath {
   0% {
-    border-color: #ffd700;
-    box-shadow: 0 0 10px rgba(255, 215, 0, 0.3), 0 10px 25px rgba(0, 0, 0, 0.45);
+    border-color: var(--gold-400);
+    box-shadow: 0 0 10px rgba(201, 164, 76, 0.3), 0 10px 25px rgba(0, 0, 0, 0.45);
   }
   50% {
-    border-color: #ffed8a; /* Un dorado más claro en el pico de respiración */
-    box-shadow: 0 0 25px rgba(255, 215, 0, 0.7), 0 10px 25px rgba(0, 0, 0, 0.45);
+    border-color: #ddc47f;
+    box-shadow: 0 0 25px rgba(201, 164, 76, 0.65), 0 10px 25px rgba(0, 0, 0, 0.45);
   }
   100% {
-    border-color: #ffd700;
-    box-shadow: 0 0 10px rgba(255, 215, 0, 0.3), 0 10px 25px rgba(0, 0, 0, 0.45);
+    border-color: var(--gold-400);
+    box-shadow: 0 0 10px rgba(201, 164, 76, 0.3), 0 10px 25px rgba(0, 0, 0, 0.45);
   }
 }
 
-/* Borde y resplandor dorado */
 .game-card.platinum-card {
-  border-width: 0.5px; /* Borde más gordo */
-  /* Aplicamos la animación: nombre, duración, curva de velocidad, infinito */
-  animation: platinumBreath 2s ease-in-out infinite;
+  border-width: 1px;
+  animation: platinumBreath 2.5s ease-in-out infinite;
 }
 
-/* Mantenemos el hover para el levantamiento, 
-   pero el brillo ya lo controla la animación */
 .game-card.platinum-card:hover {
-  transform: translateY(-5px); /* Un poco más de 'lift' al ser especial */
+  transform: translateY(-5px);
 }
 
-/* La corona flotante (sin cambios, solo por si acaso la perdiste) */
 .platinum-crown {
   position: absolute;
-  top: -16px; /* Ajustado un poco por el borde más grueso */
+  top: -16px;
   right: -10px;
-  font-size: 40px;
+  font-size: 38px;
   z-index: 10;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.8));
   animation: floatCrown 3s ease-in-out infinite;
@@ -616,7 +639,6 @@ button:hover {
 }
 
 /* --- Info Modal --- */
-/* Reutilizamos estilos de SweetAlert pero personalizados */
 .info-modal-grid {
   display: grid;
   grid-template-columns: 250px 1fr;
@@ -626,21 +648,21 @@ button:hover {
 
 .info-cover {
   width: 100%;
-  border-radius: 8px;
+  border-radius: 10px;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
 }
 
 .info-details h3 {
   margin-top: 0;
-  color: #e4e6f0;
-  border-bottom: 1px solid #444;
+  color: var(--washi-50);
+  border-bottom: 1px solid var(--ink-700);
   padding-bottom: 8px;
   margin-bottom: 12px;
 }
 
 .info-text {
   font-size: 14px;
-  color: #ccc;
+  color: var(--ink-200);
   line-height: 1.5;
   margin-bottom: 20px;
   max-height: 150px;
@@ -651,16 +673,16 @@ button:hover {
 /* Requisitos */
 .req-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr; /* Minimo vs Recomendado */
+  grid-template-columns: 1fr 1fr;
   gap: 15px;
-  background: #1c2033;
+  background: var(--ink-800);
   padding: 15px;
-  border-radius: 8px;
+  border-radius: 10px;
 }
 
 .req-column h4 {
   margin: 0 0 10px 0;
-  color: #fff;
+  color: var(--washi-50);
   text-align: center;
   font-size: 13px;
   text-transform: uppercase;
@@ -673,44 +695,46 @@ button:hover {
   margin-bottom: 8px;
   font-size: 12px;
   padding: 6px;
-  border-radius: 4px;
+  border-radius: 6px;
   border: 1px solid transparent;
   background: rgba(0, 0, 0, 0.2);
 }
 
 .req-label {
-  color: #888;
+  color: var(--ink-400);
   font-weight: bold;
   margin-bottom: 2px;
 }
 
 .req-value {
-  color: #fff;
+  color: var(--washi-100);
 }
 
 /* Estados de comparación */
 .req-pass {
-  border-color: #2ecc71;
-  background: rgba(46, 204, 113, 0.1);
+  border-color: var(--green-500);
+  background: rgba(95, 127, 71, 0.12);
 }
-.req-pass .req-value {
-  color: #2ecc71;
+.req-pass .req-value,
+.req-pass .req-val {
+  color: #8fb572;
 }
 
 .req-fail {
-  border-color: #e74c3c;
-  background: rgba(231, 76, 60, 0.1);
+  border-color: var(--red-500);
+  background: rgba(188, 0, 45, 0.12);
 }
-.req-fail .req-value {
-  color: #e74c3c;
+.req-fail .req-value,
+.req-fail .req-val {
+  color: #e2607a;
 }
 
 .my-specs {
   margin-top: 15px;
   font-size: 11px;
-  color: #666;
+  color: var(--ink-400);
   text-align: center;
-  border-top: 1px solid #333;
+  border-top: 1px solid var(--ink-700);
   padding-top: 10px;
 }
 
@@ -725,7 +749,7 @@ button:hover {
   }
 }
 
-/* --- Estilos Requisitos Beautified --- */
+/* --- Requisitos Beautified --- */
 .req-real-container {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -736,20 +760,21 @@ button:hover {
 .req-box {
   background: rgba(255, 255, 255, 0.03);
   padding: 15px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  border: 1px solid var(--ink-800);
 }
 
 .req-title {
-  color: #5660ff;
+  color: var(--red-400);
   margin-top: 0;
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid var(--ink-700);
   padding-bottom: 10px;
   margin-bottom: 10px;
   text-transform: uppercase;
   font-size: 14px;
   letter-spacing: 1px;
   text-align: center;
+  font-family: "Shippori Mincho", serif;
 }
 
 .req-list {
@@ -761,22 +786,46 @@ button:hover {
 .req-line {
   display: flex;
   flex-direction: column;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  padding-bottom: 6px;
+  border-bottom: 1px solid var(--ink-800);
+  padding: 6px;
+  border-radius: 6px;
 }
 
-/* La etiqueta (ej: "Procesador") */
 .req-key {
-  color: #888;
+  color: var(--ink-400);
   font-weight: bold;
   font-size: 11px;
   text-transform: uppercase;
   margin-bottom: 2px;
 }
 
-/* El valor (ej: "Intel Core i5...") */
 .req-val {
-  color: #fff;
+  color: var(--washi-100);
   font-size: 13px;
   line-height: 1.4;
+}
+
+/* --- SweetAlert2: unificar con la paleta washi/ink --- */
+.swal2-confirm {
+  background: var(--red-500) !important;
+  font-family: inherit !important;
+}
+.swal2-confirm:focus {
+  box-shadow: 0 0 0 3px rgba(188, 0, 45, 0.4) !important;
+}
+.swal2-cancel {
+  background: var(--ink-700) !important;
+  font-family: inherit !important;
+}
+.swal2-popup {
+  font-family: "Zen Kaku Gothic New", "Hiragino Sans", system-ui, sans-serif !important;
+  border: 1px solid var(--ink-800);
+}
+.swal2-title {
+  font-family: "Shippori Mincho", serif !important;
+}
+.swal2-input {
+  background: var(--ink-800) !important;
+  color: var(--washi-100) !important;
+  border: 1px solid var(--ink-700) !important;
 }

@@ -11,9 +11,22 @@ let win;
 let games = [];
 let completedGames = [];
 
-// === IGDB config ===
-const IGDB_CLIENT_ID = "ozbqvuav0w5qpt2xr5eku29uydqbyx";
-const IGDB_ACCESS_TOKEN = "iuvsc76lhwfgfyr33ujm2xzxetdbtj";
+// === Config (credenciales) ===
+// Nunca hardcodeadas en el codigo: config.json esta en .gitignore (el repo
+// es publico), copia config.example.json y rellena los valores reales.
+const configPath = path.join(__dirname, "config.json");
+let config = {};
+try {
+  config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+} catch (err) {
+  console.error(
+    "No se pudo leer config.json (copia config.example.json y rellena las claves):",
+    err.message
+  );
+}
+
+const IGDB_CLIENT_ID = config.igdbClientId || "";
+const IGDB_ACCESS_TOKEN = config.igdbAccessToken || "";
 const IGDB_URL = "https://api.igdb.com/v4";
 
 // === Ruta para guardar datos persistentes ===
@@ -74,22 +87,47 @@ function sleep(ms) {
 }
 
 // -------------------- Launchers --------------------
+function findFirstExisting(paths) {
+  return paths.find((p) => exists(p)) || null;
+}
+
+// Rutas de instalacion por defecto de cada launcher — se prueban varias
+// ubicaciones habituales en vez de una sola fija, y si no se encuentra
+// ninguna se avisa en vez de fallar en silencio.
 function launchPlatform(platform) {
+  let exePath = null;
   switch (platform) {
     case "steam":
-      execFile("C:\\Program Files (x86)\\Steam\\Steam.exe");
+      exePath = findFirstExisting([
+        "C:\\Program Files (x86)\\Steam\\Steam.exe",
+        "C:\\Program Files\\Steam\\Steam.exe",
+      ]);
       break;
     case "epic":
-      execFile(
-        "C:\\Program Files (x86)\\Epic Games\\Launcher\\Portal\\Binaries\\Win32\\EpicGamesLauncher.exe"
-      );
+      exePath = findFirstExisting([
+        "C:\\Program Files (x86)\\Epic Games\\Launcher\\Portal\\Binaries\\Win32\\EpicGamesLauncher.exe",
+        "C:\\Program Files\\Epic Games\\Launcher\\Portal\\Binaries\\Win32\\EpicGamesLauncher.exe",
+      ]);
       break;
     case "gog":
-      execFile("C:\\Program Files (x86)\\GOG Galaxy\\GalaxyClient.exe");
+      exePath = findFirstExisting([
+        "C:\\Program Files (x86)\\GOG Galaxy\\GalaxyClient.exe",
+        "C:\\Program Files\\GOG Galaxy\\GalaxyClient.exe",
+      ]);
       break;
     default:
-      break;
+      return false;
   }
+
+  if (!exePath) {
+    console.error(`No se encontro el instalador de ${platform} en las rutas habituales.`);
+    return false;
+  }
+
+  execFile(exePath, (err) => {
+    if (err) console.error(`Error lanzando ${platform}:`, err);
+  });
+  return true;
 }
 
 function launchGameByPlatform(game) {
@@ -222,8 +260,8 @@ function parseSteamLibraryFoldersVdf(vdfText) {
 }
 
 function findSteamDefaultRoot() {
-  const p1 = "C:\\\\Program Files (x86)\\\\Steam";
-  const p2 = "C:\\\\Program Files\\\\Steam";
+  const p1 = "C:\\Program Files (x86)\\Steam";
+  const p2 = "C:\\Program Files\\Steam";
   if (exists(p1)) return p1;
   if (exists(p2)) return p2;
   return null;
@@ -396,8 +434,20 @@ ipcMain.handle("games:launch", async (_e, id) => {
     if (processName) {
       const running = await isProcessRunning(processName);
       if (!running) {
-        launchPlatform(g.platform);
-        await sleep(10000);
+        const launched = launchPlatform(g.platform);
+        if (launched) {
+          // Sondea cada segundo hasta ver el proceso arriba, en vez de
+          // esperar siempre 10s fijos (demasiado si arranca rápido, poco
+          // si tarda más de la cuenta).
+          const maxWaitMs = 20000;
+          const stepMs = 1000;
+          let waited = 0;
+          while (waited < maxWaitMs) {
+            await sleep(stepMs);
+            waited += stepMs;
+            if (await isProcessRunning(processName)) break;
+          }
+        }
       }
     }
   }
@@ -584,11 +634,11 @@ ipcMain.handle("games:importInstalled", async (_e, config) => {
   try {
     const epicManifestsDir =
       config?.epicManifestsDir ||
-      "C:\\\\ProgramData\\\\Epic\\\\EpicGamesLauncher\\\\Data\\\\Manifests";
+      "C:\\ProgramData\\Epic\\EpicGamesLauncher\\Data\\Manifests";
 
     const launcherInstalledDat =
       config?.epicLauncherInstalledDat ||
-      "C:\\\\ProgramData\\\\Epic\\\\UnrealEngineLauncher\\\\LauncherInstalled.dat";
+      "C:\\ProgramData\\Epic\\UnrealEngineLauncher\\LauncherInstalled.dat";
 
     let launcherInstalled = null;
     if (exists(launcherInstalledDat)) {
@@ -892,8 +942,7 @@ ipcMain.handle("igdb:getDetails", async (_e, id) => {
 });
 
 // -------------------- Steam StoreService AppList (replacement) --------------------
-// IMPORTANTE: NO hardcodees la key. Ponla en variable de entorno: STEAM_WEB_API_KEY
-const STEAM_WEB_API_KEY = "7E2A25850DBC44A53C9E6841CBFC7A58";
+const STEAM_WEB_API_KEY = config.steamWebApiKey || "";
 
 // Cache in-memory + cache en disco
 const steamAppListCachePath = path.join(
