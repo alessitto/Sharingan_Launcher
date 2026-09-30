@@ -339,34 +339,120 @@ function stableNegativeId(input) {
   return -Math.abs(hash || 1);
 }
 
+// Para comparar nombres entre fuentes distintas (el "Darkest Dungeon" que
+// se agrego a mano desde Descubrir/IGDB vs el "Darkest Dungeon(R)" que
+// detecta el escaneo de Steam): fuera simbolos de marca, mayusculas y
+// puntuacion, que es justo donde suelen diferir sin ser un juego distinto.
+function normalizeGameName(name) {
+  return String(name || "")
+    .replace(/[®™©]/g, "")
+    .replace(/[:_\-–—]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function findGameByExternalId(gameObj) {
+  const pools = [games, completedGames];
+  if (gameObj.steamAppId != null) {
+    for (const p of pools) {
+      const hit = p.find((x) => x.steamAppId === gameObj.steamAppId);
+      if (hit) return hit;
+    }
+  }
+  if (gameObj.epicAppName) {
+    for (const p of pools) {
+      const hit = p.find((x) => x.epicAppName === gameObj.epicAppName);
+      if (hit) return hit;
+    }
+  }
+  if (gameObj.gogGameId != null) {
+    for (const p of pools) {
+      const hit = p.find((x) => x.gogGameId === gameObj.gogGameId);
+      if (hit) return hit;
+    }
+  }
+  return null;
+}
+
+function findGameByName(gameObj) {
+  const norm = normalizeGameName(gameObj.name);
+  if (!norm) return null;
+  return (
+    games.find((x) => normalizeGameName(x.name) === norm) ||
+    completedGames.find((x) => normalizeGameName(x.name) === norm) ||
+    null
+  );
+}
+
 function upsertGameImported(gameObj) {
   const gameId = Number(gameObj.id);
+
+  // 1) Mismo id exacto: es un reescaneo de la misma fuente (p.ej. volver a
+  // importar Steam), se refresca todo tal cual llega, como siempre.
   let g =
     games.find((x) => x.id === gameId) ||
     completedGames.find((x) => x.id === gameId);
-
-  if (!g) {
-    g = { id: gameId };
-    games.push(g);
+  if (g) {
+    Object.assign(g, {
+      name: gameObj.name ?? g.name ?? "",
+      cover: gameObj.cover ?? g.cover ?? null,
+      coverUrl: gameObj.coverUrl ?? g.coverUrl ?? null,
+      executable: gameObj.executable ?? g.executable ?? null,
+      platform: gameObj.platform ?? g.platform ?? "none",
+      steamAppId: gameObj.steamAppId ?? g.steamAppId ?? null,
+      epicAppName: gameObj.epicAppName ?? g.epicAppName ?? null,
+      gogGameId: gameObj.gogGameId ?? g.gogGameId ?? null,
+      installDir: gameObj.installDir ?? g.installDir ?? null,
+      sortKey: (
+        gameObj.sortKey ??
+        g.sortKey ??
+        gameObj.name ??
+        g.name ??
+        ""
+      ).toString(),
+    });
+    return;
   }
 
+  // 2) Mismo juego pero con otro id "principal": ya se habia emparejado
+  // antes por su id de Steam/Epic/GOG, o coincide por nombre con algo ya en
+  // la biblioteca metido desde OTRA fuente (tipico: agregado a mano desde
+  // Descubrir con su ficha de IGDB, y ahora tambien detectado por el
+  // escaneo automatico). En vez de duplicarlo, se rellenan los datos
+  // tecnicos que le falten (ejecutable, carpeta, ids de plataforma) sin
+  // pisar el nombre/caratula que ya tuviera - para no cambiar una ficha
+  // buena de IGDB por el nombre en crudo del launcher de turno.
+  g = findGameByExternalId(gameObj) || findGameByName(gameObj);
+  if (g) {
+    g.executable = g.executable ?? gameObj.executable ?? null;
+    if (!g.platform || g.platform === "none") g.platform = gameObj.platform ?? "none";
+    g.steamAppId = g.steamAppId ?? gameObj.steamAppId ?? null;
+    g.epicAppName = g.epicAppName ?? gameObj.epicAppName ?? null;
+    g.gogGameId = g.gogGameId ?? gameObj.gogGameId ?? null;
+    g.installDir = g.installDir ?? gameObj.installDir ?? null;
+    if (!g.cover && !g.coverUrl) {
+      g.cover = gameObj.cover ?? null;
+      g.coverUrl = gameObj.coverUrl ?? null;
+    }
+    if (!g.name) g.name = gameObj.name ?? "";
+    return;
+  }
+
+  // 3) De verdad nuevo.
+  g = { id: gameId };
+  games.push(g);
   Object.assign(g, {
-    name: gameObj.name ?? g.name ?? "",
-    cover: gameObj.cover ?? g.cover ?? null,
-    coverUrl: gameObj.coverUrl ?? g.coverUrl ?? null,
-    executable: gameObj.executable ?? g.executable ?? null,
-    platform: gameObj.platform ?? g.platform ?? "none",
-    steamAppId: gameObj.steamAppId ?? g.steamAppId ?? null,
-    epicAppName: gameObj.epicAppName ?? g.epicAppName ?? null,
-    gogGameId: gameObj.gogGameId ?? g.gogGameId ?? null,
-    installDir: gameObj.installDir ?? g.installDir ?? null,
-    sortKey: (
-      gameObj.sortKey ??
-      g.sortKey ??
-      gameObj.name ??
-      g.name ??
-      ""
-    ).toString(),
+    name: gameObj.name ?? "",
+    cover: gameObj.cover ?? null,
+    coverUrl: gameObj.coverUrl ?? null,
+    executable: gameObj.executable ?? null,
+    platform: gameObj.platform ?? "none",
+    steamAppId: gameObj.steamAppId ?? null,
+    epicAppName: gameObj.epicAppName ?? null,
+    gogGameId: gameObj.gogGameId ?? null,
+    installDir: gameObj.installDir ?? null,
+    sortKey: (gameObj.sortKey ?? gameObj.name ?? "").toString(),
   });
 }
 
