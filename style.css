@@ -285,6 +285,39 @@ button.primary:hover {
   margin-top: -4px;
 }
 
+/* Botón "Cargar más" en Descubrir */
+
+.load-more-wrap {
+  display: flex;
+  justify-content: center;
+  margin: 20px 0 4px;
+}
+
+/* Índice A-Z de la biblioteca */
+
+.index-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 2px 0 18px;
+}
+
+.index-btn {
+  min-width: 26px;
+  padding: 4px 6px;
+  font-size: 11px;
+}
+
+.index-btn:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+.index-btn:disabled:hover {
+  background: var(--ink-800);
+  transform: none;
+}
+
 /* Bloque de saga en "Juegos pasados": agrupa sus juegos en vez de
    dispersarlos por la linea de tiempo de completados. */
 
@@ -497,57 +530,6 @@ button.primary:hover {
   background: rgba(188, 0, 45, 0.15);
   border-color: var(--red-500);
   color: var(--red-400);
-}
-
-/* Swal */
-.swal-platform-popup .platform-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  justify-content: center;
-}
-
-.swal-platform-popup .platform-option {
-  cursor: pointer;
-}
-
-.swal-platform-popup .platform-option input {
-  display: none;
-}
-
-.swal-platform-popup .platform-card {
-  width: 110px;
-  padding: 10px;
-  border-radius: 12px;
-  border: 2px solid var(--ink-700);
-  background: var(--ink-900);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  transition: 0.15s ease;
-}
-
-.swal-platform-popup .platform-card img {
-  width: 48px;
-  height: 48px;
-  object-fit: contain;
-}
-
-.swal-platform-popup .platform-card span {
-  font-size: 13px;
-  color: var(--washi-100);
-  text-align: center;
-}
-
-.swal-platform-popup .platform-option:hover .platform-card {
-  transform: translateY(-2px);
-  border-color: var(--red-500);
-}
-
-.swal-platform-popup .platform-option input:checked + .platform-card {
-  border-color: var(--red-500);
-  box-shadow: 0 0 10px rgba(188, 0, 45, 0.5);
 }
 
 /* SortKey */

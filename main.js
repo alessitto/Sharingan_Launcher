@@ -276,8 +276,19 @@ function findExeCandidates(rootDir, maxDepth = 3) {
   return results;
 }
 
+function isDirectory(p) {
+  try {
+    return fs.statSync(p).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
 function pickBestExe(rootDir) {
-  const cands = findExeCandidates(rootDir, 3);
+  // Profundidad 5: instalaciones modernas (Unreal Engine, etc.) suelen
+  // meter el .exe real varios niveles por debajo de la carpeta del juego
+  // (Juego/Juego/Binaries/Win64/Juego-Win64-Shipping.exe).
+  const cands = findExeCandidates(rootDir, 5);
   return cands.length ? cands[0].path : null;
 }
 
@@ -474,8 +485,29 @@ function sortDiscoverResults(list, sort) {
   }
 }
 
+const DISCOVER_PAGE_SIZE = 60;
+// Tope real de IGDB por request (no es cosa nuestra, es la API). Para
+// navegar mas alla se pagina con "offset" en peticiones sucesivas.
+const IGDB_MAX_LIMIT = 500;
+
+function discoverSortClause(sort) {
+  switch (sort) {
+    case "az":
+      return "sort name asc";
+    case "za":
+      return "sort name desc";
+    case "year_desc":
+      return "sort first_release_date desc";
+    case "year_asc":
+    case "upcoming":
+      return "sort first_release_date asc";
+    default:
+      return "sort total_rating_count desc";
+  }
+}
+
 ipcMain.handle("igdb:discover", async (_e, opts = {}) => {
-  const { query = "", genreId = null, sort = "popular" } = opts;
+  const { query = "", genreId = null, sort = "popular", offset = 0 } = opts;
 
   const whereParts = [
     `game_type = ${IGDB_REAL_GAME_TYPES}`,
@@ -499,14 +531,28 @@ ipcMain.handle("igdb:discover", async (_e, opts = {}) => {
     "fields id,name,cover.image_id,rating,rating_count,total_rating,total_rating_count,platforms,first_release_date,genres.name;";
   const whereClause = `where ${whereParts.join(" & ")};`;
 
-  const body = trimmedQuery
-    ? `search "${trimmedQuery.replace(/"/g, '\\"')}"; ${fields} ${whereClause} limit 120;`
-    : `${fields} ${whereClause} limit 60;`;
+  if (trimmedQuery) {
+    // IGDB ignora "sort" en cuanto la query lleva "search" (ordena siempre
+    // por relevancia de texto) y no pagina bien mas alla de eso - en vez de
+    // pelearnos con su paginacion, se trae de una vez el maximo que deja la
+    // API (500) ya sin el tope de 60 que teniamos nosotros, se ordena aqui
+    // mismo en JS, y el renderer pagina en local sobre ese conjunto.
+    const body = `search "${trimmedQuery.replace(/"/g, '\\"')}"; ${fields} ${whereClause} limit ${IGDB_MAX_LIMIT};`;
+    const results = await igdbGamesQuery(body);
+    if (!Array.isArray(results)) return { items: [], hasMore: false };
+    return { items: sortDiscoverResults(results, sort), hasMore: false, fullPool: true };
+  }
 
+  // Sin busqueda de texto: aqui "sort" de Apicalypse si funciona bien junto
+  // con "offset", asi que se pagina de verdad contra la API en vez de traer
+  // un lote fijo - se puede seguir pidiendo "cargar mas" sin tope artificial.
+  const sortClause = discoverSortClause(sort);
+  const safeOffset = Math.max(0, Number(offset) || 0);
+  const body = `${fields} ${whereClause} ${sortClause}; limit ${DISCOVER_PAGE_SIZE}; offset ${safeOffset};`;
   const results = await igdbGamesQuery(body);
-  if (!Array.isArray(results)) return results;
+  if (!Array.isArray(results)) return { items: [], hasMore: false };
 
-  return sortDiscoverResults(results, sort).slice(0, 60);
+  return { items: results, hasMore: results.length === DISCOVER_PAGE_SIZE };
 });
 
 ipcMain.handle("igdb:genres", async () => {
@@ -531,7 +577,20 @@ ipcMain.handle("games:add", (_e, game) => {
   return { games, completedGames };
 });
 
-ipcMain.handle("games:setExe", (_e, { id, path: exePath, platform }) => {
+// Se deduce la plataforma de la propia ruta del .exe en vez de preguntarla:
+// no cambia como se lanza el juego (eso solo pasa por steamAppId/epicAppName/
+// gogGameId, que solo pone la importacion automatica, nunca un vinculo
+// manual), asi que preguntarla aqui era un paso de mas sin ningun efecto
+// real - vincular a mano es siempre "coge este .exe y lanzalo", punto.
+function detectPlatformFromPath(p) {
+  const lower = (p || "").toLowerCase();
+  if (lower.includes("\\steamapps\\")) return "steam";
+  if (lower.includes("epic games\\")) return "epic";
+  if (lower.includes("gog galaxy\\") || lower.includes("\\gog games\\")) return "gog";
+  return "none";
+}
+
+ipcMain.handle("games:setExe", (_e, { id, path: exePath }) => {
   const gameId = Number(id);
   const g =
     games.find((x) => x.id === gameId) ||
@@ -539,7 +598,7 @@ ipcMain.handle("games:setExe", (_e, { id, path: exePath, platform }) => {
   if (!g) return;
 
   g.executable = exePath;
-  g.platform = platform; // steam | epic | gog | none
+  g.platform = detectPlatformFromPath(exePath);
   saveData();
 });
 
@@ -550,7 +609,17 @@ ipcMain.handle("games:launch", async (_e, id) => {
     completedGames.find((x) => x.id === gameId);
   if (!g) return;
 
-  if (g.platform && g.platform !== "none") {
+  // Esperar a que arranque el cliente (Steam/Epic/GOG) solo tiene sentido si
+  // de verdad vamos a lanzar por ahi (steamAppId/epicAppName/gogGameId, que
+  // solo rellena la importacion automatica). Un juego vinculado a mano no
+  // tiene esos IDs y siempre acaba lanzando el .exe directo, asi que hacerle
+  // esperar 20s a un cliente que ni va a usar era pura perdida de tiempo.
+  const tienePlatformIntegration =
+    (g.platform === "steam" && g.steamAppId) ||
+    (g.platform === "epic" && g.epicAppName) ||
+    (g.platform === "gog" && g.gogGameId);
+
+  if (tienePlatformIntegration) {
     let processName = null;
     switch (g.platform) {
       case "steam":
@@ -919,25 +988,22 @@ ipcMain.handle("games:importInstalled", async (_e, config) => {
     report.epic.errors.push(String(err?.message || err));
   }
 
-  // ===== GOG (simple: subcarpetas) =====
+  // ===== GOG (subcarpetas, con fallback a "carpeta = 1 juego") =====
   try {
-    const gogRoot = config?.gogRoot;
+    const gogRoot = config?.gogRoot || findFirstExisting(["C:\\GOG Games"]);
     if (gogRoot && exists(gogRoot)) {
-      const subdirs = listFiles(gogRoot).filter((p) => {
-        try {
-          return fs.statSync(p).isDirectory();
-        } catch {
-          return false;
-        }
-      });
+      const subdirs = listFiles(gogRoot).filter(isDirectory);
+      let foundInSubdirs = 0;
 
       for (const dir of subdirs) {
-        report.gog.found++;
-
         const name = path.basename(dir);
         const exe = pickBestExe(dir);
-        const gogId = stableNegativeId(`gog:${dir}`);
+        if (!exe) continue; // carpeta sin .exe (extras, soundtrack, etc.)
 
+        foundInSubdirs++;
+        report.gog.found++;
+
+        const gogId = stableNegativeId(`gog:${dir}`);
         upsertGameImported({
           id: gogId,
           name,
@@ -950,6 +1016,28 @@ ipcMain.handle("games:importInstalled", async (_e, config) => {
         report.gog.imported++;
       }
 
+      // Si no salió ningún juego de las subcarpetas, puede que se haya
+      // seleccionado directamente la carpeta de UN solo juego en vez de la
+      // carpeta que los contiene a todos - se prueba también como juego
+      // suelto antes de dejarlo en "0 encontrados" sin más explicación.
+      if (foundInSubdirs === 0) {
+        const exe = pickBestExe(gogRoot);
+        if (exe) {
+          const name = path.basename(gogRoot);
+          const gogId = stableNegativeId(`gog:${gogRoot}`);
+          upsertGameImported({
+            id: gogId,
+            name,
+            platform: "gog",
+            executable: exe,
+            installDir: gogRoot,
+            sortKey: name,
+          });
+          report.gog.found++;
+          report.gog.imported++;
+        }
+      }
+
       saveData();
     } else if (config?.gogRoot) {
       report.gog.errors.push("La carpeta de GOG no existe o no es accesible.");
@@ -958,17 +1046,12 @@ ipcMain.handle("games:importInstalled", async (_e, config) => {
     report.gog.errors.push(String(err?.message || err));
   }
 
-  // ===== NONE (pirata/sin plataforma: subcarpetas) =====
+  // ===== NONE (pirata/sin plataforma: subcarpetas, con el mismo fallback) =====
   try {
     const noneRoot = config?.noneRoot;
     if (noneRoot && exists(noneRoot)) {
-      const subdirs = listFiles(noneRoot).filter((p) => {
-        try {
-          return fs.statSync(p).isDirectory();
-        } catch {
-          return false;
-        }
-      });
+      const subdirs = listFiles(noneRoot).filter(isDirectory);
+      let foundInSubdirs = 0;
 
       for (const dir of subdirs) {
         const name = path.basename(dir);
@@ -979,10 +1062,10 @@ ipcMain.handle("games:importInstalled", async (_e, config) => {
         // Si no hay .exe válido, no es juego => lo saltamos
         if (!exe) continue;
 
+        foundInSubdirs++;
         report.none.found++;
 
         const noneId = stableNegativeId(`none:${dir}`);
-
         upsertGameImported({
           id: noneId,
           name,
@@ -993,6 +1076,24 @@ ipcMain.handle("games:importInstalled", async (_e, config) => {
         });
 
         report.none.imported++;
+      }
+
+      if (foundInSubdirs === 0) {
+        const exe = pickBestExe(noneRoot);
+        if (exe) {
+          const name = path.basename(noneRoot);
+          const noneId = stableNegativeId(`none:${noneRoot}`);
+          upsertGameImported({
+            id: noneId,
+            name,
+            platform: "none",
+            executable: exe,
+            installDir: noneRoot,
+            sortKey: name,
+          });
+          report.none.found++;
+          report.none.imported++;
+        }
       }
 
       saveData();

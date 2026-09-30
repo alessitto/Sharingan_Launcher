@@ -68,6 +68,11 @@
             </select>
           </div>
           <div id="gamesList" class="cards-grid"></div>
+          <div class="load-more-wrap">
+            <button id="loadMoreBtn" class="filter-btn" onclick="loadMoreDiscoverGames()" style="display:none;">
+              Cargar más
+            </button>
+          </div>
         </section>
 
         <!-- Biblioteca -->
@@ -91,6 +96,8 @@
               Sagas
             </button>
           </div>
+
+          <div id="libraryIndexBar" class="index-bar"></div>
 
           <div id="libraryList" class="cards-grid"></div>
         </section>
@@ -281,16 +288,94 @@
       // Punto único: con texto de búsqueda o sin él, con o sin filtros — todo
       // pasa por aquí. Antes había dos funciones casi iguales (populares y
       // búsqueda) que no compartían ni el filtro de género ni el de orden.
+      //
+      // Paginación: sin búsqueda de texto, main.js pagina de verdad contra
+      // IGDB (offset), así que aquí solo se pide la siguiente página. Con
+      // búsqueda, main.js trae de una vez el pool completo (hasta 500, el
+      // máximo de IGDB) ya ordenado, y aquí se pagina en local sobre ese
+      // array sin volver a llamar a la API - así ya no hay tope de 60.
+      const DISCOVER_PAGE_SIZE = 60;
+      let discoverOffset = 0;
+      let discoverHasMore = false;
+      let discoverSearchPool = null;
+      let discoverSearchShown = 0;
+
       async function loadDiscoverGames() {
+        discoverOffset = 0;
+        discoverSearchPool = null;
+        discoverSearchShown = 0;
+        gamesTemp = [];
+        currentSearchGames = [];
+
         const query = document.getElementById("searchInput")?.value.trim() || "";
         const genreId = document.getElementById("genreFilter")?.value || null;
         const sort = document.getElementById("sortFilter")?.value || "popular";
 
-        const games = await window.electronAPI.discoverGames({ query, genreId, sort });
-        currentSearchGames = games || [];
-        gamesTemp = [];
-        displayGames("gamesList", currentSearchGames, "add");
+        const res = await window.electronAPI.discoverGames({ query, genreId, sort, offset: 0 });
+        applyDiscoverPage(res, true);
         updateGamepadFocus(true);
+      }
+
+      async function loadMoreDiscoverGames() {
+        if (discoverSearchPool) {
+          const next = discoverSearchPool.slice(
+            discoverSearchShown,
+            discoverSearchShown + DISCOVER_PAGE_SIZE
+          );
+          discoverSearchShown += next.length;
+          appendDiscoverGames(next);
+          updateLoadMoreButton(discoverSearchShown < discoverSearchPool.length);
+          return;
+        }
+
+        const genreId = document.getElementById("genreFilter")?.value || null;
+        const sort = document.getElementById("sortFilter")?.value || "popular";
+        discoverOffset += DISCOVER_PAGE_SIZE;
+
+        const res = await window.electronAPI.discoverGames({
+          query: "",
+          genreId,
+          sort,
+          offset: discoverOffset,
+        });
+        applyDiscoverPage(res, false);
+      }
+
+      function applyDiscoverPage(res, replace) {
+        const items = (res && res.items) || [];
+
+        if (res && res.fullPool) {
+          discoverSearchPool = items;
+          discoverSearchShown = Math.min(DISCOVER_PAGE_SIZE, items.length);
+          const firstPage = items.slice(0, discoverSearchShown);
+          gamesTemp = [];
+          currentSearchGames = firstPage.slice();
+          displayGames("gamesList", firstPage, "add");
+          updateLoadMoreButton(discoverSearchShown < items.length);
+          return;
+        }
+
+        discoverHasMore = !!(res && res.hasMore);
+        if (replace) {
+          gamesTemp = [];
+          currentSearchGames = items.slice();
+          displayGames("gamesList", items, "add");
+        } else {
+          appendDiscoverGames(items);
+        }
+        updateLoadMoreButton(discoverHasMore);
+      }
+
+      function appendDiscoverGames(items) {
+        const container = document.getElementById("gamesList");
+        if (!container) return;
+        currentSearchGames.push(...items);
+        items.forEach((game) => container.appendChild(buildDiscoverCard(game)));
+      }
+
+      function updateLoadMoreButton(show) {
+        const btn = document.getElementById("loadMoreBtn");
+        if (btn) btn.style.display = show ? "" : "none";
       }
 
       // ===============================
@@ -434,75 +519,16 @@
         }
       }
 
+      // Un solo paso: elegir el .exe y listo. La plataforma (Steam/Epic/GOG)
+      // se detecta sola por la ruta del ejecutable, solo para mostrarla; no
+      // hace falta preguntarla porque un juego vinculado a mano siempre se
+      // lanza directamente, no cambia nada en el arranque.
       async function setExecutable(id) {
         try {
           const result = await window.electronAPI.openFileDialog();
           if (result.canceled) return;
 
-          const { value: platform } = await Swal.fire({
-            background: "#100e10",
-            color: "#f3efe6",
-            title: "¿Desde qué plataforma se ejecuta?",
-            text: "Así podremos usar guardado en la nube si está disponible",
-            icon: "question",
-            showCancelButton: true,
-            confirmButtonText: "Aceptar",
-            cancelButtonText: "Cancelar",
-            focusConfirm: false,
-            customClass: { popup: "swal-platform-popup" },
-            html: `
-            <div class="platform-grid">
-              <label class="platform-option">
-                <input type="radio" name="platform" value="steam" />
-                <div class="platform-card">
-                  <img src="assets/platform/steam.png" alt="Steam">
-                  <span>Steam</span>
-                </div>
-              </label>
-
-              <label class="platform-option">
-                <input type="radio" name="platform" value="epic" />
-                <div class="platform-card">
-                  <img src="assets/platform/epic.png" alt="Epic Games">
-                  <span>Epic Games</span>
-                </div>
-              </label>
-
-              <label class="platform-option">
-                <input type="radio" name="platform" value="gog" />
-                <div class="platform-card">
-                  <img src="assets/platform/gog.png" alt="GOG">
-                  <span>GOG</span>
-                </div>
-              </label>
-
-              <label class="platform-option">
-                <input type="radio" name="platform" value="none" />
-                <div class="platform-card">
-                  <img src="assets/platform/no.png" alt="Sin plataforma">
-                  <span>Sin plataforma</span>
-                </div>
-              </label>
-            </div>
-          `,
-            preConfirm: () => {
-              const checked = document.querySelector(
-                'input[name="platform"]:checked'
-              );
-              if (!checked) {
-                Swal.showValidationMessage("Selecciona una opción");
-                return false;
-              }
-              return checked.value;
-            },
-          });
-
-          if (!platform) return;
-
-          await window.electronAPI.setExecutable(id, {
-            path: result.filePath,
-            platform,
-          });
+          await window.electronAPI.setExecutable(id, { path: result.filePath });
           await loadLibrary();
           refreshSearchUI();
           showNotification("Ejecutable vinculado correctamente");
@@ -835,6 +861,75 @@
         return div;
       }
 
+      // Card de Descubrir ("add"). Aparte porque además de renderizarse en
+      // bloque (displayGames) se necesita para ir añadiendo una a una al
+      // pulsar "Cargar más", sin repintar lo que ya había.
+      function buildDiscoverCard(game) {
+        const div = document.createElement("div");
+        div.className = "game-card";
+        div.dataset.gameId = game.id;
+
+        const name = game.name || "Sin nombre";
+        const safeAttrName = name.replace(/"/g, "&quot;");
+        const coverUrl =
+          game.coverUrl ||
+          (game.cover && game.cover.image_id
+            ? `https://images.igdb.com/igdb/image/upload/t_cover_big/${game.cover.image_id}.jpg`
+            : "assets/no-cover.png");
+
+        const index = gamesTemp.length;
+        gamesTemp.push(game);
+
+        const buttonsHtml = libraryIds.has(game.id)
+          ? `<span class="badge-owned">En tu biblioteca</span>${infoButtonHtml(game.id)}`
+          : `<button class="primary add-btn" data-index='${index}'>Agregar a biblioteca</button>${infoButtonHtml(game.id)}`;
+
+        div.innerHTML = `
+          <img src="${coverUrl}" alt="${safeAttrName}">
+          <h3>${escapeHtml(name)}</h3>
+          <div class="card-actions">${buttonsHtml}</div>
+        `;
+
+        return div;
+      }
+
+      // Cubetas del índice A-Z de la biblioteca: símbolos, números y letras
+      // (con la Ñ en su sitio, como en cualquier listado en español).
+      const LIBRARY_INDEX_BUCKETS = [
+        "#", "0-9", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L",
+        "M", "N", "Ñ", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z",
+      ];
+
+      function letterBucket(str) {
+        const s = (str || "").trim();
+        if (!s) return "#";
+        const ch = s[0].toUpperCase();
+        if (ch === "Ñ") return "Ñ";
+        if (/[A-Z]/.test(ch)) return ch;
+        if (/[0-9]/.test(ch)) return "0-9";
+        return "#";
+      }
+
+      function renderLibraryIndexBar(gamesShown) {
+        const bar = document.getElementById("libraryIndexBar");
+        if (!bar) return;
+
+        const present = new Set(gamesShown.map((g) => letterBucket(g.sortKey || g.name)));
+        bar.innerHTML = LIBRARY_INDEX_BUCKETS.map((b) => {
+          const has = present.has(b);
+          return `<button type="button" class="index-btn" data-bucket="${b}" ${has ? "" : "disabled"}>${b}</button>`;
+        }).join("");
+
+        bar.querySelectorAll(".index-btn:not([disabled])").forEach((btn) => {
+          btn.onclick = () => {
+            const target = document.querySelector(
+              `#libraryList [data-letter="${CSS.escape(btn.dataset.bucket)}"]`
+            );
+            if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+          };
+        });
+      }
+
       function displayGames(containerId, games, mode) {
         const container = document.getElementById(containerId);
         container.innerHTML = "";
@@ -857,10 +952,16 @@
 
         }
 
+        if (mode === "add") {
+          games.forEach((game) => container.appendChild(buildDiscoverCard(game)));
+          return;
+        }
+
         games.forEach((game) => {
           const div = document.createElement("div");
           div.className = "game-card";
           div.dataset.gameId = game.id;
+          div.dataset.letter = letterBucket(game.sortKey || game.name);
 
           const name = game.name || "Sin nombre";
           const safeAttrName = name.replace(/"/g, "&quot;");
@@ -871,28 +972,16 @@
               ? `https://images.igdb.com/igdb/image/upload/t_cover_big/${game.cover.image_id}.jpg`
               : "assets/no-cover.png");
 
-          let buttonsHtml = "";
+          const hasExe = !!game.executable;
+          const exeStatus = hasExe
+            ? `<button class="linked-btn" onclick="confirmUnlink('${game.id}')">Vinculado</button>`
+            : `<button onclick="setExecutable('${game.id}')">Vincular</button>`;
+          const playButton = hasExe
+            ? `<button class="primary" onclick="launchGame('${game.id}')">Jugar</button>`
+            : "";
 
-          if (mode === "add") {
-            const index = gamesTemp.length;
-            gamesTemp.push(game);
-
-            if (libraryIds.has(game.id)) {
-              buttonsHtml = `<span class="badge-owned">En tu biblioteca</span>${infoButtonHtml(game.id)}`;
-            } else {
-              buttonsHtml = `<button class="primary add-btn" data-index='${index}'>Agregar a biblioteca</button>${infoButtonHtml(game.id)}`;
-            }
-          } else if (mode === "library") {
-            const hasExe = !!game.executable;
-            const exeStatus = hasExe
-              ? `<button class="linked-btn" onclick="confirmUnlink('${game.id}')">Vinculado</button>`
-              : `<button onclick="setExecutable('${game.id}')">Vincular</button>`;
-            const playButton = hasExe
-              ? `<button class="primary" onclick="launchGame('${game.id}')">Jugar</button>`
-              : "";
-
-            // Dropdown para biblioteca
-            buttonsHtml = `
+          // Dropdown para biblioteca
+          const buttonsHtml = `
             ${exeStatus}
             ${playButton}
             <div class="action-menu">
@@ -905,9 +994,8 @@
               </div>
             </div>
           `;
-          }
 
-          const saga = mode === "library" ? sagaForGame(game.id) : null;
+          const saga = sagaForGame(game.id);
           const sagaTagHtml = saga ? `<div class="saga-tag">📚 ${escapeHtml(saga.name)}</div>` : "";
 
           div.innerHTML = `
@@ -919,6 +1007,8 @@
 
           container.appendChild(div);
         });
+
+        if (mode === "library") renderLibraryIndexBar(games);
       }
 
       document.addEventListener("click", (e) => {
@@ -1287,13 +1377,13 @@
               "GOG (carpeta juegos)",
               state.gogRoot,
               "pickGog",
-              "Carpeta con subcarpetas (cada subcarpeta = 1 juego)"
+              "Vale tanto una carpeta con varios juegos (una subcarpeta por juego) como la carpeta de un único juego"
             )}
             ${row(
               "Sin plataforma (pirata)",
               state.noneRoot,
               "pickNone",
-              "Carpeta con subcarpetas (cada subcarpeta = 1 juego)"
+              "Vale tanto una carpeta con varios juegos (una subcarpeta por juego) como la carpeta de un único juego"
             )}
             ${row(
               "Epic LauncherInstalled.dat (opcional)",
@@ -1395,26 +1485,54 @@
             allowOutsideClick: false,
             didOpen: () => Swal.showLoading(),
           });
-          await window.electronAPI.importInstalledGames(payload);
 
-          const enrich = await window.electronAPI.enrichCovers({ limit: 80 });
+          // El resumen final se construye con el reporte real de la
+          // importación (antes se descartaba y se mostraban los numeros del
+          // enriquecido de caratulas, que no tienen nada que ver - por eso
+          // parecia que "no pasaba nada" aunque sí se hubiera importado, o
+          // al revés).
+          const importResult = await window.electronAPI.importInstalledGames(payload);
+          const report = importResult?.report || {};
+          const labels = { steam: "Steam", epic: "Epic", gog: "GOG", none: "Sin plataforma" };
 
+          const lines = [];
+          let totalImported = 0;
+          for (const key of ["steam", "epic", "gog", "none"]) {
+            const r = report[key];
+            if (!r) continue;
+            totalImported += r.imported || 0;
+            if (r.imported > 0) lines.push(`${labels[key]}: ${r.imported} juego(s) importados`);
+            (r.errors || []).forEach((e) => lines.push(`${labels[key]}: ${e}`));
+          }
+
+          await window.electronAPI.enrichCovers({ limit: 80 });
           await loadLibrary();
           refreshSearchUI();
 
-          showNotification(
-            `Juegos: ${enrich?.updated ?? 0}/${enrich?.scanned ?? 0} importados`
-          );
-
-          Swal.fire({
-            background: "#100e10",
-            color: "#f3efe6",
-            icon: "success",
-            title: "Importación completada",
-            text: `Juegos importados correctamente: ${enrich?.updated ?? 0}/${
-              enrich?.scanned ?? 0
-            }`,
-          });
+          if (totalImported === 0) {
+            showNotification(
+              "No se encontró ningún juego nuevo en las carpetas seleccionadas.",
+              "error"
+            );
+            Swal.fire({
+              background: "#100e10",
+              color: "#f3efe6",
+              icon: "info",
+              title: "No se importó nada",
+              html: lines.length
+                ? lines.map((l) => `<div>${escapeHtml(l)}</div>`).join("")
+                : "Revisa que hayas seleccionado la carpeta correcta (la que contiene el juego o sus subcarpetas).",
+            });
+          } else {
+            showNotification(`${totalImported} juego(s) importados correctamente.`);
+            Swal.fire({
+              background: "#100e10",
+              color: "#f3efe6",
+              icon: "success",
+              title: "Importación completada",
+              html: lines.map((l) => `<div>${escapeHtml(l)}</div>`).join(""),
+            });
+          }
         } catch (err) {
           console.error(err);
           Swal.fire({
