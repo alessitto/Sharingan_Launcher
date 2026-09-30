@@ -448,34 +448,48 @@
         }
         if (!game) return showNotification("Juego no encontrado", "error");
 
-        // 2. Detalles IGDB
-        let details = null;
-        try {
-          const res = await window.electronAPI.getGameDetails(id);
-          if (res && res.length > 0) details = res[0];
-        } catch (e) {
-          console.error(e);
-        }
+        // Aviso de carga: los 3 pasos siguientes pueden tardar un poco (sobre
+        // todo la primera vez, que Steam descarga su lista completa de apps
+        // para la busqueda por nombre), y antes no se veia nada mientras tanto.
+        Swal.fire({
+          background: "#100e10",
+          color: "#f3efe6",
+          title: "Cargando información...",
+          allowOutsideClick: false,
+          didOpen: () => Swal.showLoading(),
+        });
 
-        // 3. Requisitos Reales Steam
-        let reqs = { min: "No disponible", rec: "No disponible" };
-        try {
-          const real = await window.electronAPI.getRealRequirements({
+        // 2+3+3b. IGDB, requisitos de Steam y specs del equipo: independientes
+        // entre si, se piden en paralelo en vez de uno detras de otro.
+        const [detailsResult, reqsResult, specsResult] = await Promise.allSettled([
+          window.electronAPI.getGameDetails(id),
+          window.electronAPI.getRealRequirements({
             igdbId: id,
             steamAppId: game.steamAppId,
             gameName: game.name,
-          });
-          if (real) reqs = real;
-        } catch (err) {
-          console.error(err);
+          }),
+          window.electronAPI.getSystemSpecs(),
+        ]);
+
+        let details = null;
+        if (detailsResult.status === "fulfilled" && detailsResult.value?.length > 0) {
+          details = detailsResult.value[0];
+        } else if (detailsResult.status === "rejected") {
+          console.error(detailsResult.reason);
         }
 
-        // 3b. Specs del equipo (para comparar RAM de forma fiable)
+        let reqs = { min: "No disponible", rec: "No disponible" };
+        if (reqsResult.status === "fulfilled" && reqsResult.value) {
+          reqs = reqsResult.value;
+        } else if (reqsResult.status === "rejected") {
+          console.error(reqsResult.reason);
+        }
+
         let mySpecs = null;
-        try {
-          mySpecs = await window.electronAPI.getSystemSpecs();
-        } catch (err) {
-          console.error(err);
+        if (specsResult.status === "fulfilled") {
+          mySpecs = specsResult.value;
+        } else {
+          console.error(specsResult.reason);
         }
 
         // --- HELPER: Función para embellecer el texto de Steam ---
