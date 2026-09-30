@@ -419,21 +419,61 @@ async function igdbGamesQuery(body, endpoint = "games", isRetry = false) {
 }
 
 // -------------------- IGDB IPC --------------------
-ipcMain.handle("igdb:popular", async () => {
-  return igdbGamesQuery(`
-    fields id,name,cover.image_id,rating,rating_count,platforms,first_release_date;
-    where rating != null & rating_count > 10;
-    sort rating desc;
-    limit 102;
-  `);
+// game_type de IGDB (el campo "category" esta deprecado, ya no se rellena):
+// 0=Main Game, 8=Remake, 9=Remaster, 10=Expanded Game son juegos "de
+// verdad"; el resto (1=DLC, 2=Expansion, 3=Bundle, 5=Mod, 6=Episode,
+// 7=Season, 11=Port, 13=Pack/Addon, 14=Update...) es el ruido que no se
+// quiere ver al buscar (packs, DLCs sueltos, ports moviles, etc).
+// Verificado contra la API real con "borderlands": filtra bien VR/Mobile
+// ports, Triple Pack, Season Pass, Designer's/Director's Cut, packs de DLC.
+// Las ediciones especiales (Deluxe/Ultimate) IGDB las sigue marcando como
+// Main Game, asi que esas seguiran saliendo aparte del juego base.
+const IGDB_REAL_GAME_TYPES = "(0,8,9,10)";
+
+ipcMain.handle("igdb:discover", async (_e, opts = {}) => {
+  const { query = "", genreId = null, sort = "popular" } = opts;
+
+  const whereParts = [`game_type = ${IGDB_REAL_GAME_TYPES}`];
+  if (genreId) whereParts.push(`genres = (${Number(genreId)})`);
+
+  let sortClause = "sort rating desc";
+  switch (sort) {
+    case "az":
+      sortClause = "sort name asc";
+      break;
+    case "za":
+      sortClause = "sort name desc";
+      break;
+    case "year_desc":
+      sortClause = "sort first_release_date desc";
+      break;
+    case "year_asc":
+      sortClause = "sort first_release_date asc";
+      break;
+    case "upcoming":
+      whereParts.push(`first_release_date > ${Math.floor(Date.now() / 1000)}`);
+      sortClause = "sort first_release_date asc";
+      break;
+    default:
+      // "popular": el rating solo es un buen indicador con un minimo de votos.
+      whereParts.push("rating != null", "rating_count > 10");
+      break;
+  }
+
+  const fields =
+    "fields id,name,cover.image_id,rating,rating_count,platforms,first_release_date,genres.name;";
+  const whereClause = `where ${whereParts.join(" & ")};`;
+
+  const trimmedQuery = (query || "").trim();
+  const body = trimmedQuery
+    ? `search "${trimmedQuery.replace(/"/g, '\\"')}"; ${fields} ${whereClause} limit 60;`
+    : `${fields} ${whereClause} ${sortClause}; limit 60;`;
+
+  return igdbGamesQuery(body);
 });
 
-ipcMain.handle("igdb:search", async (_e, query) => {
-  if (!query || !query.trim()) return [];
-  const safeQ = query.replace(/"/g, '\\"');
-  return igdbGamesQuery(
-    `search "${safeQ}"; fields id,name,cover.image_id; limit 30;`
-  );
+ipcMain.handle("igdb:genres", async () => {
+  return igdbGamesQuery("fields id,name; sort name asc; limit 50;", "genres");
 });
 
 // -------------------- Biblioteca IPC --------------------

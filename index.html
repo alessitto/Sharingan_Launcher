@@ -31,7 +31,7 @@
         <span class="topnav-title">Sharingan Launcher</span>
         <div class="topnav-item active" onclick="showSection('popular', this)">
           <svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
-          Juegos populares
+          Descubrir
         </div>
         <div class="topnav-item" onclick="showSection('library', this)">
           <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
@@ -47,13 +47,26 @@
       <main class="main-content">
         <!-- Populares / búsqueda -->
         <section id="popular" class="section active">
-          <h2 class="section-title">Juegos populares</h2>
+          <h2 class="section-title">Descubrir</h2>
           <input
             type="text"
             id="searchInput"
             placeholder="Buscar juegos..."
             oninput="onSearchInput()"
           />
+          <div class="discover-toolbar">
+            <select id="genreFilter" onchange="loadDiscoverGames()">
+              <option value="">Todos los géneros</option>
+            </select>
+            <select id="sortFilter" onchange="loadDiscoverGames()">
+              <option value="popular">Más popular</option>
+              <option value="az">Nombre A-Z</option>
+              <option value="za">Nombre Z-A</option>
+              <option value="year_desc">Año: más reciente</option>
+              <option value="year_asc">Año: más antiguo</option>
+              <option value="upcoming">Próximamente</option>
+            </select>
+          </div>
           <div id="gamesList" class="cards-grid"></div>
         </section>
 
@@ -183,7 +196,8 @@
         }
 
         // carga datos
-        const loadPromises = Promise.all([loadLibrary(), loadPopularGames()]);
+        loadGenreOptions();
+        const loadPromises = Promise.all([loadLibrary(), loadDiscoverGames()]);
 
         setTimeout(async () => {
           await loadPromises;
@@ -210,7 +224,7 @@
       });
 
       // ===============================
-      // Populares / búsqueda IGDB
+      // Descubrir (populares / búsqueda / filtros) — IGDB
       // ===============================
       let lastSearchTimeout = null;
 
@@ -237,22 +251,36 @@
           dartacanPlayed = false;
         }
         clearTimeout(lastSearchTimeout);
-        lastSearchTimeout = setTimeout(() => {
-          if (q.length === 0) loadPopularGames();
-          else searchGames(q);
-        }, 350);
+        lastSearchTimeout = setTimeout(loadDiscoverGames, 350);
       }
 
-      async function loadPopularGames() {
-        const games = await window.electronAPI.fetchPopularGames();
-        currentSearchGames = games || [];
-        gamesTemp = [];
-        displayGames("gamesList", currentSearchGames, "add");
-        updateGamepadFocus(true);
+      // Carga la lista de géneros de IGDB una vez, para el desplegable.
+      async function loadGenreOptions() {
+        try {
+          const genres = await window.electronAPI.getGenres();
+          const select = document.getElementById("genreFilter");
+          if (!select || !Array.isArray(genres)) return;
+          for (const g of genres) {
+            if (!g.name) continue;
+            const opt = document.createElement("option");
+            opt.value = g.id;
+            opt.textContent = g.name;
+            select.appendChild(opt);
+          }
+        } catch (err) {
+          console.error("No se pudieron cargar los géneros", err);
+        }
       }
 
-      async function searchGames(query) {
-        const games = await window.electronAPI.searchIGDB(query);
+      // Punto único: con texto de búsqueda o sin él, con o sin filtros — todo
+      // pasa por aquí. Antes había dos funciones casi iguales (populares y
+      // búsqueda) que no compartían ni el filtro de género ni el de orden.
+      async function loadDiscoverGames() {
+        const query = document.getElementById("searchInput")?.value.trim() || "";
+        const genreId = document.getElementById("genreFilter")?.value || null;
+        const sort = document.getElementById("sortFilter")?.value || "popular";
+
+        const games = await window.electronAPI.discoverGames({ query, genreId, sort });
         currentSearchGames = games || [];
         gamesTemp = [];
         displayGames("gamesList", currentSearchGames, "add");

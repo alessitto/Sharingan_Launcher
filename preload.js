@@ -2,8 +2,8 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
   // IGDB & Detalles
-  fetchPopularGames: () => ipcRenderer.invoke('igdb:popular'),
-  searchIGDB: (query) => ipcRenderer.invoke('igdb:search', query),
+  discoverGames: (opts) => ipcRenderer.invoke('igdb:discover', opts),
+  getGenres: () => ipcRenderer.invoke('igdb:genres'),
   getGameDetails: (id) => ipcRenderer.invoke('igdb:getDetails', id),
 
   // Steam Requisitos Reales
