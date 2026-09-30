@@ -109,6 +109,15 @@
           <div id="completedList" class="cards-grid"></div>
         </section>
       </main>
+
+      <button
+        id="scrollTopBtn"
+        class="scroll-top-btn"
+        onclick="scrollActiveSectionToTop()"
+        title="Volver arriba"
+      >
+        ↑
+      </button>
     </div>
 
     <script src="node_modules/sweetalert2/dist/sweetalert2.all.min.js"></script>
@@ -177,7 +186,11 @@
           .forEach((li) => li.classList.remove("active"));
         if (el) el.classList.add("active");
 
-        // al cambiar sección, reinicia foco al primer elemento del grid
+        // al cambiar sección, vuelve arriba del todo (si no, se arrastra el
+        // scroll de la sección anterior) y reinicia foco al primer elemento
+        document.querySelector(".main-content")?.scrollTo(0, 0);
+        document.getElementById("scrollTopBtn")?.classList.remove("show");
+
         if (id === "popular") focusedContainerId = "gamesList";
         if (id === "library") focusedContainerId = "libraryList";
         if (id === "completed") focusedContainerId = "completedList";
@@ -236,6 +249,20 @@
             .forEach((d) => d.classList.remove("show"));
         }
       });
+
+      // Botón flotante "volver arriba" - .main-content es el contenedor que
+      // de verdad scrollea (overflow:auto), no la ventana.
+      const mainContentEl = document.querySelector(".main-content");
+      if (mainContentEl) {
+        mainContentEl.addEventListener("scroll", () => {
+          const btn = document.getElementById("scrollTopBtn");
+          if (btn) btn.classList.toggle("show", mainContentEl.scrollTop > 400);
+        });
+      }
+
+      function scrollActiveSectionToTop() {
+        mainContentEl?.scrollTo({ top: 0, behavior: "smooth" });
+      }
 
       // ===============================
       // Descubrir (populares / búsqueda / filtros) — IGDB
@@ -312,6 +339,12 @@
         const query = document.getElementById("searchInput")?.value.trim() || "";
         const genreId = document.getElementById("genreFilter")?.value || null;
         const sort = document.getElementById("sortFilter")?.value || "popular";
+
+        // El indice de letras solo tiene sentido con orden alfabetico - con
+        // "mas popular", "ano" o "proximamente" saltar a una letra no
+        // corresponde a ninguna posicion real.
+        const bar = document.getElementById("discoverIndexBar");
+        if (bar) bar.style.display = sort === "az" || sort === "za" ? "" : "none";
 
         const res = await window.electronAPI.discoverGames({ query, genreId, sort, offset: 0 });
         applyDiscoverPage(res, true);
