@@ -51,51 +51,63 @@ h3 {
 
 .app {
   display: flex;
+  flex-direction: column;
   height: 100vh;
 }
 
-.sidebar {
-  width: 220px;
-  background: var(--ink-900);
-  border-right: 1px solid var(--ink-800);
-  padding: 20px 14px;
+.topnav {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  align-items: center;
+  gap: 6px;
+  background: var(--ink-900);
+  border-bottom: 1px solid var(--ink-800);
+  padding: 10px 20px;
+  flex-shrink: 0;
 }
 
-.sidebar-title {
+.topnav-title {
   font-family: "Shippori Mincho", serif;
-  font-size: 19px;
+  font-size: 18px;
   font-weight: 700;
   color: var(--washi-50);
-  margin-bottom: 14px;
-  padding: 0 10px;
+  margin-right: 24px;
+  white-space: nowrap;
 }
 
-.sidebar ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.sidebar li {
-  padding: 9px 12px;
-  border-radius: 8px;
+.topnav-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  border-radius: 999px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
   color: var(--ink-300);
-  transition: background 0.15s, color 0.15s;
+  border: 1px solid transparent;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  user-select: none;
 }
 
-.sidebar li:hover,
-.sidebar li.active {
+.topnav-item svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.topnav-item:hover {
+  color: var(--washi-100);
   background: var(--ink-800);
-  color: var(--washi-50);
 }
 
-.sidebar li.active {
-  border-left: 2px solid var(--red-500);
+.topnav-item.active {
+  color: var(--washi-50);
+  background: var(--ink-800);
+  border-color: var(--red-500);
 }
 
 .main-content {
@@ -502,6 +514,33 @@ button.primary:hover {
   font-size: 18px;
 }
 
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--ink-800);
+  color: var(--washi-200);
+}
+
+.icon-btn svg {
+  width: 15px;
+  height: 15px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.icon-btn:hover {
+  background: var(--ink-700);
+  color: var(--washi-50);
+}
+
 /* Vacio */
 .empty-state {
   padding: 32px 24px;
@@ -828,4 +867,7 @@ button.primary:hover {
   background: var(--ink-800) !important;
   color: var(--washi-100) !important;
   border: 1px solid var(--ink-700) !important;
+}
+.swal2-loader {
+  border-color: var(--red-500) transparent var(--red-500) transparent !important;
 }

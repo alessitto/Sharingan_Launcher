@@ -953,10 +953,20 @@ ipcMain.handle("system:getSpecs", async () => {
     const mem = await si.mem();
     const graphics = await si.graphics();
     const osInfo = await si.osInfo();
+    const fsSize = await si.fsSize().catch(() => []);
 
     const gpu =
       graphics.controllers.find((c) => c.vram > 1024) ||
       graphics.controllers[0];
+    const vramGb = gpu?.vram ? Math.round((gpu.vram / 1024) * 10) / 10 : 0;
+
+    // Espacio libre: no sabemos en que unidad va a instalar el usuario el
+    // juego, asi que se toma la unidad con mas espacio libre (heuristica
+    // "cabria en algun sitio", no una unidad concreta).
+    const drives = (fsSize || []).filter((d) => d.size > 0);
+    const freeStorage = drives.length
+      ? Math.floor(Math.max(...drives.map((d) => d.available / 1024 / 1024 / 1024)))
+      : null;
 
     return {
       cpu: `${cpu.manufacturer} ${cpu.brand}`,
@@ -964,7 +974,9 @@ ipcMain.handle("system:getSpecs", async () => {
       gpu: gpu
         ? `${gpu.model} (${Math.floor(gpu.vram / 1024)} GB)`
         : "Integrada",
+      vram: vramGb,
       os: osInfo.distro,
+      freeStorage,
     };
   } catch (e) {
     console.error(e);

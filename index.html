@@ -26,17 +26,22 @@
     <div id="notification-container"></div>
 
     <div class="app">
-      <!-- Sidebar -->
-      <aside class="sidebar">
-        <div class="sidebar-title">Sharingan Launcher</div>
-        <ul>
-          <li class="active" onclick="showSection('popular', this)">
-            Juegos populares
-          </li>
-          <li onclick="showSection('library', this)">Mi biblioteca</li>
-          <li onclick="showSection('completed', this)">Juegos pasados</li>
-        </ul>
-      </aside>
+      <!-- Navegación superior -->
+      <nav class="topnav">
+        <span class="topnav-title">Sharingan Launcher</span>
+        <div class="topnav-item active" onclick="showSection('popular', this)">
+          <svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+          Juegos populares
+        </div>
+        <div class="topnav-item" onclick="showSection('library', this)">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          Mi biblioteca
+        </div>
+        <div class="topnav-item" onclick="showSection('completed', this)">
+          <svg viewBox="0 0 24 24"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0V4Z"/><path d="M7 6H4a2 2 0 0 0 0 4h1"/><path d="M17 6h3a2 2 0 0 1 0 4h-1"/></svg>
+          Juegos pasados
+        </div>
+      </nav>
 
       <!-- Contenido principal -->
       <main class="main-content">
@@ -123,6 +128,14 @@
           .replace(/'/g, "&#39;");
       }
 
+      // Botón "Información" reutilizable — en Juegos populares deja ver los
+      // requisitos antes de decidir si merece la pena añadirlo.
+      function infoButtonHtml(gameId) {
+        return `<button class="icon-btn" onclick="openInfoModal('${gameId}')" title="Información" aria-label="Información">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="8" r="0.5" fill="currentColor" stroke-width="1.5"/></svg>
+        </button>`;
+      }
+
       // ===============================
       // Navegación lateral
       // ===============================
@@ -133,7 +146,7 @@
         document.getElementById(id).classList.add("active");
 
         document
-          .querySelectorAll(".sidebar li")
+          .querySelectorAll(".topnav-item")
           .forEach((li) => li.classList.remove("active"));
         if (el) el.classList.add("active");
 
@@ -284,11 +297,20 @@
       // ===============================
       // Acciones
       // ===============================
+      // Cambia solo el botón de la tarjeta ya en pantalla, sin repintar toda
+      // la rejilla (repintarla reseteaba el scroll a arriba del todo).
+      function markGameOwnedInGrid(gameId) {
+        const card = document.querySelector(
+          `#gamesList [data-game-id="${gameId}"] .card-actions`
+        );
+        if (card) card.innerHTML = `<span class="badge-owned">En tu biblioteca</span>${infoButtonHtml(gameId)}`;
+      }
+
       async function addFromJson(game) {
         try {
           await window.electronAPI.addGame(game);
           await loadLibrary();
-          refreshSearchUI();
+          markGameOwnedInGrid(game.id);
           showNotification(
             `"${game.name}" agregado a la biblioteca correctamente.`
           );
@@ -446,6 +468,11 @@
             all.games.find((g) => String(g.id) === String(id)) ||
             all.completedGames.find((g) => String(g.id) === String(id));
         }
+        // Todavia no esta en la biblioteca (se mira desde Juegos populares):
+        // se usa el resultado de la busqueda de IGDB tal cual.
+        if (!game) {
+          game = currentSearchGames.find((g) => String(g.id) === String(id));
+        }
         if (!game) return showNotification("Juego no encontrado", "error");
 
         // Aviso de carga: los 3 pasos siguientes pueden tardar un poco (sobre
@@ -493,9 +520,22 @@
         }
 
         // --- HELPER: Función para embellecer el texto de Steam ---
-        // Si la línea es de RAM y tenemos las specs del equipo, se compara
-        // numéricamente (única comparación fiable sin una base de datos de
-        // benchmarks — CPU/GPU se muestran informativos, sin veredicto).
+        // Comparación numérica fiable contra tu equipo en RAM, VRAM,
+        // almacenamiento libre y versión de Windows — son las únicas que se
+        // pueden comparar con un número sin ambigüedad. El modelo de CPU/GPU
+        // se muestra informativo, sin veredicto: comparar "Core i5-8400" vs
+        // "Ryzen 5 3600" de forma fiable necesitaría una base de datos de
+        // benchmarks (tipo PassMark) que no tenemos, y un veredicto
+        // equivocado ahí es peor que no dar ninguno.
+        const extractGb = (str) => {
+          const m = str.match(/(\d+(?:[.,]\d+)?)\s*GB/i);
+          return m ? parseFloat(m[1].replace(",", ".")) : NaN;
+        };
+        const extractWinVersion = (str) => {
+          const m = str.match(/windows\s*(\d+)/i);
+          return m ? parseInt(m[1], 10) : NaN;
+        };
+
         const formatSteamReqs = (text) => {
           if (!text || text.includes("No disponible"))
             return '<p class="req-val" style="opacity:0.5">Información no disponible.</p>';
@@ -530,12 +570,31 @@
               const cleanKey = key.replace(/•/g, "").trim();
               const safeKey = escapeHtml(cleanKey);
               const safeVal = escapeHtml(val);
+              const keyLower = cleanKey.toLowerCase();
 
               let lineClass = "req-line";
-              if (mySpecs?.ram && /memoria|ram/i.test(cleanKey)) {
-                const requiredGb = parseFloat((val.match(/(\d+(?:[.,]\d+)?)\s*GB/i) || [])[1]);
-                if (!Number.isNaN(requiredGb)) {
-                  lineClass += mySpecs.ram >= requiredGb ? " req-pass" : " req-fail";
+              if (mySpecs) {
+                if (/memoria|^ram$/i.test(keyLower)) {
+                  const req = extractGb(val);
+                  if (!Number.isNaN(req)) {
+                    lineClass += mySpecs.ram >= req ? " req-pass" : " req-fail";
+                  }
+                } else if (/almacenamiento|espacio|storage/i.test(keyLower)) {
+                  const req = extractGb(val);
+                  if (!Number.isNaN(req) && mySpecs.freeStorage != null) {
+                    lineClass += mySpecs.freeStorage >= req ? " req-pass" : " req-fail";
+                  }
+                } else if (/^so$|^os$|sistema operativo/i.test(keyLower)) {
+                  const req = extractWinVersion(val);
+                  const mine = extractWinVersion(mySpecs.os || "");
+                  if (!Number.isNaN(req) && !Number.isNaN(mine)) {
+                    lineClass += mine >= req ? " req-pass" : " req-fail";
+                  }
+                } else if (/vram/i.test(val) || /vram/i.test(keyLower)) {
+                  const req = extractGb(val);
+                  if (!Number.isNaN(req) && mySpecs.vram) {
+                    lineClass += mySpecs.vram >= req ? " req-pass" : " req-fail";
+                  }
                 }
               }
 
@@ -559,7 +618,9 @@
         };
 
         const mySpecsHtml = mySpecs
-          ? `<p class="my-specs">Tu equipo: ${escapeHtml(mySpecs.cpu)} · ${mySpecs.ram} GB RAM · ${escapeHtml(mySpecs.gpu)}</p>`
+          ? `<p class="my-specs">Tu equipo: ${escapeHtml(mySpecs.cpu)} · ${mySpecs.ram} GB RAM · ${escapeHtml(mySpecs.gpu)}${
+              mySpecs.freeStorage != null ? ` · ${mySpecs.freeStorage} GB libres` : ""
+            }</p>`
           : "";
 
         // 4. Renderizar
@@ -620,7 +681,7 @@
             <div class="empty-state">
               <p class="empty-title">Todavía no tienes juegos en tu biblioteca.</p>
               <p class="empty-text">Busca juegos en la sección de populares y añádelos a tu biblioteca.</p>
-              <button class="primary" onclick="showSection('popular', document.querySelector('.sidebar li:nth-child(1)'))">
+              <button class="primary" onclick="showSection('popular', document.querySelectorAll('.topnav-item')[0])">
                 Buscar juegos
               </button>
             </div>
@@ -633,7 +694,7 @@
             <div class="empty-state">
               <p class="empty-title">Aún no has completado ningún juego.</p>
               <p class="empty-text">Es hora de jugar. Cuando termines un juego podrás marcarlo como pasado.</p>
-              <button class="primary" onclick="showSection('library', document.querySelector('.sidebar li:nth-child(2)'))">
+              <button class="primary" onclick="showSection('library', document.querySelectorAll('.topnav-item')[1])">
                 Ir a mi biblioteca
               </button>
             </div>
@@ -645,6 +706,7 @@
         games.forEach((game) => {
           const div = document.createElement("div");
           div.className = "game-card";
+          div.dataset.gameId = game.id;
 
           const name = game.name || "Sin nombre";
           const safeAttrName = name.replace(/"/g, "&quot;");
@@ -662,9 +724,9 @@
             gamesTemp.push(game);
 
             if (libraryIds.has(game.id)) {
-              buttonsHtml = `<span class="badge-owned">En tu biblioteca</span>`;
+              buttonsHtml = `<span class="badge-owned">En tu biblioteca</span>${infoButtonHtml(game.id)}`;
             } else {
-              buttonsHtml = `<button class="primary add-btn" data-index='${index}'>Agregar a biblioteca</button>`;
+              buttonsHtml = `<button class="primary add-btn" data-index='${index}'>Agregar a biblioteca</button>${infoButtonHtml(game.id)}`;
             }
           } else if (mode === "library") {
             const hasExe = !!game.executable;
@@ -1158,12 +1220,12 @@
         // Volver a biblioteca como acción "atrás" sencilla
         showSection(
           "library",
-          document.querySelector(".sidebar li:nth-child(2)")
+          document.querySelectorAll(".topnav-item")[1]
         );
       }
 
       function switchSection(delta) {
-        const items = Array.from(document.querySelectorAll(".sidebar li"));
+        const items = Array.from(document.querySelectorAll(".topnav-item"));
         const activeIdx = items.findIndex((li) =>
           li.classList.contains("active")
         );
