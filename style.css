@@ -485,31 +485,58 @@ button:disabled:active {
 /* Notificaciones */
 #notification-container {
   position: fixed;
-  top: 20px;
+  /* Debajo del topnav (~52px de alto) + un margen, para que nunca lo tape */
+  top: 64px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 1000;
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 10px;
 }
 
 .notification {
-  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 22px 11px 18px;
   border-radius: 999px;
-  color: white;
+  color: var(--washi-100);
   font-weight: 600;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  font-size: 13px;
+  background: rgba(16, 14, 16, 0.92);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--ink-700);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.45);
   opacity: 0;
   animation: fadeInOut 3s forwards;
 }
 
+.notification::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  flex-shrink: 0;
+  border-radius: 50%;
+}
+
 .notification.success {
-  background-color: var(--green-500);
+  border-color: rgba(95, 127, 71, 0.4);
+}
+
+.notification.success::before {
+  background: var(--green-500);
+  box-shadow: 0 0 8px var(--green-500);
 }
 
 .notification.error {
-  background-color: var(--red-500);
+  border-color: rgba(188, 0, 45, 0.4);
+}
+
+.notification.error::before {
+  background: var(--red-500);
+  box-shadow: 0 0 8px var(--red-500);
 }
 
 @keyframes fadeInOut {
@@ -585,22 +612,16 @@ button:disabled:active {
 
 /* Filtros */
 .filter-btn {
-  min-width: 150px;
   border-radius: 999px;
-  padding: 7px 16px;
+  padding: 8px 18px;
   font-size: 12px;
   font-family: inherit;
   background: var(--ink-800);
   color: var(--ink-200);
   border: 1px solid var(--ink-700);
   cursor: pointer;
+  white-space: nowrap;
   transition: background 0.2s var(--ease-smooth), border-color 0.2s var(--ease-smooth), color 0.2s var(--ease-smooth), transform 0.15s var(--ease-smooth);
-  margin: 10px;
-  margin-top: 15px;
-}
-
-.importBtn {
-  margin-left: 0px;
 }
 
 .filter-btn:hover {
@@ -616,9 +637,14 @@ button:disabled:active {
 .library-header {
   display: flex;
   flex-direction: row;
-  align-items: center;
-  justify-content: flex-start;
-  margin-bottom: 14px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.library-header-title {
+  margin-right: auto;
 }
 
 /* Ocultar scrollbar globalmente */
