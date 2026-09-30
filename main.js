@@ -26,8 +26,50 @@ try {
 }
 
 const IGDB_CLIENT_ID = config.igdbClientId || "";
-const IGDB_ACCESS_TOKEN = config.igdbAccessToken || "";
+const IGDB_CLIENT_SECRET = config.igdbClientSecret || "";
 const IGDB_URL = "https://api.igdb.com/v4";
+
+// -------------------- Token IGDB (via Twitch OAuth) --------------------
+// IGDB se autentica con un App Access Token de Twitch que caduca solo (unos
+// 60 dias) - en vez de guardarlo fijo (se queda obsoleto y todo deja de
+// cargar en silencio), se pide uno nuevo con el Client Secret cuando hace
+// falta y se cachea en memoria hasta que esta a punto de caducar.
+let igdbTokenCache = { token: null, expiresAt: 0 };
+
+async function getIgdbToken(forceRefresh = false) {
+  const now = Date.now();
+  // Margen de 5 minutos antes de que caduque de verdad, por si acaso.
+  if (!forceRefresh && igdbTokenCache.token && now < igdbTokenCache.expiresAt - 5 * 60 * 1000) {
+    return igdbTokenCache.token;
+  }
+
+  if (!IGDB_CLIENT_ID || !IGDB_CLIENT_SECRET) {
+    throw new Error("Faltan igdbClientId/igdbClientSecret en config.json");
+  }
+
+  const params = new URLSearchParams({
+    client_id: IGDB_CLIENT_ID,
+    client_secret: IGDB_CLIENT_SECRET,
+    grant_type: "client_credentials",
+  });
+
+  const res = await fetch(`https://id.twitch.tv/oauth2/token?${params.toString()}`, {
+    method: "POST",
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`No se pudo renovar el token de IGDB: ${res.status} ${text}`);
+  }
+
+  const data = await res.json();
+  igdbTokenCache = {
+    token: data.access_token,
+    expiresAt: now + (data.expires_in || 0) * 1000,
+  };
+  console.log("[IGDB] Token renovado, caduca en", Math.floor((data.expires_in || 0) / 86400), "dias");
+  return igdbTokenCache.token;
+}
 
 // === Ruta para guardar datos persistentes ===
 const dataFilePath = path.join(app.getPath("userData"), "library.json");
@@ -341,12 +383,20 @@ app.on("window-all-closed", () => {
 
 // -------------------- IGDB helper --------------------
 // Acepta 'endpoint' opcional ("games" por defecto) para usar "external_games" cuando sea necesario
-async function igdbGamesQuery(body, endpoint = "games") {
+async function igdbGamesQuery(body, endpoint = "games", isRetry = false) {
+  let token;
+  try {
+    token = await getIgdbToken();
+  } catch (err) {
+    console.error("IGDB token error", err.message);
+    return [];
+  }
+
   const res = await fetch(`${IGDB_URL}/${endpoint}`, {
     method: "POST",
     headers: {
       "Client-ID": IGDB_CLIENT_ID,
-      Authorization: `Bearer ${IGDB_ACCESS_TOKEN}`,
+      Authorization: `Bearer ${token}`,
       Accept: "application/json",
       "Content-Type": "text/plain",
     },
@@ -354,6 +404,12 @@ async function igdbGamesQuery(body, endpoint = "games") {
   });
 
   if (!res.ok) {
+    // Token invalidado desde fuera (revocado, etc.) antes de la caducidad
+    // que esperabamos: se fuerza una renovacion y se reintenta una vez.
+    if (res.status === 401 && !isRetry) {
+      await getIgdbToken(true);
+      return igdbGamesQuery(body, endpoint, true);
+    }
     const text = await res.text();
     console.error("IGDB error", res.status, text);
     return [];
@@ -833,24 +889,7 @@ ipcMain.handle("games:enrichCovers", async (_e, opts = {}) => {
     const searchName = baseName;
     const safeQ = searchName.replace(/"/g, '\\"');
 
-    const res = await fetch(`${IGDB_URL}/games`, {
-      method: "POST",
-      headers: {
-        "Client-ID": IGDB_CLIENT_ID,
-        Authorization: `Bearer ${IGDB_ACCESS_TOKEN}`,
-        Accept: "application/json",
-        "Content-Type": "text/plain",
-      },
-      body: `search "${safeQ}"; fields id,name,cover.image_id; limit 20;`,
-    });
-
-    if (!res.ok) {
-      const text = await res.text();
-      console.error("[enrichCovers] IGDB error", res.status, text);
-      continue;
-    }
-
-    const data = await res.json();
+    const data = await igdbGamesQuery(`search "${safeQ}"; fields id,name,cover.image_id; limit 20;`);
     if (!Array.isArray(data) || !data.length) {
       console.log("[enrichCovers] sin resultados para", originalName);
       await sleep(250);
