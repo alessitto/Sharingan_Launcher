@@ -112,6 +112,10 @@ h3 {
 
 .main-content {
   flex: 1;
+  min-height: 0; /* si no, un hijo flex con overflow:auto no se limita a
+    su hueco y crece con el contenido en vez de scrollear el solo - lo
+    que de verdad scrolleaba era la ventana entera, por eso el sticky
+    del indice no tenia a que "engancharse" y se quedaba flotando suelto */
   padding: 20px 24px;
   overflow: auto;
 }
