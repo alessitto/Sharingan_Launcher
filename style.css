@@ -88,6 +88,22 @@ h3 {
   user-select: none;
 }
 
+.version-link {
+  margin-left: auto;
+  padding-left: 14px;
+  font-size: 11px;
+  color: var(--ink-500);
+  cursor: pointer;
+  user-select: none;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  transition: color 0.15s;
+}
+
+.version-link:hover {
+  color: var(--ink-300);
+}
+
 .topnav-item svg {
   width: 16px;
   height: 16px;

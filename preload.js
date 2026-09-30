@@ -34,6 +34,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Specs del equipo, para comparar contra los requisitos del juego
   getSystemSpecs: () => ipcRenderer.invoke('system:getSpecs'),
 
+  // Historial de versiones
+  getAppVersion: () => ipcRenderer.invoke('app:getVersion'),
+  getChangelog: () => ipcRenderer.invoke('changelog:get'),
+
   // Sagas / carpetas de juegos
   getSagas: () => ipcRenderer.invoke('sagas:get'),
   createSaga: (name) => ipcRenderer.invoke('sagas:create', name),

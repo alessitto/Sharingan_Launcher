@@ -1352,6 +1352,29 @@ ipcMain.handle("system:getSpecs", async () => {
   }
 });
 
+// -------------------- Historial de versiones --------------------
+ipcMain.handle("app:getVersion", () => app.getVersion());
+
+ipcMain.handle("changelog:get", async () => {
+  try {
+    const res = await fetch(
+      "https://api.github.com/repos/alessitto/Sharingan_Launcher/releases",
+      { headers: { "User-Agent": "SharinganLauncher" } }
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.map((r) => ({
+      tag: r.tag_name,
+      name: r.name || r.tag_name,
+      body: r.body || "",
+      publishedAt: r.published_at,
+    }));
+  } catch (e) {
+    console.error("[Changelog] No se pudo cargar desde GitHub:", e.message);
+    return [];
+  }
+});
+
 // -------------------- IGDB Details (Info Modal) --------------------
 ipcMain.handle("igdb:getDetails", async (_e, id) => {
   return igdbGamesQuery(`

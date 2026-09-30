@@ -41,6 +41,8 @@
           <svg viewBox="0 0 24 24"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0V4Z"/><path d="M7 6H4a2 2 0 0 0 0 4h1"/><path d="M17 6h3a2 2 0 0 1 0 4h-1"/></svg>
           Juegos pasados
         </div>
+
+        <span id="versionLink" class="version-link" onclick="openChangelogModal()" title="Historial de versiones"></span>
       </nav>
 
       <!-- Contenido principal -->
@@ -224,6 +226,7 @@
 
         // carga datos
         loadGenreOptions();
+        loadAppVersion();
         const loadPromises = Promise.all([loadLibrary(), loadDiscoverGames()]);
 
         setTimeout(async () => {
@@ -1240,6 +1243,80 @@
       // ===============================
       // Sagas (carpetas de juegos, con orden propio)
       // ===============================
+      // ===============================
+      // Historial de versiones
+      // ===============================
+      async function loadAppVersion() {
+        try {
+          const version = await window.electronAPI.getAppVersion();
+          const el = document.getElementById("versionLink");
+          if (el && version) el.textContent = `v${version}`;
+        } catch (err) {
+          console.error("No se pudo leer la versión de la app", err);
+        }
+      }
+
+      async function openChangelogModal() {
+        const version = document.getElementById("versionLink")?.textContent || "";
+
+        Swal.fire({
+          background: "#100e10",
+          color: "#f3efe6",
+          title: "Historial de versiones",
+          html: '<p style="font-size:13px; opacity:.7;">Cargando…</p>',
+          showConfirmButton: false,
+          showCloseButton: true,
+          width: 560,
+          didOpen: () => Swal.showLoading(),
+        });
+
+        let releases = [];
+        try {
+          releases = (await window.electronAPI.getChangelog()) || [];
+        } catch (err) {
+          console.error(err);
+        }
+
+        if (!releases.length) {
+          Swal.update({
+            html: '<p style="font-size:13px; opacity:.7;">No se pudo cargar el historial ahora mismo (necesita conexión a internet).</p>',
+          });
+          return;
+        }
+
+        const rows = releases
+          .map((r) => {
+            const date = r.publishedAt
+              ? new Date(r.publishedAt).toLocaleDateString("es-ES", {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                })
+              : "";
+            const lines = (r.body || "")
+              .split("\n")
+              .map((l) => l.trim())
+              .filter(Boolean)
+              .map((l) => `<li>${escapeHtml(l.replace(/^[-*]\s*/, ""))}</li>`)
+              .join("");
+
+            return `
+            <div style="border-bottom:1px solid var(--ink-800); padding:14px 0; text-align:left;">
+              <div style="display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin-bottom:6px;">
+                <span style="font-family:'Shippori Mincho', serif; font-size:16px;">${escapeHtml(r.name)}</span>
+                <span style="font-size:11px; opacity:.5; flex-shrink:0;">${date}</span>
+              </div>
+              ${lines ? `<ul style="margin:0; padding-left:18px; font-size:13px; opacity:.8; line-height:1.6;">${lines}</ul>` : ""}
+            </div>
+          `;
+          })
+          .join("");
+
+        Swal.update({
+          html: `<div style="max-height:60vh; overflow-y:auto; margin-top:-8px;">${rows}</div>`,
+        });
+      }
+
       async function openSagasModal() {
         let sagas = (await window.electronAPI.getSagas()) || [];
         const { games: libGames, completedGames: doneGames } =
