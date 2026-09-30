@@ -49,6 +49,7 @@
       <main class="main-content">
         <!-- Populares / búsqueda -->
         <section id="popular" class="section active">
+          <span class="section-eyebrow">Catálogo</span>
           <h2 class="section-title">Descubrir</h2>
           <input
             type="text"
@@ -81,7 +82,10 @@
         <!-- Biblioteca -->
         <section id="library" class="section">
           <div class="library-header">
-            <h2 class="section-title" id="libraryTitle">Juegos (0)</h2>
+            <div>
+              <span class="section-eyebrow">Mi biblioteca</span>
+              <h2 class="section-title" id="libraryTitle" style="margin-bottom: 0;">Juegos (0)</h2>
+            </div>
 
             <button
               id="linkedFilterBtn"
@@ -107,6 +111,7 @@
 
         <!-- Pasados -->
         <section id="completed" class="section">
+          <span class="section-eyebrow">Historial</span>
           <h2 class="section-title">Juegos pasados</h2>
           <div id="completedList" class="cards-grid"></div>
         </section>
@@ -897,7 +902,7 @@
         `;
 
         div.innerHTML = `
-          <img src="${coverUrl}" alt="${safeAttrName}">
+          <div class="card-cover"><img src="${coverUrl}" alt="${safeAttrName}"></div>
           <h3>${escapeHtml(name)}</h3>
           <div class="card-actions">${buttonsHtml}</div>
         `;
@@ -930,7 +935,7 @@
           : `<button class="primary add-btn" data-index='${index}'>Agregar a biblioteca</button>${infoButtonHtml(game.id)}`;
 
         div.innerHTML = `
-          <img src="${coverUrl}" alt="${safeAttrName}">
+          <div class="card-cover"><img src="${coverUrl}" alt="${safeAttrName}"></div>
           <h3>${escapeHtml(name)}</h3>
           <div class="card-actions">${buttonsHtml}</div>
         `;
@@ -1108,7 +1113,7 @@
           const sagaTagHtml = saga ? `<div class="saga-tag">📚 ${escapeHtml(saga.name)}</div>` : "";
 
           div.innerHTML = `
-          <img src="${coverUrl}" alt="${safeAttrName}">
+          <div class="card-cover"><img src="${coverUrl}" alt="${safeAttrName}"></div>
           <h3>${escapeHtml(name)}</h3>
           ${sagaTagHtml}
           <div class="card-actions">${buttonsHtml}</div>
