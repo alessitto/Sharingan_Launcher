@@ -118,12 +118,22 @@ function saveData() {
 const settingsFilePath = path.join(app.getPath("userData"), "settings.json");
 const GAMES_PER_PAGE_MIN = 12;
 const GAMES_PER_PAGE_MAX = 200;
-let appSettings = { gamesPerPage: 60 };
+// Por debajo de 3 las cards se quedan sin sentido como "grid", por encima de
+// 10 se vuelven ilegibles (miniaturas minúsculas) en una ventana normal.
+const GRID_COLUMNS_MIN = 3;
+const GRID_COLUMNS_MAX = 10;
+let appSettings = { gamesPerPage: 60, gridColumns: 6 };
 
 function clampGamesPerPage(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return appSettings.gamesPerPage;
   return Math.min(GAMES_PER_PAGE_MAX, Math.max(GAMES_PER_PAGE_MIN, Math.round(n)));
+}
+
+function clampGridColumns(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return appSettings.gridColumns;
+  return Math.min(GRID_COLUMNS_MAX, Math.max(GRID_COLUMNS_MIN, Math.round(n)));
 }
 
 function loadSettings() {
@@ -134,6 +144,7 @@ function loadSettings() {
         ...appSettings,
         ...parsed,
         gamesPerPage: clampGamesPerPage(parsed.gamesPerPage),
+        gridColumns: clampGridColumns(parsed.gridColumns),
       };
     }
   } catch (err) {
@@ -156,6 +167,9 @@ ipcMain.handle("settings:get", () => appSettings);
 ipcMain.handle("settings:set", (_e, patch = {}) => {
   if (patch.gamesPerPage !== undefined) {
     appSettings.gamesPerPage = clampGamesPerPage(patch.gamesPerPage);
+  }
+  if (patch.gridColumns !== undefined) {
+    appSettings.gridColumns = clampGridColumns(patch.gridColumns);
   }
   saveSettings();
   return appSettings;
