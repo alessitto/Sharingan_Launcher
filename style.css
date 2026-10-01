@@ -913,16 +913,6 @@ button:disabled:active {
   border-radius: 999px;
 }
 
-.import-confirm {
-  font-size: 14px !important;
-  padding: 10px 16px !important;
-}
-
-.import-cancel {
-  font-size: 14px !important;
-  padding: 10px 16px !important;
-}
-
 /* --- Dropdown Menu --- */
 .action-menu {
   position: relative;
@@ -1040,62 +1030,11 @@ button:disabled:active {
   margin-bottom: 12px;
 }
 
-.info-text {
-  font-size: 14px;
-  color: var(--ink-200);
-  line-height: 1.5;
-  margin-bottom: 20px;
-  max-height: 150px;
-  overflow-y: auto;
-  padding-right: 5px;
-}
-
-/* Requisitos */
-.req-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 15px;
-  background: var(--ink-800);
-  padding: 15px;
-  border-radius: 10px;
-}
-
-.req-column h4 {
-  margin: 0 0 10px 0;
-  color: var(--washi-50);
-  text-align: center;
-  font-size: 13px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-.req-item {
-  display: flex;
-  flex-direction: column;
-  margin-bottom: 8px;
-  font-size: 12px;
-  padding: 6px;
-  border-radius: 6px;
-  border: 1px solid transparent;
-  background: rgba(0, 0, 0, 0.2);
-}
-
-.req-label {
-  color: var(--ink-400);
-  font-weight: bold;
-  margin-bottom: 2px;
-}
-
-.req-value {
-  color: var(--washi-100);
-}
-
-/* Estados de comparación */
+/* Estados de comparación de requisitos */
 .req-pass {
   border-color: var(--green-500);
   background: rgba(95, 127, 71, 0.12);
 }
-.req-pass .req-value,
 .req-pass .req-val {
   color: #8fb572;
 }
@@ -1104,7 +1043,6 @@ button:disabled:active {
   border-color: var(--red-500);
   background: rgba(188, 0, 45, 0.12);
 }
-.req-fail .req-value,
 .req-fail .req-val {
   color: #e2607a;
 }

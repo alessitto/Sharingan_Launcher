@@ -869,16 +869,6 @@ ipcMain.handle("sagas:create", (_e, name) => {
   return sagas;
 });
 
-ipcMain.handle("sagas:rename", (_e, { id, name }) => {
-  const s = sagas.find((x) => x.id === id);
-  const trimmed = (name || "").trim();
-  if (s && trimmed) {
-    s.name = trimmed;
-    saveData();
-  }
-  return sagas;
-});
-
 ipcMain.handle("sagas:delete", (_e, id) => {
   sagas = sagas.filter((x) => x.id !== id);
   saveData();
@@ -967,8 +957,6 @@ ipcMain.handle("dialog:openDirectory", async (_e, opts = {}) => {
 
 // -------------------- Import installed (Steam/Epic/GOG/NONE) --------------------
 ipcMain.handle("games:importInstalled", async (_e, config) => {
-  console.log("games:importInstalled called", config);
-
   const report = {
     steam: { found: 0, imported: 0, errors: [] },
     epic: { found: 0, imported: 0, errors: [] },
