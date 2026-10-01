@@ -2180,6 +2180,20 @@
                   </div>
                 </div>
               </div>
+
+              <div class="settings-divider"></div>
+
+              <div class="settings-section">
+                <span class="section-eyebrow">Actualizaciones</span>
+                <div class="settings-update">
+                  <p id="settingsUpdateText" class="settings-update-text">
+                    Versión instalada: ${escapeHtml(document.getElementById("versionLink")?.textContent || "")}
+                  </p>
+                  <button type="button" id="settingsUpdateBtn" class="sl-btn sl-btn-ghost">
+                    ${icon("download")}Buscar actualizaciones
+                  </button>
+                </div>
+              </div>
             </div>
           `,
           didOpen: () => {
@@ -2205,6 +2219,26 @@
             });
             colsInput?.addEventListener("change", () => {
               persistSetting({ gridColumns: Math.round(Number(colsInput.value)) });
+            });
+
+            const updateBtn = document.getElementById("settingsUpdateBtn");
+            const updateText = document.getElementById("settingsUpdateText");
+            updateBtn?.addEventListener("click", async () => {
+              updateBtn.disabled = true;
+              updateText.textContent = "Buscando actualizaciones…";
+              // Si había un aviso descartado con "Más tarde", que vuelva a salir.
+              updateDismissedVersion = null;
+              const res = (await window.electronAPI.checkForUpdates().catch(() => null)) || { status: "error" };
+              const messages = {
+                available: `Hay una versión nueva (v${res.version}). Tienes el aviso abajo a la derecha para instalarla.`,
+                downloading: "Ya se está descargando la actualización.",
+                installing: "Instalando la actualización, la app se reiniciará.",
+                latest: `Ya tienes la última versión (v${res.version}).`,
+                dev: "Las actualizaciones solo funcionan en la app instalada.",
+                error: "No se pudo comprobar. Revisa la conexión e inténtalo de nuevo.",
+              };
+              updateText.textContent = messages[res.status] || messages.error;
+              updateBtn.disabled = false;
             });
 
             const themeGrid = document.getElementById("themeGrid");

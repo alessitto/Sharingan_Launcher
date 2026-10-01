@@ -41,6 +41,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Actualizaciones automáticas
   getUpdateState: () => ipcRenderer.invoke('update:getState'),
   installUpdate: () => ipcRenderer.invoke('update:install'),
+  checkForUpdates: () => ipcRenderer.invoke('update:check'),
   onUpdateState: (cb) => ipcRenderer.on('update:state', (_e, state) => cb(state)),
 
   // Ajustes de usuario

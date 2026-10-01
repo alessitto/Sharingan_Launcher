@@ -2891,3 +2891,27 @@ body:has(.update-toast.show) .scroll-top-btn {
     transition: none;
   }
 }
+
+/* Ajustes: buscar actualizaciones a mano */
+.settings-update {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.settings-update-text {
+  flex: 1;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-300);
+}
+
+.settings-update .sl-btn {
+  flex-shrink: 0;
+}
+
+.settings-update .sl-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

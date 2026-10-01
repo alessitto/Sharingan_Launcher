@@ -633,6 +633,19 @@ function setupAutoUpdates() {
 }
 
 ipcMain.handle("update:getState", () => updateState);
+// Botón "Buscar actualizaciones" de Ajustes: misma búsqueda, pero a demanda
+// y devolviendo el resultado para enseñarlo.
+ipcMain.handle("update:check", async () => {
+  if (!autoUpdater) return { status: "dev" };
+  if (["downloading", "installing"].includes(updateState.status)) return updateState;
+  try {
+    const res = await autoUpdater.checkForUpdates();
+    if (res?.isUpdateAvailable) return { status: "available", version: res.updateInfo.version };
+    return { status: "latest", version: app.getVersion() };
+  } catch (err) {
+    return { status: "error" };
+  }
+});
 ipcMain.handle("update:install", async () => {
   if (!autoUpdater || !["available", "error"].includes(updateState.status)) return false;
   sendUpdate({ status: "downloading", percent: 0 });
