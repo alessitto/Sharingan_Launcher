@@ -583,9 +583,72 @@ function createWindow() {
   win.loadFile("index.html");
 }
 
+// -------------------- Actualizaciones automáticas --------------------
+// Busca nuevas versiones en las releases de GitHub en segundo plano (al
+// arrancar y cada 4 horas) sin molestar. Si hay una, avisa a la ventana y
+// es el usuario quien decide: solo entonces se descarga y se instala en
+// silencio, reabriendo la app ya actualizada. Solo en la app instalada (en
+// desarrollo no hay app-update.yml).
+let autoUpdater = null;
+let updateState = { status: "idle" };
+
+function sendUpdate(patch) {
+  updateState = { ...updateState, ...patch };
+  if (win && !win.isDestroyed()) win.webContents.send("update:state", updateState);
+}
+
+function setupAutoUpdates() {
+  if (!app.isPackaged) return;
+  try {
+    ({ autoUpdater } = require("electron-updater"));
+  } catch (err) {
+    console.error("electron-updater no disponible", err);
+    return;
+  }
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = false;
+  autoUpdater.allowPrerelease = true;
+  autoUpdater.logger = null;
+
+  autoUpdater.on("update-available", (info) =>
+    sendUpdate({ status: "available", version: info.version, percent: 0 })
+  );
+  autoUpdater.on("download-progress", (p) =>
+    sendUpdate({ status: "downloading", percent: Math.round(p.percent || 0) })
+  );
+  autoUpdater.on("update-downloaded", () => {
+    sendUpdate({ status: "installing", percent: 100 });
+    // isSilent: instala sin el asistente; isForceRunAfter: reabre la app.
+    setTimeout(() => autoUpdater.quitAndInstall(true, true), 1200);
+  });
+  autoUpdater.on("error", (err) => {
+    console.error("Actualizador:", err?.message || err);
+    // Si falla buscando, silencio; si falla descargando, se avisa.
+    if (updateState.status === "downloading") sendUpdate({ status: "error" });
+  });
+
+  const check = () => autoUpdater.checkForUpdates().catch(() => {});
+  setTimeout(check, 10000);
+  setInterval(check, 4 * 60 * 60 * 1000);
+}
+
+ipcMain.handle("update:getState", () => updateState);
+ipcMain.handle("update:install", async () => {
+  if (!autoUpdater || !["available", "error"].includes(updateState.status)) return false;
+  sendUpdate({ status: "downloading", percent: 0 });
+  try {
+    await autoUpdater.downloadUpdate();
+    return true;
+  } catch (err) {
+    sendUpdate({ status: "error" });
+    return false;
+  }
+});
+
 app.whenReady().then(() => {
   loadData();
   createWindow();
+  setupAutoUpdates();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

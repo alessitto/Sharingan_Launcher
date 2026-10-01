@@ -38,6 +38,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAppVersion: () => ipcRenderer.invoke('app:getVersion'),
   getChangelog: () => ipcRenderer.invoke('changelog:get'),
 
+  // Actualizaciones automáticas
+  getUpdateState: () => ipcRenderer.invoke('update:getState'),
+  installUpdate: () => ipcRenderer.invoke('update:install'),
+  onUpdateState: (cb) => ipcRenderer.on('update:state', (_e, state) => cb(state)),
+
   // Ajustes de usuario
   getSettings: () => ipcRenderer.invoke('settings:get'),
   setSettings: (patch) => ipcRenderer.invoke('settings:set', patch),

@@ -247,96 +247,145 @@ body {
 }
 
 /* ===============================
-   Fondo decorativo por tema
+   Fondo por tema
    =============================== */
-/* Capa fija detrás de toda la app (CSS puro, sin imágenes) - se ve en los
-   huecos entre cards y márgenes, donde no hay nada opaco encima. Cada tema
-   tiene su propio patrón geométrico relacionado con el Pokémon: Uchiha usa
-   anillos (el propio Sharingan), Rayquaza el cruce de sus anillos
-   amarillos, Zekrom/Luxray rayos y chispas, etc. El color sale siempre de
-   --red-500-rgb del tema activo, así que si el acento cambia el patrón
-   sigue a juego solo. z-index negativo para quedar por detrás de .app y
-   #intro-screen sin tener que tocar su z-index. */
+/* Capa fija detrás de toda la app, en tres partes:
+   - el propio fondo: dos luces de ambiente (acento + un segundo color del
+     Pokémon) sobre el color base del tema;
+   - ::before: la ilustración del tema (assets/bg/<tema>.svg) usada como
+     máscara y pintada con el acento, así siempre va a juego con el tema;
+   - ::after: grano fino y viñeta para que no quede plano.
+   Cada tema solo cambia las variables --bg-*. z-index negativo para quedar
+   por detrás de .app y #intro-screen sin tocar su z-index. */
+:root {
+  --bg-art: url("assets/bg/uchiha.svg");
+  --bg-art-a: 0.09;
+  --bg-art-pos: center;
+  --bg-g1-pos: 8% 6%;
+  --bg-g1-a: 0.16;
+  --bg-g2-rgb: 120, 0, 30;
+  --bg-g2-pos: 88% 92%;
+  --bg-g2-a: 0.3;
+  --bg-vignette: rgba(0, 0, 0, 0.45);
+  --bg-grain-a: 0.07;
+  --bg-grain-blend: overlay;
+}
+
+:root[data-theme="rayquaza"] {
+  --bg-art: url("assets/bg/rayquaza.svg");
+  --bg-art-a: 0.1;
+  --bg-g1-pos: 85% 10%;
+  --bg-g1-a: 0.12;
+  --bg-g2-rgb: 20, 40, 32;
+  --bg-g2-pos: 10% 95%;
+  --bg-g2-a: 0.55;
+  --bg-vignette: rgba(14, 34, 25, 0.55);
+}
+
+:root[data-theme="reshiram"] {
+  --bg-art: url("assets/bg/reshiram.svg");
+  --bg-art-a: 0.13;
+  --bg-g1-pos: 82% 22%;
+  --bg-g1-a: 0.16;
+  --bg-g2-rgb: 150, 185, 220;
+  --bg-g2-pos: 10% 90%;
+  --bg-g2-a: 0.22;
+  --bg-vignette: rgba(120, 110, 105, 0.16);
+  --bg-grain-a: 0.09;
+  --bg-grain-blend: multiply;
+}
+
+:root[data-theme="zekrom"] {
+  --bg-art: url("assets/bg/zekrom.svg");
+  --bg-art-a: 0.085;
+  --bg-g1-pos: 84% 78%;
+  --bg-g1-a: 0.11;
+  --bg-g2-rgb: 40, 30, 90;
+  --bg-g2-pos: 12% 10%;
+  --bg-g2-a: 0.45;
+}
+
+:root[data-theme="blaziken"] {
+  --bg-art: url("assets/bg/blaziken.svg");
+  --bg-art-a: 0.15;
+  --bg-g1-pos: 50% 105%;
+  --bg-g1-a: 0.16;
+  --bg-g2-rgb: 230, 80, 30;
+  --bg-g2-pos: 90% 0%;
+  --bg-g2-a: 0.2;
+  --bg-vignette: rgba(40, 12, 6, 0.5);
+}
+
+:root[data-theme="luxray"] {
+  --bg-art: url("assets/bg/luxray.svg");
+  --bg-art-a: 0.12;
+  --bg-g1-pos: 80% 22%;
+  --bg-g1-a: 0.1;
+  --bg-g2-rgb: 50, 80, 210;
+  --bg-g2-pos: 12% 88%;
+  --bg-g2-a: 0.22;
+}
+
+:root[data-theme="mewtwo"] {
+  --bg-art: url("assets/bg/mewtwo.svg");
+  --bg-art-a: 0.17;
+  --bg-g1-pos: 78% 28%;
+  --bg-g1-a: 0.2;
+  --bg-g2-rgb: 40, 20, 50;
+  --bg-g2-pos: 8% 95%;
+  --bg-g2-a: 0.5;
+  --bg-vignette: rgba(30, 18, 32, 0.5);
+}
+
+:root[data-theme="mew"] {
+  --bg-art: url("assets/bg/mew.svg");
+  --bg-art-a: 0.2;
+  --bg-g1-pos: 80% 25%;
+  --bg-g1-a: 0.18;
+  --bg-g2-rgb: 140, 200, 240;
+  --bg-g2-pos: 10% 85%;
+  --bg-g2-a: 0.25;
+  --bg-vignette: rgba(150, 110, 125, 0.16);
+  --bg-grain-a: 0.09;
+  --bg-grain-blend: multiply;
+}
+
 .theme-bg {
   position: fixed;
   inset: 0;
   z-index: -1;
   pointer-events: none;
-}
-
-/* Uchiha (tema por defecto): anillos concéntricos, como el propio ojo */
-.theme-bg {
-  background-image: repeating-radial-gradient(
-      circle at 18% 22%,
-      rgba(var(--red-500-rgb), 0.08) 0 2px,
-      transparent 2px 52px
+  overflow: hidden;
+  background: radial-gradient(ellipse 120% 95% at 50% 45%, transparent 55%, var(--bg-vignette)),
+    radial-gradient(
+      ellipse 65% 60% at var(--bg-g1-pos),
+      rgba(var(--red-500-rgb), var(--bg-g1-a)),
+      transparent 70%
     ),
-    repeating-radial-gradient(circle at 82% 72%, rgba(var(--red-500-rgb), 0.06) 0 2px, transparent 2px 66px);
+    radial-gradient(ellipse 60% 65% at var(--bg-g2-pos), rgba(var(--bg-g2-rgb), var(--bg-g2-a)), transparent 72%),
+    var(--ink-950);
+  transition: background-color 0.4s var(--ease-smooth);
 }
 
-/* Rayquaza: cruce diagonal, como los anillos de su cuerpo */
-:root[data-theme="rayquaza"] .theme-bg {
-  background-image: repeating-linear-gradient(
-      58deg,
-      rgba(var(--red-500-rgb), 0.08) 0 2px,
-      transparent 2px 44px
-    ),
-    repeating-linear-gradient(-58deg, rgba(var(--red-500-rgb), 0.06) 0 2px, transparent 2px 44px);
+.theme-bg::before,
+.theme-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
 }
 
-/* Reshiram: rayas largas y suaves, como las llamas/cristales de su lomo */
-:root[data-theme="reshiram"] .theme-bg {
-  background-image: repeating-linear-gradient(
-    115deg,
-    rgba(var(--red-500-rgb), 0.07) 0 2px,
-    transparent 2px 90px
-  );
+.theme-bg::before {
+  background: rgb(var(--red-500-rgb));
+  opacity: var(--bg-art-a);
+  -webkit-mask: var(--bg-art) var(--bg-art-pos) / cover no-repeat;
+  mask: var(--bg-art) var(--bg-art-pos) / cover no-repeat;
 }
 
-/* Zekrom: cruce de líneas quebradas, como un rayo */
-:root[data-theme="zekrom"] .theme-bg {
-  background-image: repeating-linear-gradient(
-      82deg,
-      rgba(var(--red-500-rgb), 0.09) 0 2px,
-      transparent 2px 38px
-    ),
-    repeating-linear-gradient(98deg, rgba(var(--red-500-rgb), 0.07) 0 2px, transparent 2px 38px);
-}
-
-/* Blaziken: franjas en diagonal, como las plumas de fuego de sus patas */
-:root[data-theme="blaziken"] .theme-bg {
-  background-image: repeating-linear-gradient(
-    45deg,
-    rgba(var(--red-500-rgb), 0.08) 0 3px,
-    transparent 3px 36px
-  );
-}
-
-/* Luxray: chispas sueltas y pequeñas, como las marcas en forma de estrella
-   de su piel - dos capas de puntos a distinto tamaño/espaciado para que no
-   se vea como una rejilla perfecta. */
-:root[data-theme="luxray"] .theme-bg {
-  background-image: radial-gradient(circle, rgba(var(--red-500-rgb), 0.16) 1.4px, transparent 1.6px),
-    radial-gradient(circle, rgba(var(--red-500-rgb), 0.11) 1.4px, transparent 1.6px);
-  background-size: 64px 64px, 92px 92px;
-  background-position: 0 0, 34px 48px;
-}
-
-/* Mewtwo: burbujas grandes y blandas, muy espaciadas - sensación psíquica,
-   flotando, no "rejilla". */
-:root[data-theme="mewtwo"] .theme-bg {
-  background-image: radial-gradient(circle, rgba(var(--red-500-rgb), 0.11) 3px, transparent 3.5px),
-    radial-gradient(circle, rgba(var(--red-500-rgb), 0.08) 2px, transparent 2.5px);
-  background-size: 130px 130px, 88px 88px;
-  background-position: 18px 26px, 72px 10px;
-}
-
-/* Mew: burbujas pequeñas y más juntas, más ligero y juguetón que Mewtwo. */
-:root[data-theme="mew"] .theme-bg {
-  background-image: radial-gradient(circle, rgba(var(--red-500-rgb), 0.13) 2px, transparent 2.5px),
-    radial-gradient(circle, rgba(var(--red-500-rgb), 0.09) 1.5px, transparent 2px);
-  background-size: 54px 54px, 38px 38px;
-  background-position: 8px 10px, 26px 22px;
+.theme-bg::after {
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 220px 220px;
+  mix-blend-mode: var(--bg-grain-blend);
+  opacity: var(--bg-grain-a);
 }
 
 h1,
@@ -2769,4 +2818,191 @@ button:disabled:active {
   flex: 1;
   justify-content: center;
   min-width: 0;
+}
+
+/* ===============================
+   2.2.7: biblioteca, Descubrir y actualizaciones
+   =============================== */
+
+/* Separador entre las sagas (arriba) y los juegos sueltos (abajo) */
+.library-divider {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 10px 0 2px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-300);
+}
+
+.library-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(var(--red-500-rgb), 0.35), transparent);
+}
+
+/* Card de Descubrir que sale al añadirla a la biblioteca */
+.game-card.is-leaving {
+  opacity: 0;
+  transform: scale(0.94);
+  transition: opacity 0.26s var(--ease-smooth), transform 0.26s var(--ease-smooth);
+  pointer-events: none;
+}
+
+/* Aviso de actualización: esquina inferior derecha */
+.update-toast {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 1100;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  display: flex;
+  gap: 14px;
+  padding: 16px 18px 16px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(var(--red-500-rgb), 0.3);
+  background: linear-gradient(160deg, rgba(var(--red-500-rgb), 0.12), transparent 60%),
+    rgba(var(--ink-900-rgb), 0.96);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 22px 50px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+  color: var(--washi-100);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(16px) scale(0.98);
+  transition: opacity 0.3s var(--ease-smooth), transform 0.3s var(--ease-smooth), visibility 0s 0.3s;
+}
+
+.update-toast.show {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition: opacity 0.35s var(--ease-smooth), transform 0.35s var(--ease-smooth), visibility 0s;
+}
+
+/* Con el aviso visible, el botón de volver arriba se aparta a su izquierda */
+body:has(.update-toast.show) .scroll-top-btn {
+  right: 400px;
+}
+
+.upd-icon {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--red-500);
+  background: rgba(var(--red-500-rgb), 0.14);
+  border: 1px solid rgba(var(--red-500-rgb), 0.28);
+}
+
+.upd-icon .i {
+  width: 18px;
+  height: 18px;
+}
+
+.update-toast.is-error .upd-icon {
+  color: #e0566b;
+  background: rgba(224, 86, 107, 0.12);
+  border-color: rgba(224, 86, 107, 0.3);
+}
+
+.update-toast.is-downloading .upd-icon .i {
+  animation: updBob 1.2s ease-in-out infinite;
+}
+
+@keyframes updBob {
+  50% {
+    transform: translateY(2px);
+  }
+}
+
+.upd-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.upd-title {
+  margin: 1px 0 4px;
+  font-family: "Shippori Mincho", serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--washi-50);
+}
+
+.upd-text {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-200);
+}
+
+.update-toast.is-downloading .upd-text {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.upd-bar {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(var(--red-500-rgb), 0.14);
+}
+
+.upd-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--red-500);
+  transition: width 0.3s var(--ease-smooth);
+}
+
+.upd-pct {
+  min-width: 36px;
+  text-align: right;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-300);
+}
+
+.upd-link {
+  margin-top: 6px;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--red-500);
+  cursor: pointer;
+}
+
+.upd-link:hover {
+  text-decoration: underline;
+}
+
+.upd-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.upd-actions .sl-btn {
+  padding: 8px 16px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .update-toast,
+  .update-toast.show {
+    transition: none;
+  }
 }

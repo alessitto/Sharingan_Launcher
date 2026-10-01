@@ -1,6 +1,6 @@
 {
   "name": "sharingan-launcher",
-  "version": "2.2.6-beta",
+  "version": "2.2.7-beta",
   "description": "Estas cansado de tener muchos juegos en diferentes launchers, simplificalo y unelos todos en uno, Sharingan Launcher.",
   "main": "main.js",
   "scripts": {
@@ -16,6 +16,7 @@
     "electron-builder": "^24.13.3"
   },
   "dependencies": {
+    "electron-updater": "^6.8.9",
     "fuse.js": "^7.1.0",
     "node-fetch": "^2.7.0",
     "ps-node": "^0.1.6",
@@ -30,12 +31,21 @@
       "target": [
         "nsis"
       ],
-      "icon": "assets/icon.ico"
+      "icon": "assets/icon.ico",
+      "artifactName": "Sharingan-Launcher-Setup-${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "alessitto",
+        "repo": "Sharingan_Launcher",
+        "releaseType": "release"
+      }
+    ]
   }
 }

@@ -25,6 +25,7 @@
     </div>
 
     <div id="notification-container"></div>
+    <div id="updateToast" class="update-toast" role="status" aria-live="polite"></div>
 
     <div class="app">
       <!-- Navegación superior -->
@@ -144,6 +145,8 @@
       // ===============================
       let gamesTemp = [];
       let libraryIds = new Set();
+      // Descubrir espera a la biblioteca para poder quitar lo que ya tienes.
+      let libraryReady = Promise.resolve();
       let currentSearchGames = [];
       let showOnlyLinked = false;
       let libraryGamesCache = [];
@@ -372,7 +375,9 @@
         await loadAppSettings();
         loadGenreOptions();
         loadAppVersion();
-        const loadPromises = Promise.all([loadLibrary(), loadDiscoverGames()]);
+        setupUpdateToast();
+        libraryReady = loadLibrary();
+        const loadPromises = Promise.all([libraryReady, loadDiscoverGames()]);
 
         setTimeout(async () => {
           await loadPromises;
@@ -500,7 +505,7 @@
         if (bar) bar.style.display = (sort === "az" || sort === "za") && !query ? "" : "none";
 
         const res = await window.electronAPI.discoverGames({ query, genreId, sort, offset: 0, pageSize: DISCOVER_PAGE_SIZE });
-        applyDiscoverPage(res, true);
+        await applyDiscoverPage(res, true);
         updateGamepadFocus(true);
       }
 
@@ -528,11 +533,15 @@
           letterPrefix: discoverActiveLetter,
           pageSize: DISCOVER_PAGE_SIZE,
         });
-        applyDiscoverPage(res, false);
+        await applyDiscoverPage(res, false);
       }
 
-      function applyDiscoverPage(res, replace) {
-        const items = (res && res.items) || [];
+      // Lo que ya tienes (biblioteca o pasados) no sale en Descubrir.
+      const notOwned = (items) => items.filter((g) => !libraryIds.has(g.id));
+
+      async function applyDiscoverPage(res, replace) {
+        await libraryReady;
+        const items = notOwned((res && res.items) || []);
 
         if (res && res.fullPool) {
           discoverSearchPool = items;
@@ -559,6 +568,7 @@
       function appendDiscoverGames(items) {
         const container = document.getElementById("gamesList");
         if (!container) return;
+        items = notOwned(items);
         currentSearchGames.push(...items);
         items.forEach((game) => container.appendChild(buildDiscoverCard(game)));
       }
@@ -769,11 +779,20 @@
       // ===============================
       // Cambia solo el botón de la tarjeta ya en pantalla, sin repintar toda
       // la rejilla (repintarla reseteaba el scroll a arriba del todo).
+      // Al añadirlo desaparece de Descubrir (sale con una transición corta).
       function markGameOwnedInGrid(gameId) {
-        const card = document.querySelector(
-          `#gamesList [data-game-id="${gameId}"] .card-actions`
-        );
-        if (card) card.innerHTML = `<span class="badge-owned">En tu biblioteca</span>${infoButtonHtml(gameId)}`;
+        const card = document.querySelector(`#gamesList [data-game-id="${gameId}"]`);
+        currentSearchGames = currentSearchGames.filter((g) => g.id !== gameId);
+        if (discoverSearchPool) {
+          discoverSearchPool = discoverSearchPool.filter((g) => g.id !== gameId);
+          discoverSearchShown = Math.max(0, discoverSearchShown - 1);
+        }
+        if (!card) return;
+        card.classList.add("is-leaving");
+        setTimeout(() => {
+          card.remove();
+          updateGamepadFocus(true);
+        }, 280);
       }
 
       async function addFromJson(game) {
@@ -1151,9 +1170,11 @@
 
         bar.querySelectorAll(".index-btn:not([disabled])").forEach((btn) => {
           btn.onclick = () => {
-            const target = document.querySelector(
-              `#libraryList [data-letter="${CSS.escape(btn.dataset.bucket)}"]`
-            );
+            // Primero el juego suelto con esa letra; si solo hay una saga, la saga.
+            const sel = `[data-letter="${CSS.escape(btn.dataset.bucket)}"]`;
+            const target =
+              document.querySelector(`#libraryList > .game-card${sel}`) ||
+              document.querySelector(`#libraryList > ${sel}`);
             if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
           };
         });
@@ -1214,7 +1235,7 @@
           offset: 0,
           letterPrefix: bucket,
         });
-        applyDiscoverPage(res, true);
+        await applyDiscoverPage(res, true);
 
         if (res?.items?.length) {
           document.getElementById("gamesList")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1250,21 +1271,30 @@
           return;
         }
 
-        // Biblioteca: los juegos sueltos van por orden alfabético y cada saga
-        // es un bloque que ocupa el sitio alfabético de su nombre, con sus
-        // juegos siempre en el orden de la saga.
+        // Biblioteca: primero las sagas (cada una un bloque con sus juegos en
+        // el orden de la saga) y debajo los juegos sueltos por orden
+        // alfabético, separados por un título.
         const entries = buildLibraryEntries(games);
-        entries.forEach((entry) => {
+        const hasSagas = entries.some((e) => e.type === "saga");
+        const hasLoose = entries.some((e) => e.type === "game");
+        entries.forEach((entry, i) => {
           if (entry.type === "saga") {
             container.appendChild(
               buildSagaGroup(entry.saga, entry.games, (g) => buildGameCard(g, "library"), letterBucket(entry.key))
             );
-          } else {
-            const card = buildGameCard(entry.game, "library");
-            card.dataset.letter = letterBucket(entry.key);
-            container.appendChild(card);
+            return;
           }
+          if (hasSagas && entries[i - 1]?.type === "saga") {
+            const divider = document.createElement("div");
+            divider.className = "library-divider";
+            divider.innerHTML = `<span>Juegos sueltos</span>`;
+            container.appendChild(divider);
+          }
+          const card = buildGameCard(entry.game, "library");
+          card.dataset.letter = letterBucket(entry.key);
+          container.appendChild(card);
         });
+        container.classList.toggle("has-sagas-only", hasSagas && !hasLoose);
 
         if (mode === "library") renderLibraryIndexBar(entries.map((e) => e.key));
       }
@@ -1281,12 +1311,35 @@
           entries.push({ type: "saga", saga, games: members, key: saga.name || "" });
         });
 
-        list.forEach((g) => {
-          if (!grouped.has(Number(g.id))) entries.push({ type: "game", game: g, key: g.sortKey || g.name || "" });
-        });
+        const byKey = (a, b) => a.key.localeCompare(b.key, "es", { sensitivity: "base", numeric: true });
+        const loose = list
+          .filter((g) => !grouped.has(Number(g.id)))
+          .map((g) => ({ type: "game", game: g, key: g.sortKey || g.name || "" }))
+          .sort(byKey);
 
-        entries.sort((a, b) => a.key.localeCompare(b.key, "es", { sensitivity: "base", numeric: true }));
-        return entries;
+        return [...packSagaRows(entries.sort(byKey)), ...loose];
+      }
+
+      // Coloca las sagas por filas sin dejar huecos: en cada fila va la
+      // primera saga (por orden alfabético) que quepa en lo que queda, así
+      // un bloque grande no deja media fila vacía detrás de uno pequeño.
+      function packSagaRows(sagaEntries) {
+        const cols = currentGridColumns();
+        const pending = sagaEntries.slice();
+        const out = [];
+        let free = cols;
+        while (pending.length) {
+          let idx = pending.findIndex((e) => Math.min(e.games.length, cols) <= free);
+          if (idx === -1) {
+            free = cols;
+            continue;
+          }
+          const [entry] = pending.splice(idx, 1);
+          out.push(entry);
+          free -= Math.min(entry.games.length, cols);
+          if (free === 0) free = cols;
+        }
+        return out;
       }
 
       document.addEventListener("click", (e) => {
@@ -1880,6 +1933,86 @@
         } catch (err) {
           console.error("No se pudo leer la versión de la app", err);
         }
+      }
+
+      // ===============================
+      // Aviso de actualización (esquina inferior derecha)
+      // ===============================
+      // main.js busca versiones nuevas en segundo plano y solo avisa aquí
+      // cuando hay una. Con "Más tarde" el aviso se oculta hasta la próxima
+      // versión distinta.
+      let updateDismissedVersion = null;
+
+      function renderUpdateToast(state) {
+        const el = document.getElementById("updateToast");
+        if (!el || !state) return;
+        const { status, version, percent = 0 } = state;
+        const hidden =
+          status === "idle" || (status === "available" && updateDismissedVersion === version);
+        if (hidden) {
+          el.classList.remove("show");
+          return;
+        }
+
+        const v = version ? `v${escapeHtml(version)}` : "";
+        const views = {
+          available: {
+            icon: "download",
+            title: "Nueva versión disponible",
+            text: `La ${v} ya está publicada. ¿Quieres actualizar ahora? La app se reiniciará sola.`,
+            actions: `
+              <button type="button" class="sl-btn sl-btn-ghost" data-act="later">Más tarde</button>
+              <button type="button" class="sl-btn sl-btn-primary" data-act="install">Actualizar</button>`,
+          },
+          downloading: {
+            icon: "download",
+            title: `Descargando ${v}`,
+            text: `<span class="upd-bar"><span style="width:${percent}%"></span></span><span class="upd-pct">${percent}%</span>`,
+          },
+          installing: {
+            icon: "sparkles",
+            title: "Instalando actualización",
+            text: "La app se cerrará y volverá a abrirse ya actualizada.",
+          },
+          error: {
+            icon: "alert",
+            title: "No se pudo actualizar",
+            text: "Revisa la conexión e inténtalo de nuevo.",
+            actions: `
+              <button type="button" class="sl-btn sl-btn-ghost" data-act="later">Cerrar</button>
+              <button type="button" class="sl-btn sl-btn-primary" data-act="install">Reintentar</button>`,
+          },
+        };
+        const view = views[status];
+        if (!view) return;
+
+        el.className = `update-toast is-${status} show`;
+        el.innerHTML = `
+          <span class="upd-icon">${icon(view.icon)}</span>
+          <div class="upd-body">
+            <p class="upd-title">${view.title}</p>
+            <div class="upd-text">${view.text}</div>
+            ${status === "available" ? `<button type="button" class="upd-link" data-act="notes">Ver novedades</button>` : ""}
+            ${view.actions ? `<div class="upd-actions">${view.actions}</div>` : ""}
+          </div>`;
+
+        el.querySelectorAll("[data-act]").forEach((btn) => {
+          btn.onclick = () => {
+            const act = btn.dataset.act;
+            if (act === "install") window.electronAPI.installUpdate();
+            if (act === "notes") openChangelogModal();
+            if (act === "later") {
+              updateDismissedVersion = version;
+              el.classList.remove("show");
+            }
+          };
+        });
+      }
+
+      function setupUpdateToast() {
+        if (!window.electronAPI.onUpdateState) return;
+        window.electronAPI.onUpdateState(renderUpdateToast);
+        window.electronAPI.getUpdateState().then(renderUpdateToast).catch(() => {});
       }
 
       async function openChangelogModal() {
