@@ -122,7 +122,8 @@ const GAMES_PER_PAGE_MAX = 200;
 // 10 se vuelven ilegibles (miniaturas minúsculas) en una ventana normal.
 const GRID_COLUMNS_MIN = 3;
 const GRID_COLUMNS_MAX = 10;
-let appSettings = { gamesPerPage: 60, gridColumns: 5 };
+const VALID_THEMES = ["uchiha", "rayquaza", "reshiram", "zekrom", "blaziken", "luxray"];
+let appSettings = { gamesPerPage: 60, gridColumns: 5, theme: "uchiha" };
 
 function clampGamesPerPage(value) {
   const n = Number(value);
@@ -136,6 +137,10 @@ function clampGridColumns(value) {
   return Math.min(GRID_COLUMNS_MAX, Math.max(GRID_COLUMNS_MIN, Math.round(n)));
 }
 
+function clampTheme(value) {
+  return VALID_THEMES.includes(value) ? value : "uchiha";
+}
+
 function loadSettings() {
   try {
     if (fs.existsSync(settingsFilePath)) {
@@ -145,6 +150,7 @@ function loadSettings() {
         ...parsed,
         gamesPerPage: clampGamesPerPage(parsed.gamesPerPage),
         gridColumns: clampGridColumns(parsed.gridColumns),
+        theme: clampTheme(parsed.theme),
       };
     }
   } catch (err) {
@@ -170,6 +176,9 @@ ipcMain.handle("settings:set", (_e, patch = {}) => {
   }
   if (patch.gridColumns !== undefined) {
     appSettings.gridColumns = clampGridColumns(patch.gridColumns);
+  }
+  if (patch.theme !== undefined) {
+    appSettings.theme = clampTheme(patch.theme);
   }
   saveSettings();
   return appSettings;
@@ -518,11 +527,25 @@ function upsertGameImported(gameObj) {
 }
 
 // -------------------- Window --------------------
+// Electron pinta la ventana en blanco por defecto hasta que carga el primer
+// frame si no se le da un backgroundColor - con la app en modo oscuro eso se
+// nota como un parpadeo blanco feo al abrir/redimensionar. Un color por tema
+// (el mismo que --ink-950 en style.css) lo evita sea cual sea el tema activo.
+const THEME_BG_COLORS = {
+  uchiha: "#0a0809",
+  rayquaza: "#090c0a",
+  reshiram: "#e9e7e7",
+  zekrom: "#0b0a0b",
+  blaziken: "#0c0909",
+  luxray: "#09090b",
+};
+
 function createWindow() {
   win = new BrowserWindow({
     width: 1280,
     height: 720,
     autoHideMenuBar: true,
+    backgroundColor: THEME_BG_COLORS[appSettings.theme] || THEME_BG_COLORS.uchiha,
     icon: path.join(__dirname, "assets/icon.png"),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),

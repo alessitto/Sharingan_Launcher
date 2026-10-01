@@ -1,6 +1,6 @@
 {
   "name": "sharingan-launcher",
-  "version": "2.1.7-beta",
+  "version": "2.1.8-beta",
   "description": "Estas cansado de tener muchos juegos en diferentes launchers, simplificalo y unelos todos en uno, Sharingan Launcher.",
   "main": "main.js",
   "scripts": {
