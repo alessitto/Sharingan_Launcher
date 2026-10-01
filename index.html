@@ -211,6 +211,7 @@
         info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
         gamepad: '<line x1="6" x2="10" y1="11" y2="11"/><line x1="8" x2="8" y1="9" y2="13"/><line x1="15" x2="15.01" y1="12" y2="12"/><line x1="18" x2="18.01" y1="10" y2="10"/><path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0 0 17.32 5z"/>',
         play: '<polygon points="6 3 20 12 6 21 6 3"/>',
+        save: '<path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/>',
       };
 
       function icon(name, cls = "") {
@@ -828,13 +829,112 @@
         }
       }
 
-      async function launchGame(id) {
-        try {
-          await window.electronAPI.launchGame(id);
-        } catch (error) {
-          console.error(error);
-          showNotification("Error al iniciar el juego.", "error");
+      // ===============================
+      // Lanzar juego (modal "Abriendo...")
+      // ===============================
+      // main.js va contando los pasos (arrancar el cliente, abrir el juego,
+      // verlo ya en marcha) y aquí se reflejan en el modal. Se cierra solo
+      // cuando el juego arranca o al rato de lanzarlo; si falla, se queda
+      // abierto contando por qué.
+      const CLIENT_NAMES = { steam: "Steam", epic: "Epic Games", gog: "GOG Galaxy" };
+      let currentLaunch = null;
+
+      function viaLauncher(g) {
+        return (
+          (g.platform === "steam" && g.steamAppId) ||
+          (g.platform === "epic" && g.epicAppName) ||
+          (g.platform === "gog" && g.gogGameId)
+        );
+      }
+
+      function setLaunchState(state, text, iconName) {
+        const box = document.querySelector(".sl-launch");
+        if (!box) return;
+        box.dataset.state = state;
+        box.querySelector(".sl-launch-text").textContent = text;
+        const ic = box.querySelector(".sl-launch-status");
+        ic.innerHTML = iconName ? icon(iconName) : `<span class="sl-spinner"></span>`;
+      }
+
+      function launchStepText(step, g) {
+        const client = CLIENT_NAMES[g.platform] || "el launcher";
+        if (step === "client") return [`Abriendo ${client}…`, `El juego se abrirá en cuanto ${client} esté listo.`];
+        if (step === "launching")
+          return viaLauncher(g)
+            ? ["Abriendo el juego…", `${client} está iniciando el juego.`]
+            : ["Abriendo el juego…", "Iniciando el ejecutable."];
+        return ["Preparando…", ""];
+      }
+
+      window.electronAPI.onLaunchProgress?.((p) => {
+        if (!currentLaunch || Number(p.id) !== Number(currentLaunch.id)) return;
+        if (p.step === "running") {
+          setLaunchState("ok", "El juego ya está en marcha.", "check");
+          document.querySelector(".sl-launch-title").textContent = "¡A jugar!";
+          return;
         }
+        const [title, text] = launchStepText(p.step, currentLaunch.game);
+        document.querySelector(".sl-launch-title").textContent = title;
+        setLaunchState("busy", text);
+      });
+
+      async function launchGame(id) {
+        if (currentLaunch && String(currentLaunch.id) === String(id)) return;
+        const g = [...libraryGamesCache, ...completedGamesCache].find((x) => String(x.id) === String(id)) || {
+          id,
+          name: "Juego",
+        };
+        const launch = { id, game: g };
+        currentLaunch = launch;
+        const [title, text] = launchStepText("start", g);
+
+        openModal({
+          width: 420,
+          html: `
+            <div class="sl-launch" data-state="busy">
+              <div class="sl-launch-cover"><img src="${coverOf(g)}" alt=""></div>
+              <span class="sl-launch-eyebrow">${escapeHtml(g.name)}</span>
+              <h3 class="sl-launch-title">${title}</h3>
+              <p class="sl-launch-row"><span class="sl-launch-status"><span class="sl-spinner"></span></span><span class="sl-launch-text">${text}</span></p>
+            </div>`,
+          showConfirmButton: false,
+          showCloseButton: true,
+          customClass: { popup: "sl-modal-sm" },
+          didClose: () => {
+            if (currentLaunch === launch) currentLaunch = null;
+          },
+        });
+
+        let res;
+        try {
+          res = await window.electronAPI.launchGame(id);
+        } catch (err) {
+          console.error(err);
+          res = { ok: false, error: "Error inesperado al iniciar el juego." };
+        }
+        if (currentLaunch !== launch) return; // el usuario cerró el modal
+
+        if (!res?.ok) {
+          document.querySelector(".sl-launch-title").textContent = "No se ha podido abrir";
+          setLaunchState("error", res?.error || "Error al iniciar el juego.", "alert");
+          currentLaunch = null;
+          return;
+        }
+
+        if (res.running) {
+          setTimeout(() => currentLaunch === null && Swal.isVisible() && document.querySelector(".sl-launch") && Swal.close(), 1600);
+        } else {
+          document.querySelector(".sl-launch-title").textContent = "Juego lanzado";
+          setLaunchState(
+            "ok",
+            viaLauncher(g)
+              ? `Si no aparece en unos segundos, revisa ${CLIENT_NAMES[g.platform]}.`
+              : "Si no aparece en unos segundos, revisa que el ejecutable sea el correcto.",
+            "check"
+          );
+          setTimeout(() => currentLaunch === null && Swal.isVisible() && document.querySelector(".sl-launch") && Swal.close(), 3500);
+        }
+        currentLaunch = null;
       }
 
       async function markCompleted(id) {
@@ -1471,6 +1571,11 @@
         let confirmingDelete = false;
         let busy = false;
         let root = null;
+        // Sagas sugeridas (se cargan al abrir) y, para las que se acaban de
+        // crear desde una sugerencia, qué juegos la formaban: salen abajo
+        // como sugerencias para que el usuario meta los que quiera.
+        let suggestions = null;
+        const suggestedFor = new Map();
 
         const esc = escapeHtml;
         const selected = () => sagas.find((s) => s.id === selectedId) || null;
@@ -1599,9 +1704,11 @@
             list = list.filter((g) => norm(g.name).includes(q));
             heading = `${icon("search")}Resultados`;
           } else {
-            // Sugerencias: juegos cuyo nombre contiene el de la saga.
+            // Sugerencias: juegos cuyo nombre contiene el de la saga, más los
+            // que la formaban si se creó desde una saga sugerida.
             const sn = norm(s.name);
-            list = sn ? list.filter((g) => norm(g.name).includes(sn)) : [];
+            const extra = new Set(suggestedFor.get(s.id) || []);
+            list = list.filter((g) => (sn && norm(g.name).includes(sn)) || extra.has(Number(g.id)));
             heading = `${icon("sparkles")}Sugerencias para esta saga`;
           }
           list = list
@@ -1635,6 +1742,38 @@
             </div>`;
         }
 
+        function renderSuggestions() {
+          const box = root.querySelector(".sg-sugs");
+          if (!box) return;
+          if (suggestions === null) {
+            box.innerHTML = `<p class="sg-sugs-loading"><span class="sl-spinner"></span>Buscando sagas en tu biblioteca…</p>`;
+            return;
+          }
+          const taken = new Set(sagas.map((x) => norm(x.name)));
+          suggestions = suggestions.filter((x) => !taken.has(norm(x.name)));
+          if (!suggestions.length) {
+            box.innerHTML = "";
+            return;
+          }
+          box.innerHTML = `
+            <span class="sg-sugs-title">${icon("sparkles")}Sagas sugeridas</span>
+            <ul class="sg-sugs-list">
+              ${suggestions
+                .map(
+                  (x, i) => `
+                <li class="sg-sug">
+                  <span class="sg-sug-text">
+                    <span class="sg-sug-name">${esc(x.name)}</span>
+                    <span class="sg-sug-meta">${countLabel(x.gameIds.length)} de tu biblioteca</span>
+                  </span>
+                  <button type="button" class="icon-btn sg-sug-yes" data-act="sug-yes" data-idx="${i}" title="Crear la saga" aria-label="Crear la saga">${icon("check")}</button>
+                  <button type="button" class="icon-btn sg-sug-no" data-act="sug-no" data-idx="${i}" title="No sugerir más" aria-label="No sugerir más">${icon("x")}</button>
+                </li>`
+                )
+                .join("")}
+            </ul>`;
+        }
+
         async function run(fn) {
           if (busy) return;
           busy = true;
@@ -1659,7 +1798,9 @@
           confirmingDelete = false;
           renderList();
           renderDetail();
+          renderSuggestions();
           root.querySelector(".sg-search-input")?.focus();
+          return created;
         }
 
         async function saveName(input) {
@@ -1701,6 +1842,33 @@
             if (!btn) return;
             const s = selected();
             const act = btn.dataset.act;
+
+            if (act === "sug-yes" || act === "sug-no") {
+              const sug = suggestions?.[Number(btn.dataset.idx)];
+              if (!sug) return;
+              suggestions = suggestions.filter((x) => x !== sug);
+              if (act === "sug-no") {
+                window.electronAPI.dismissSagaSuggestion(sug.name);
+                renderSuggestions();
+                return;
+              }
+              // Se crea vacía: sus juegos salen abajo como sugerencias.
+              run(async () => {
+                const before = new Set(sagas.map((x) => x.id));
+                await refresh(await window.electronAPI.createSaga(sug.name));
+                const created = sagas.find((x) => !before.has(x.id));
+                if (created) {
+                  suggestedFor.set(created.id, sug.gameIds.map(Number));
+                  selectedId = created.id;
+                }
+                query = "";
+                confirmingDelete = false;
+                renderList();
+                renderDetail();
+                renderSuggestions();
+              });
+              return;
+            }
 
             if (act === "add") {
               btn.classList.add("is-adding");
@@ -1822,6 +1990,7 @@
                 </form>
                 <ul class="sg-list"></ul>
                 <p class="sg-side-hint">Arrastra para cambiar el orden.</p>
+                <div class="sg-sugs"></div>
               </aside>
               <section class="sg-detail"></section>
             </div>`,
@@ -1832,8 +2001,16 @@
             root = popup.querySelector(".sg-root");
             renderList();
             renderDetail();
+            renderSuggestions();
             bind();
             if (!sagas.length) root.querySelector(".sg-new-input").focus();
+            window.electronAPI
+              .getSagaSuggestions()
+              .catch(() => [])
+              .then((list) => {
+                suggestions = Array.isArray(list) ? list : [];
+                if (root?.isConnected) renderSuggestions();
+              });
           },
         });
 
@@ -2194,6 +2371,28 @@
                   </button>
                 </div>
               </div>
+
+              <div class="settings-divider"></div>
+
+              <div class="settings-section">
+                <span class="section-eyebrow">Datos</span>
+                <div class="settings-data">
+                  <div class="settings-data-row">
+                    <div>
+                      <p class="settings-data-title">Copia de partidas</p>
+                      <p class="settings-update-text">Busca dónde guarda cada juego sus partidas y las copia a la carpeta que elijas.</p>
+                    </div>
+                    <button type="button" id="settingsBackupBtn" class="sl-btn sl-btn-ghost">${icon("save")}Hacer copia</button>
+                  </div>
+                  <div class="settings-data-row">
+                    <div>
+                      <p class="settings-data-title">Borrar todos los datos</p>
+                      <p class="settings-update-text">Juegos, pasados, platinos y sagas. Los ajustes se mantienen.</p>
+                    </div>
+                    <button type="button" id="settingsWipeBtn" class="sl-btn sl-btn-danger-ghost">${icon("trash")}Borrar todo</button>
+                  </div>
+                </div>
+              </div>
             </div>
           `,
           didOpen: () => {
@@ -2241,6 +2440,9 @@
               updateBtn.disabled = false;
             });
 
+            document.getElementById("settingsBackupBtn")?.addEventListener("click", () => openBackupModal());
+            document.getElementById("settingsWipeBtn")?.addEventListener("click", () => wipeAllData());
+
             const themeGrid = document.getElementById("themeGrid");
             themeGrid?.addEventListener("click", (e) => {
               const swatch = e.target.closest(".theme-swatch");
@@ -2254,6 +2456,224 @@
             });
           },
         });
+      }
+
+      // ===============================
+      // Borrar todos los datos
+      // ===============================
+      async function wipeAllData() {
+        const ok = await confirmDialog({
+          title: "¿Borrar todos los datos?",
+          text: "Se borrarán tu biblioteca, los juegos pasados, los platinos y todas las sagas. No se puede deshacer.",
+          confirmText: "Borrar todo",
+          danger: true,
+        });
+        if (!ok) return;
+        try {
+          await window.electronAPI.clearAllData();
+          await loadLibrary();
+          await loadDiscoverGames();
+          showNotification("Se han borrado todos los datos.");
+        } catch (err) {
+          console.error(err);
+          showNotification("No se pudieron borrar los datos.", "error");
+        }
+      }
+
+      // ===============================
+      // Copia de partidas
+      // ===============================
+      // 1) main.js busca dónde guarda partidas cada juego (manifiesto de
+      //    Ludusavi), 2) se elige de cuáles hacer copia y dónde (por defecto
+      //    Documentos o la última carpeta usada), 3) se copian y se enseña de
+      //    cuáles se ha podido y de cuáles no.
+      function formatSize(bytes) {
+        if (!bytes) return "0 KB";
+        const units = ["B", "KB", "MB", "GB"];
+        let i = 0;
+        let n = bytes;
+        while (n >= 1024 && i < units.length - 1) {
+          n /= 1024;
+          i++;
+        }
+        return `${n.toLocaleString("es-ES", { maximumFractionDigits: n < 10 && i > 0 ? 1 : 0 })} ${units[i]}`;
+      }
+
+      window.electronAPI.onBackupProgress?.((p) => {
+        const el = document.getElementById("slLoadingText");
+        if (el && p?.name) el.textContent = `${p.done + 1} de ${p.total}: ${p.name}`;
+      });
+
+      async function openBackupModal() {
+        loadingModal(
+          "Buscando partidas guardadas",
+          "La primera vez descarga la base de datos de rutas de guardado (unos 17 MB)."
+        );
+        let scan;
+        try {
+          scan = await window.electronAPI.scanSaves();
+        } catch (err) {
+          scan = { ok: false, error: err.message };
+        }
+        if (!scan?.ok) {
+          await openModal({
+            width: 440,
+            html: `<div class="sl-confirm"><span class="sl-confirm-icon is-danger">${icon("alert")}</span>
+              <h3 class="sl-confirm-title">No se pudo buscar</h3><p class="sl-confirm-text">${escapeHtml(scan?.error || "Error desconocido.")}</p></div>`,
+            confirmButtonText: "Cerrar",
+            customClass: { popup: "sl-modal-sm" },
+          });
+          return;
+        }
+
+        const owned = new Map([...libraryGamesCache, ...completedGamesCache].map((g) => [String(g.id), g]));
+        const found = scan.games.filter((g) => g.count > 0).sort((a, b) => a.name.localeCompare(b.name, "es"));
+        const missing = scan.games.filter((g) => g.count === 0).sort((a, b) => a.name.localeCompare(b.name, "es"));
+        let dir = scan.dir;
+
+        if (!scan.games.length) {
+          await openModal({
+            width: 440,
+            html: `<div class="sl-confirm"><span class="sl-confirm-icon">${icon("save")}</span>
+              <h3 class="sl-confirm-title">No tienes juegos</h3><p class="sl-confirm-text">Añade o importa juegos a tu biblioteca para poder hacer copia de sus partidas.</p></div>`,
+            confirmButtonText: "Entendido",
+            customClass: { popup: "sl-modal-sm" },
+          });
+          return;
+        }
+
+        const row = (g, enabled) => `
+          <label class="bk-row ${enabled ? "" : "is-off"}">
+            <input type="checkbox" class="bk-check" value="${escapeHtml(String(g.id))}" ${enabled ? "checked" : "disabled"}>
+            <img src="${coverOf(owned.get(String(g.id)))}" alt="">
+            <span class="bk-name">${escapeHtml(g.name)}</span>
+            <span class="bk-meta">${enabled ? formatSize(g.size) : "Sin partidas localizadas"}</span>
+          </label>`;
+
+        const { isConfirmed, value } = await openModal({
+          eyebrow: "Datos",
+          title: "Copia de partidas",
+          width: 620,
+          html: `
+            <div class="bk-root">
+              ${
+                found.length
+                  ? `<div class="bk-toolbar">
+                      <span class="bk-count">${found.length} ${found.length === 1 ? "juego" : "juegos"} con partidas</span>
+                      <button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-bk="all">Seleccionar todo</button>
+                      <button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-bk="none">Deseleccionar todo</button>
+                    </div>
+                    <div class="bk-list">${found.map((g) => row(g, true)).join("")}</div>`
+                  : `<p class="sl-hint">No se han encontrado partidas guardadas de ninguno de tus juegos en este equipo.</p>`
+              }
+              ${
+                missing.length
+                  ? `<details class="bk-missing"><summary>Sin partidas localizadas (${missing.length})</summary>
+                      <div class="bk-list">${missing.map((g) => row(g, false)).join("")}</div></details>`
+                  : ""
+              }
+              <div class="bk-dest">
+                <span class="bk-dest-label">Guardar en</span>
+                <span class="bk-dest-path" title="${escapeHtml(dir)}">${escapeHtml(dir)}</span>
+                <button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-bk="dir">${icon("folderOpen")}Cambiar</button>
+              </div>
+            </div>`,
+          showCancelButton: true,
+          showConfirmButton: found.length > 0,
+          confirmButtonText: "Hacer copia",
+          cancelButtonText: found.length ? "Cancelar" : "Cerrar",
+          customClass: { popup: "bk-popup" },
+          didOpen: (popup) => {
+            const checks = () => [...popup.querySelectorAll(".bk-list .bk-check:not(:disabled)")];
+            const sync = () => {
+              const n = checks().filter((c) => c.checked).length;
+              const btn = Swal.getConfirmButton();
+              if (btn) {
+                btn.textContent = n ? `Hacer copia (${n})` : "Hacer copia";
+                btn.disabled = n === 0;
+              }
+            };
+            popup.addEventListener("change", (e) => e.target.matches(".bk-check") && sync());
+            popup.addEventListener("click", async (e) => {
+              const b = e.target.closest("[data-bk]");
+              if (!b) return;
+              if (b.dataset.bk === "all") checks().forEach((c) => (c.checked = true));
+              if (b.dataset.bk === "none") checks().forEach((c) => (c.checked = false));
+              if (b.dataset.bk === "dir") {
+                const chosen = await window.electronAPI.chooseBackupDir(dir);
+                if (chosen) {
+                  dir = chosen;
+                  const p = popup.querySelector(".bk-dest-path");
+                  p.textContent = dir;
+                  p.title = dir;
+                }
+              }
+              sync();
+            });
+            sync();
+          },
+          preConfirm: () => [...document.querySelectorAll(".bk-list .bk-check:checked")].map((c) => c.value),
+        });
+        if (!isConfirmed || !value?.length) return;
+
+        loadingModal("Copiando partidas", "Preparando…");
+        let res;
+        try {
+          res = await window.electronAPI.backupSaves(value, dir);
+        } catch (err) {
+          res = { ok: false, error: err.message };
+        }
+        if (!res?.ok) {
+          await openModal({
+            width: 440,
+            html: `<div class="sl-confirm"><span class="sl-confirm-icon is-danger">${icon("alert")}</span>
+              <h3 class="sl-confirm-title">No se pudo hacer la copia</h3><p class="sl-confirm-text">${escapeHtml(res?.error || "")}</p></div>`,
+            confirmButtonText: "Cerrar",
+            customClass: { popup: "sl-modal-sm" },
+          });
+          return;
+        }
+
+        const ok = res.results.filter((r) => r.ok);
+        const ko = res.results.filter((r) => !r.ok);
+        const { isDenied } = await openModal({
+          eyebrow: "Copia de partidas",
+          title: ko.length ? "Copia terminada con avisos" : "Copia terminada",
+          width: 560,
+          html: `
+            <div class="bk-result">
+              <p class="bk-result-dir">${icon("folderOpen")}<span>${escapeHtml(res.dir)}</span></p>
+              ${
+                ok.length
+                  ? `<p class="bk-result-title is-ok">${icon("checkCircle")}Copiados (${ok.length})</p>
+                     <ul class="bk-result-list">${ok
+                       .map(
+                         (r) =>
+                           `<li><span>${escapeHtml(r.name)}</span><span class="bk-meta">${formatSize(r.size)}${r.partial ? " · algún archivo en uso no se copió" : ""}</span></li>`
+                       )
+                       .join("")}</ul>`
+                  : ""
+              }
+              ${
+                ko.length
+                  ? `<p class="bk-result-title is-ko">${icon("xCircle")}Sin copia (${ko.length})</p>
+                     <ul class="bk-result-list">${ko
+                       .map((r) => `<li><span>${escapeHtml(r.name)}</span><span class="bk-meta">${escapeHtml(r.error)}</span></li>`)
+                       .join("")}</ul>`
+                  : ""
+              }
+              ${
+                missing.length
+                  ? `<p class="sl-hint">Además, ${missing.length} ${missing.length === 1 ? "juego no tenía" : "juegos no tenían"} partidas localizadas en este equipo.</p>`
+                  : ""
+              }
+            </div>`,
+          confirmButtonText: "Cerrar",
+          showDenyButton: ok.length > 0,
+          denyButtonText: "Abrir carpeta",
+          customClass: { popup: "bk-popup" },
+        });
+        if (isDenied) window.electronAPI.openBackupDir(res.dir);
       }
 
       // ===============================

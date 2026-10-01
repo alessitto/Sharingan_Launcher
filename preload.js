@@ -59,4 +59,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
   reorderSagas: (ids) => ipcRenderer.invoke('sagas:reorder', ids),
   setSagaOrder: (sagaId, gameIds) => ipcRenderer.invoke('sagas:setOrder', { sagaId, gameIds }),
   sortSagaByRelease: (sagaId) => ipcRenderer.invoke('sagas:sortByRelease', sagaId),
+  getSagaSuggestions: () => ipcRenderer.invoke('sagas:suggestions'),
+  dismissSagaSuggestion: (name) => ipcRenderer.invoke('sagas:dismissSuggestion', name),
+
+  // Lanzamiento: pasos para el modal de "Abriendo..."
+  onLaunchProgress: (cb) => ipcRenderer.on('launch:progress', (_e, p) => cb(p)),
+
+  // Borrar todos los datos
+  clearAllData: () => ipcRenderer.invoke('data:clearAll'),
+
+  // Copias de partidas
+  scanSaves: () => ipcRenderer.invoke('saves:scan'),
+  chooseBackupDir: (current) => ipcRenderer.invoke('saves:chooseDir', current),
+  backupSaves: (ids, dir) => ipcRenderer.invoke('saves:backup', { ids, dir }),
+  openBackupDir: (dir) => ipcRenderer.invoke('saves:openDir', dir),
+  onBackupProgress: (cb) => ipcRenderer.on('saves:progress', (_e, p) => cb(p)),
 });

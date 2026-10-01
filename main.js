@@ -1,7 +1,8 @@
 const { app, BrowserWindow, ipcMain, dialog, shell } = require("electron");
 const Fuse = require("fuse.js");
 const path = require("path");
-const { execFile } = require("child_process");
+const { execFile, spawn } = require("child_process");
+const saves = require("./saves");
 const fs = require("fs");
 const fetch = require("node-fetch"); // npm install node-fetch@2
 const ps = require("ps-node"); // npm install ps-node
@@ -185,22 +186,19 @@ ipcMain.handle("settings:set", (_e, patch = {}) => {
 });
 
 // -------------------- Helpers procesos --------------------
+// tasklist viene con Windows y responde rápido (ps-node tira de wmic, que
+// en Windows 11 ya no viene instalado y dejaba esto siempre en "false").
 function isProcessRunning(processName) {
   return new Promise((resolve) => {
-    ps.lookup({ command: processName }, (err, resultList) => {
-      if (err) {
-        console.error("ps.lookup error", err);
-        resolve(false);
-        return;
+    execFile(
+      "tasklist",
+      ["/fo", "csv", "/nh", "/fi", `IMAGENAME eq ${processName}`],
+      { windowsHide: true },
+      (err, stdout) => {
+        if (err) return resolve(false);
+        resolve(String(stdout || "").toLowerCase().includes(`"${processName.toLowerCase()}"`));
       }
-      const found = resultList.some(
-        (p) =>
-          p &&
-          p.command &&
-          p.command.toLowerCase().includes(processName.toLowerCase())
-      );
-      resolve(found);
-    });
+    );
   });
 }
 
@@ -252,35 +250,58 @@ function launchPlatform(platform) {
   return true;
 }
 
-function launchGameByPlatform(game) {
-  switch (game.platform) {
-    case "steam":
-      if (game.steamAppId) {
-        shell.openExternal(`steam://run/${game.steamAppId}`);
-        return;
-      }
-      break;
-    case "epic":
-      if (game.epicAppName) {
-        shell.openExternal(
-          `com.epicgames.launcher://apps/${game.epicAppName}?action=launch&silent=true`
-        );
-        return;
-      }
-      break;
-    case "gog":
-      if (game.gogGameId) {
-        shell.openExternal(`goggalaxy://openGameView/${game.gogGameId}`);
-        return;
-      }
-      break;
+// Devuelve { ok, error } para poder contarlo en el modal de "Abriendo...".
+async function launchGameByPlatform(game) {
+  try {
+    switch (game.platform) {
+      case "steam":
+        if (game.steamAppId) {
+          await shell.openExternal(`steam://run/${game.steamAppId}`);
+          return { ok: true };
+        }
+        break;
+      case "epic":
+        if (game.epicAppName) {
+          await shell.openExternal(
+            `com.epicgames.launcher://apps/${game.epicAppName}?action=launch&silent=true`
+          );
+          return { ok: true };
+        }
+        break;
+      case "gog":
+        if (game.gogGameId) {
+          await shell.openExternal(`goggalaxy://openGameView/${game.gogGameId}`);
+          return { ok: true };
+        }
+        break;
+    }
+  } catch (err) {
+    return { ok: false, error: "No se pudo abrir el launcher del juego." };
   }
 
-  if (game.executable) {
-    execFile(game.executable, (err) => {
-      if (err) console.error(err);
-    });
-  }
+  if (!game.executable) return { ok: false, error: "El juego no tiene ejecutable vinculado." };
+  if (!exists(game.executable)) return { ok: false, error: "No se encuentra el ejecutable. ¿Se ha movido o desinstalado el juego?" };
+
+  // Se lanza desde su propia carpeta (muchos juegos buscan sus archivos de
+  // forma relativa) y desligado de la app, para que siga abierto aunque se
+  // cierre el launcher.
+  return new Promise((resolve) => {
+    try {
+      const child = spawn(game.executable, [], {
+        cwd: path.dirname(game.executable),
+        detached: true,
+        stdio: "ignore",
+        windowsHide: false,
+      });
+      child.once("error", (err) => resolve({ ok: false, error: `No se pudo iniciar el juego (${err.code || err.message}).` }));
+      child.once("spawn", () => {
+        child.unref();
+        resolve({ ok: true });
+      });
+    } catch (err) {
+      resolve({ ok: false, error: `No se pudo iniciar el juego (${err.message}).` });
+    }
+  });
 }
 
 // -------------------- FS helpers --------------------
@@ -903,12 +924,18 @@ ipcMain.handle("games:setExe", (_e, { id, path: exePath }) => {
   saveData();
 });
 
-ipcMain.handle("games:launch", async (_e, id) => {
+// Avisa a la ventana de cada paso para el modal de "Abriendo...":
+// client (arrancando Steam/Epic/GOG) -> launching -> running (si se llega a
+// ver el proceso del juego). El resultado final va en el return.
+ipcMain.handle("games:launch", async (e, id) => {
   const gameId = Number(id);
   const g =
     games.find((x) => x.id === gameId) ||
     completedGames.find((x) => x.id === gameId);
-  if (!g) return;
+  if (!g) return { ok: false, error: "No se encuentra el juego en tu biblioteca." };
+  const step = (s, extra = {}) => {
+    if (!e.sender.isDestroyed()) e.sender.send("launch:progress", { id: gameId, step: s, ...extra });
+  };
 
   // Esperar a que arranque el cliente (Steam/Epic/GOG) solo tiene sentido si
   // de verdad vamos a lanzar por ahi (steamAppId/epicAppName/gogGameId, que
@@ -937,6 +964,7 @@ ipcMain.handle("games:launch", async (_e, id) => {
     if (processName) {
       const running = await isProcessRunning(processName);
       if (!running) {
+        step("client");
         const launched = launchPlatform(g.platform);
         if (launched) {
           // Sondea cada segundo hasta ver el proceso arriba, en vez de
@@ -955,7 +983,22 @@ ipcMain.handle("games:launch", async (_e, id) => {
     }
   }
 
-  launchGameByPlatform(g);
+  step("launching");
+  const result = await launchGameByPlatform(g);
+  if (!result.ok) return result;
+
+  // Si se sabe el .exe del juego, se espera a verlo en marcha (hasta 45s:
+  // Steam puede tardar en sincronizar o actualizar antes de abrirlo).
+  const exeName = g.executable ? path.basename(g.executable) : null;
+  if (!exeName) return { ok: true, running: null };
+  for (let waited = 0; waited < 45000; waited += 1500) {
+    if (await isProcessRunning(exeName)) {
+      step("running");
+      return { ok: true, running: true };
+    }
+    await sleep(1500);
+  }
+  return { ok: true, running: false };
 });
 
 ipcMain.handle("games:completed", (_e, id) => {
@@ -990,6 +1033,198 @@ ipcMain.handle("games:remove", (_e, id) => {
   });
   saveData();
   return { games, completedGames };
+});
+
+// Borra la biblioteca entera: juegos, pasados (con sus platinos) y sagas.
+// Los ajustes (tema, columnas...) se mantienen.
+ipcMain.handle("data:clearAll", () => {
+  games = [];
+  completedGames = [];
+  sagas = [];
+  appSettings.dismissedSagaSuggestions = [];
+  saveData();
+  saveSettings();
+  return { games, completedGames };
+});
+
+// -------------------- Copias de partidas --------------------
+let lastSaveScan = new Map();
+
+function defaultBackupDir() {
+  return appSettings.backupDir || path.join(app.getPath("documents"), "Sharingan Launcher", "Copias de partidas");
+}
+
+ipcMain.handle("saves:scan", async () => {
+  try {
+    const owned = [...games, ...completedGames];
+    const steamRoot = owned.some((g) => g.steamAppId) ? await detectSteamRoot() : null;
+    const results = await saves.scanSaves({ app, games: owned, steamRoot });
+    lastSaveScan = new Map(results.map((r) => [Number(r.id), r]));
+    return {
+      ok: true,
+      dir: defaultBackupDir(),
+      games: results.map(({ id, name, paths, size, known }) => ({ id, name, count: paths.length, size, known })),
+    };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
+ipcMain.handle("saves:chooseDir", async (_e, current) => {
+  const { canceled, filePaths } = await dialog.showOpenDialog(win, {
+    title: "¿Dónde guardo las copias de partidas?",
+    defaultPath: current || defaultBackupDir(),
+    properties: ["openDirectory", "createDirectory"],
+  });
+  return canceled ? null : filePaths?.[0] || null;
+});
+
+ipcMain.handle("saves:backup", async (e, { ids = [], dir } = {}) => {
+  const dest = dir || defaultBackupDir();
+  try {
+    fs.mkdirSync(dest, { recursive: true });
+  } catch (err) {
+    return { ok: false, error: `No se puede escribir en ${dest} (${err.code || err.message}).` };
+  }
+  appSettings.backupDir = dest;
+  saveSettings();
+
+  const when = saves.stamp();
+  const results = [];
+  for (const [i, rawId] of ids.entries()) {
+    const item = lastSaveScan.get(Number(rawId));
+    if (!e.sender.isDestroyed()) e.sender.send("saves:progress", { done: i, total: ids.length, name: item?.name });
+    if (!item) continue;
+    if (!item.paths.length) {
+      results.push({ id: item.id, name: item.name, ok: false, error: "No se han encontrado sus partidas en este equipo." });
+      continue;
+    }
+    try {
+      const { partial } = saves.backupGame(item, dest, when);
+      results.push({ id: item.id, name: item.name, ok: true, size: item.size, partial });
+    } catch (err) {
+      results.push({ id: item.id, name: item.name, ok: false, error: `Error al copiar: ${err.message}` });
+    }
+    // Deja respirar al proceso entre juego y juego (copias grandes).
+    await sleep(0);
+  }
+  return { ok: true, dir: dest, results };
+});
+
+ipcMain.handle("saves:openDir", (_e, dir) => shell.openPath(dir || defaultBackupDir()));
+
+// -------------------- Sagas sugeridas --------------------
+// Se proponen sagas a partir de los nombres (juegos que comparten las
+// primeras palabras, quitando numeración y subtítulos: "Dark Souls II",
+// "Dark Souls III" -> "Dark Souls") y de las colecciones de IGDB de los
+// juegos que vienen de IGDB. Nunca se repite una que ya existe ni una que
+// el usuario haya rechazado.
+const SAGA_STOPWORDS = new Set(["the", "a", "an", "el", "la", "los", "las", "of", "de", "and", "y"]);
+const SAGA_GENERIC_SINGLE = new Set([
+  "super", "star", "world", "final", "total", "grand", "little", "great", "dead", "dark", "black", "new",
+  "real", "ultimate", "legend", "legends", "tales", "space", "battle", "game", "games", "simulator",
+]);
+const SEQUEL_TOKEN = /^(\d+|i{1,3}|iv|v|vi{0,3}|ix|x|xi{0,3}|remastered|remake|definitive|edition|goty|hd|deluxe|complete|enhanced|redux|anniversary|collection|trilogy|origins?)$/;
+
+function sagaNorm(s) {
+  return saves.normTitle(s);
+}
+
+// Título base con las palabras originales: lo que va antes de ":" o " - ",
+// sin numeración/edición al final.
+function baseTitleWords(name) {
+  const head = String(name || "").split(/\s*[:–—]\s*|\s+-\s+/)[0];
+  const words = head
+    .replace(/[™®©]/g, "")
+    .split(/\s+/)
+    .filter(Boolean);
+  while (words.length > 1 && SEQUEL_TOKEN.test(sagaNorm(words[words.length - 1]))) words.pop();
+  return words;
+}
+
+function localSagaGroups(owned) {
+  const groups = new Map(); // clave normalizada -> { words, ids:Set }
+  for (const g of owned) {
+    const words = baseTitleWords(g.name);
+    for (let len = 1; len <= Math.min(4, words.length); len++) {
+      const w = words.slice(0, len);
+      const key = sagaNorm(w.join(" "));
+      if (!key) continue;
+      if (!groups.has(key)) groups.set(key, { words: w, ids: new Set() });
+      groups.get(key).ids.add(Number(g.id));
+    }
+  }
+  const valid = [...groups.entries()].filter(([key, grp]) => {
+    if (grp.ids.size < 2) return false;
+    const toks = key.split(" ");
+    if (toks.every((t) => SAGA_STOPWORDS.has(t))) return false;
+    if (toks.length === 1 && (toks[0].length < 5 || SAGA_GENERIC_SINGLE.has(toks[0]))) return false;
+    return true;
+  });
+  // Si una clave más larga agrupa exactamente los mismos juegos, se queda la larga.
+  return valid
+    .filter(([key, grp]) =>
+      !valid.some(([k2, g2]) => k2 !== key && k2.startsWith(key + " ") && g2.ids.size === grp.ids.size)
+    )
+    .map(([, grp]) => ({ name: grp.words.join(" "), ids: [...grp.ids] }));
+}
+
+async function igdbSagaGroups(owned) {
+  // Solo juegos que vienen de IGDB: los importados usan el id de Steam/Epic/
+  // GOG o uno generado, que en IGDB sería otro juego distinto.
+  const igdbIds = owned
+    .filter((g) => !g.installDir && !g.steamAppId && !g.epicAppName && !g.gogGameId)
+    .map((g) => Number(g.id))
+    .filter((id) => Number.isFinite(id) && id > 0);
+  if (!igdbIds.length) return [];
+  const groups = new Map();
+  for (let i = 0; i < igdbIds.length; i += 400) {
+    const chunk = igdbIds.slice(i, i + 400);
+    const rows = await igdbGamesQuery(`fields id,collections.name; where id = (${chunk.join(",")}); limit 500;`).catch(() => []);
+    for (const row of Array.isArray(rows) ? rows : []) {
+      for (const c of row.collections || []) {
+        if (!c?.name) continue;
+        if (!groups.has(c.id)) groups.set(c.id, { name: c.name, ids: new Set() });
+        groups.get(c.id).ids.add(Number(row.id));
+      }
+    }
+  }
+  return [...groups.values()].filter((g) => g.ids.size >= 2).map((g) => ({ name: g.name, ids: [...g.ids] }));
+}
+
+ipcMain.handle("sagas:suggestions", async () => {
+  const owned = [...games, ...completedGames];
+  const dismissed = new Set(appSettings.dismissedSagaSuggestions || []);
+  const existing = new Set(sagas.map((s) => sagaNorm(s.name)));
+  const sagaOf = new Map();
+  sagas.forEach((s) => s.gameIds.forEach((id) => sagaOf.set(Number(id), s.id)));
+
+  const merged = new Map();
+  for (const grp of [...(await igdbSagaGroups(owned)), ...localSagaGroups(owned)]) {
+    const key = sagaNorm(grp.name);
+    if (!key || existing.has(key) || dismissed.has(key)) continue;
+    if (merged.has(key)) grp.ids.forEach((id) => merged.get(key).ids.add(id));
+    else merged.set(key, { name: grp.name, ids: new Set(grp.ids) });
+  }
+
+  return [...merged.values()]
+    .map((s) => ({ name: s.name, gameIds: [...s.ids] }))
+    .filter((s) => {
+      // Fuera las que ya están montadas: todos sus juegos en una misma saga.
+      const owners = new Set(s.gameIds.map((id) => sagaOf.get(id)));
+      return !(owners.size === 1 && !owners.has(undefined));
+    })
+    .sort((a, b) => b.gameIds.length - a.gameIds.length || a.name.localeCompare(b.name, "es"))
+    .slice(0, 10);
+});
+
+ipcMain.handle("sagas:dismissSuggestion", (_e, name) => {
+  const key = sagaNorm(name);
+  if (key) {
+    appSettings.dismissedSagaSuggestions = [...new Set([...(appSettings.dismissedSagaSuggestions || []), key])];
+    saveSettings();
+  }
+  return true;
 });
 
 // -------------------- Sagas IPC --------------------
