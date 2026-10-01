@@ -65,6 +65,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Lanzamiento: pasos para el modal de "Abriendo..."
   onLaunchProgress: (cb) => ipcRenderer.on('launch:progress', (_e, p) => cb(p)),
 
+  // PokéPark
+  pokeparkDex: () => ipcRenderer.invoke('pokepark:dex'),
+  pokeparkGet: () => ipcRenderer.invoke('pokepark:get'),
+  pokeparkSave: (state) => ipcRenderer.invoke('pokepark:save', state),
+
   // Borrar todos los datos
   clearAllData: () => ipcRenderer.invoke('data:clearAll'),
 

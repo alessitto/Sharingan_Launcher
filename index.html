@@ -10,6 +10,7 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="pokepark.css" />
   </head>
   <body>
     <div class="theme-bg" aria-hidden="true"></div>
@@ -42,6 +43,10 @@
         <div class="topnav-item" onclick="showSection('completed', this)">
           <svg viewBox="0 0 24 24"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0V4Z"/><path d="M7 6H4a2 2 0 0 0 0 4h1"/><path d="M17 6h3a2 2 0 0 1 0 4h-1"/></svg>
           Juegos pasados
+        </div>
+        <div class="topnav-item" onclick="showSection('pokepark', this)">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h6"/><path d="M15 12h6"/><circle cx="12" cy="12" r="3"/></svg>
+          PokéPark
         </div>
 
         <span id="versionLink" class="version-link" onclick="openChangelogModal()" title="Historial de versiones"></span>
@@ -124,6 +129,11 @@
           <h2 class="section-title">Juegos pasados</h2>
           <div id="completedList" class="cards-grid"></div>
         </section>
+
+        <!-- PokéPark (lógica en pokepark.js) -->
+        <section id="pokepark" class="section">
+          <div class="pp-root" id="ppRoot"></div>
+        </section>
       </main>
 
       <button
@@ -138,6 +148,7 @@
     </div>
 
     <script src="node_modules/sweetalert2/dist/sweetalert2.all.min.js"></script>
+    <script src="pokepark.js" defer></script>
 
     <script>
       // ===============================
@@ -344,6 +355,8 @@
         if (id === "popular") focusedContainerId = "gamesList";
         if (id === "library") focusedContainerId = "libraryList";
         if (id === "completed") focusedContainerId = "completedList";
+        document.body.classList.toggle("in-pokepark", id === "pokepark");
+        if (id === "pokepark") window.PokePark?.onShow();
         focusedIndex = 0;
         updateGamepadFocus(true);
       }

@@ -1047,6 +1047,40 @@ ipcMain.handle("data:clearAll", () => {
   return { games, completedGames };
 });
 
+// -------------------- PokéPark --------------------
+// La lógica del parque vive en pokepark.js (ventana); aquí solo se lee la
+// Pokédex empaquetada y se guarda el estado en userData/pokepark.json.
+const pokeparkFilePath = path.join(app.getPath("userData"), "pokepark.json");
+let pokedexCache = null;
+
+ipcMain.handle("pokepark:dex", () => {
+  if (!pokedexCache) {
+    pokedexCache = JSON.parse(fs.readFileSync(path.join(__dirname, "assets", "pokepark", "pokedex.json"), "utf8"));
+  }
+  return pokedexCache;
+});
+
+ipcMain.handle("pokepark:get", () => {
+  try {
+    return fs.existsSync(pokeparkFilePath) ? JSON.parse(fs.readFileSync(pokeparkFilePath, "utf8")) : null;
+  } catch (err) {
+    console.error("Error leyendo pokepark.json", err);
+    return null;
+  }
+});
+
+ipcMain.handle("pokepark:save", (_e, state) => {
+  try {
+    const tmp = pokeparkFilePath + ".tmp";
+    fs.writeFileSync(tmp, JSON.stringify(state), "utf8");
+    fs.renameSync(tmp, pokeparkFilePath);
+    return true;
+  } catch (err) {
+    console.error("Error guardando pokepark.json", err);
+    return false;
+  }
+});
+
 // -------------------- Copias de partidas --------------------
 let lastSaveScan = new Map();
 
