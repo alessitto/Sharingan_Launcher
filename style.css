@@ -132,17 +132,17 @@
   --washi-300: #d1c9ad;
   --washi-400: #b4a779;
 
-  --ink-100: #ebe6e5;
-  --ink-200: #d1c0bd;
-  --ink-300: #b68e86;
-  --ink-400: #d6a399;
-  --ink-500: #c3796a;
-  --ink-600: #a45242;
-  --ink-700: #8a4638;
-  --ink-800: #743b2f;
-  --ink-900: #5f3026;
-  --ink-950: #49251d;
-  --ink-900-rgb: 95, 48, 38;
+  --ink-100: #fbefeb;
+  --ink-200: #f6dbd3;
+  --ink-300: #f2cabe;
+  --ink-400: #e8a999;
+  --ink-500: #dc8a77;
+  --ink-600: #cc6f5a;
+  --ink-700: #bd604c;
+  --ink-800: #b05543;
+  --ink-900: #a24838;
+  --ink-950: #bc5642;
+  --ink-900-rgb: 162, 72, 56;
 
   --red-100: #faf1d1;
   --red-400: #ffedab;
@@ -307,13 +307,13 @@ body {
 
 :root[data-theme="blaziken"] {
   --bg-art: url("assets/bg/blaziken.svg");
-  --bg-art-a: 0.17;
-  --bg-g1-pos: 76% 30%;
-  --bg-g1-a: 0.13;
-  --bg-g2-rgb: 255, 96, 30;
-  --bg-g2-pos: 30% 112%;
-  --bg-g2-a: 0.3;
-  --bg-vignette: rgba(28, 8, 4, 0.62);
+  --bg-art-a: 0.24;
+  --bg-g1-pos: 82% 55%;
+  --bg-g1-a: 0.14;
+  --bg-g2-rgb: 255, 120, 40;
+  --bg-g2-pos: 20% 110%;
+  --bg-g2-a: 0.22;
+  --bg-vignette: rgba(80, 22, 12, 0.38);
 }
 
 :root[data-theme="luxray"] {
