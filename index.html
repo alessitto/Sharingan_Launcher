@@ -1525,8 +1525,12 @@
       }
 
       async function openSettingsModal() {
+        const settings = (await window.electronAPI.getSettings()) || {};
+        const currentGamesPerPage = settings.gamesPerPage || DISCOVER_PAGE_SIZE || 60;
         const currentGridColumns =
-          getComputedStyle(document.documentElement).getPropertyValue("--grid-cols").trim() || "6";
+          Number(getComputedStyle(document.documentElement).getPropertyValue("--grid-cols")) ||
+          settings.gridColumns ||
+          5;
 
         const { value: formValues } = await Swal.fire({
           background: "#100e10",
@@ -1535,54 +1539,45 @@
           showCancelButton: true,
           confirmButtonText: "Guardar",
           cancelButtonText: "Cancelar",
-          width: 420,
+          width: 440,
           html: `
-            <div style="text-align:left; margin-top:4px;">
-              <label for="settingsGamesPerPage" style="display:block; font-size:13px; opacity:.8; margin-bottom:6px;">
-                Juegos por página en Descubrir
-              </label>
-              <input
-                id="settingsGamesPerPage"
-                type="number"
-                min="12"
-                max="200"
-                step="1"
-                value="${DISCOVER_PAGE_SIZE}"
-                class="swal2-input"
-                style="margin:0; width:100%;"
-              />
-              <p style="font-size:11px; opacity:.5; margin:8px 0 0 0;">Entre 12 y 200. Se aplica al volver a cargar Descubrir.</p>
+            <div class="settings-form">
+              <div class="settings-row">
+                <div class="settings-row-head">
+                  <label for="settingsGamesPerPage">Juegos por página en Descubrir</label>
+                  <span id="settingsGamesPerPageValue" class="settings-value">${currentGamesPerPage}</span>
+                </div>
+                <input id="settingsGamesPerPage" class="settings-slider" type="range" min="12" max="200" step="1" value="${currentGamesPerPage}" />
+                <div class="settings-row-ends"><span>12</span><span>200</span></div>
+              </div>
 
-              <label for="settingsGridColumns" style="display:block; font-size:13px; opacity:.8; margin:16px 0 6px;">
-                Juegos por fila en el grid
-              </label>
-              <input
-                id="settingsGridColumns"
-                type="number"
-                min="3"
-                max="10"
-                step="1"
-                value="${currentGridColumns}"
-                class="swal2-input"
-                style="margin:0; width:100%;"
-              />
-              <p style="font-size:11px; opacity:.5; margin:8px 0 0 0;">Entre 3 y 10 columnas. Se reduce automáticamente en ventanas pequeñas.</p>
+              <div class="settings-row">
+                <div class="settings-row-head">
+                  <label for="settingsGridColumns">Juegos por fila en el grid</label>
+                  <span id="settingsGridColumnsValue" class="settings-value">${currentGridColumns}</span>
+                </div>
+                <input id="settingsGridColumns" class="settings-slider" type="range" min="3" max="10" step="1" value="${currentGridColumns}" />
+                <div class="settings-row-ends"><span>3</span><span>10</span></div>
+              </div>
             </div>
           `,
           focusConfirm: false,
-          preConfirm: () => {
+          didOpen: () => {
             const pageInput = document.getElementById("settingsGamesPerPage");
+            const pageValue = document.getElementById("settingsGamesPerPageValue");
+            pageInput?.addEventListener("input", () => {
+              pageValue.textContent = pageInput.value;
+            });
+
             const colsInput = document.getElementById("settingsGridColumns");
-            const n = Number(pageInput?.value);
-            const cols = Number(colsInput?.value);
-            if (!Number.isFinite(n) || n < 12 || n > 200) {
-              Swal.showValidationMessage("Juegos por página: introduce un número entre 12 y 200");
-              return false;
-            }
-            if (!Number.isFinite(cols) || cols < 3 || cols > 10) {
-              Swal.showValidationMessage("Juegos por fila: introduce un número entre 3 y 10");
-              return false;
-            }
+            const colsValue = document.getElementById("settingsGridColumnsValue");
+            colsInput?.addEventListener("input", () => {
+              colsValue.textContent = colsInput.value;
+            });
+          },
+          preConfirm: () => {
+            const n = Number(document.getElementById("settingsGamesPerPage")?.value);
+            const cols = Number(document.getElementById("settingsGridColumns")?.value);
             return { gamesPerPage: Math.round(n), gridColumns: Math.round(cols) };
           },
         });

@@ -122,7 +122,7 @@ const GAMES_PER_PAGE_MAX = 200;
 // 10 se vuelven ilegibles (miniaturas minúsculas) en una ventana normal.
 const GRID_COLUMNS_MIN = 3;
 const GRID_COLUMNS_MAX = 10;
-let appSettings = { gamesPerPage: 60, gridColumns: 6 };
+let appSettings = { gamesPerPage: 60, gridColumns: 5 };
 
 function clampGamesPerPage(value) {
   const n = Number(value);
