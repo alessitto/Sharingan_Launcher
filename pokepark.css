@@ -152,7 +152,7 @@ body.in-pokepark .main-content {
 
 .pp-portrait {
   overflow: hidden;
-  height: 150px;
+  height: 104px;
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -162,8 +162,8 @@ body.in-pokepark .main-content {
 }
 
 .pp-portrait-img {
-  margin-bottom: calc(var(--pad, 0) / var(--h, 96) * -150px);
-  height: 150px;
+  margin-bottom: calc(var(--pad, 0) / var(--h, 96) * -96px + 4px);
+  height: 96px;
   max-width: 100%;
   object-fit: contain;
   object-position: bottom;
@@ -315,6 +315,7 @@ body.in-pokepark .main-content {
 }
 
 .pp-heart svg {
+  display: block;
   width: 100%;
   height: 100%;
   fill: rgba(var(--red-500-rgb), 0.14);
@@ -1330,26 +1331,40 @@ body.in-pokepark .main-content {
 .pp-ov-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 6px 10px 6px 4px;
-  border-radius: 12px;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px 10px 10px;
+  border-radius: 14px;
   border: 1px solid var(--ink-800);
-  background: none;
+  background: rgba(var(--ink-950-rgb, 0, 0, 0), 0.12);
   font: inherit;
   text-align: left;
   color: var(--washi-100);
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
 }
 
 .pp-ov-row:hover {
+  transform: translateY(-1px);
   border-color: rgba(var(--red-500-rgb), 0.5);
   background: rgba(var(--red-500-rgb), 0.07);
 }
 
-.pp-ov-row img {
-  width: 52px;
-  height: 52px;
+.pp-ov-avatar {
+  flex-shrink: 0;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 50% 60%, rgba(var(--red-500-rgb), 0.18), rgba(var(--red-500-rgb), 0.04) 70%);
+  border: 1px solid rgba(var(--red-500-rgb), 0.18);
+}
+
+.pp-ov-avatar img {
+  width: 48px;
+  height: 48px;
   object-fit: contain;
   image-rendering: pixelated;
 }
@@ -1359,20 +1374,33 @@ body.in-pokepark .main-content {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 6px;
 }
 
-.pp-ov-text b {
-  font-size: 13px;
+.pp-ov-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
 }
 
-.pp-ov-text small {
-  font-size: 11px;
-  color: var(--ink-300);
+.pp-ov-top b {
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pp-ov-top small {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-200);
 }
 
 .pp-ov-text i {
-  height: 4px;
+  display: block;
+  height: 5px;
   border-radius: 999px;
   background: rgba(var(--red-500-rgb), 0.14);
   overflow: hidden;
@@ -1381,12 +1409,18 @@ body.in-pokepark .main-content {
 .pp-ov-text em {
   display: block;
   height: 100%;
+  border-radius: inherit;
   background: linear-gradient(90deg, #4fb0e8, #77d2ff);
 }
 
+.pp-ov-hearts {
+  display: flex;
+  gap: 3px;
+}
+
 .pp-ov-hearts .pp-heart {
-  width: 12px;
-  height: 12px;
+  width: 13px;
+  height: 13px;
 }
 
 /* Género: se puede cambiar si la especie admite los dos */

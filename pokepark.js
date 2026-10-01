@@ -640,9 +640,12 @@
               const cur = expForLevel(m.lv);
               const pct = m.lv >= 100 ? 100 : Math.max(0, Math.min(100, ((m.exp - cur) / (expForLevel(m.lv + 1) - cur)) * 100));
               return `<button type="button" class="pp-ov-row" data-pp="select" data-uid="${m.uid}">
-                <img src="${SPRITE_PNG(species(m.sp).sd)}" alt="" onerror="this.style.visibility='hidden'">
-                <span class="pp-ov-text"><b>${esc(displayName(m))}</b><small>Nv. ${m.lv}</small><i><em style="width:${pct}%"></em></i></span>
-                <span class="pp-ov-hearts">${heartsHtml(m.fr)}</span>
+                <span class="pp-ov-avatar"><img src="${SPRITE_PNG(species(m.sp).sd)}" alt="" onerror="this.style.visibility='hidden'"></span>
+                <span class="pp-ov-text">
+                  <span class="pp-ov-top"><b>${esc(displayName(m))}</b><small>Nv. ${m.lv}</small></span>
+                  <i title="Experiencia"><em style="width:${pct}%"></em></i>
+                  <span class="pp-ov-hearts" title="Amistad">${heartsHtml(m.fr)}</span>
+                </span>
               </button>`;
             })
             .join("")}
