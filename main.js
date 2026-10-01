@@ -555,9 +555,9 @@ function upsertGameImported(gameObj) {
 // (el mismo que --ink-950 en style.css) lo evita sea cual sea el tema activo.
 const THEME_BG_COLORS = {
   uchiha: "#0a0809",
-  rayquaza: "#264737",
-  reshiram: "#e9e7e7",
-  zekrom: "#131013",
+  rayquaza: "#40865f",
+  reshiram: "#ffffff",
+  zekrom: "#464646",
   blaziken: "#bc5642",
   luxray: "#08081c",
   mewtwo: "#493b49",

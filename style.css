@@ -58,7 +58,7 @@
   --ink-700: #468366;
   --ink-800: #3c6f56;
   --ink-900: #315b47;
-  --ink-950: #264737;
+  --ink-950: #40865f;
   --ink-900-rgb: 49, 91, 71;
 
   --red-100: #f8f2d3;
@@ -87,7 +87,7 @@
   --ink-700: #696363;
   --ink-800: #9a9393;
   --ink-900: #c9c5c5;
-  --ink-950: #e9e7e7;
+  --ink-950: #ffffff;
   --ink-900-rgb: 201, 197, 197;
 
   --red-100: #f9e2d2;
@@ -114,7 +114,7 @@
   --ink-700: #1e1a1e;
   --ink-800: #1b181b;
   --ink-900: #191519;
-  --ink-950: #131013;
+  --ink-950: #464646;
   --ink-900-rgb: 25, 21, 25;
 
   --red-100: #d2f9f9;
@@ -249,143 +249,28 @@ body {
 /* ===============================
    Fondo por tema
    =============================== */
-/* Capa fija detrás de toda la app, en tres partes:
-   - el propio fondo: dos luces de ambiente (acento + un segundo color del
-     Pokémon) sobre el color base del tema;
-   - ::before: la ilustración del tema (assets/bg/<tema>.svg) usada como
-     máscara y pintada con el acento, así siempre va a juego con el tema;
-   - ::after: grano fino y viñeta para que no quede plano.
-   Cada tema solo cambia las variables --bg-*. z-index negativo para quedar
-   por detrás de .app y #intro-screen sin tocar su z-index. */
-:root {
-  --bg-art: url("assets/bg/uchiha.svg");
-  --bg-art-a: 0.09;
-  --bg-art-pos: center;
-  --bg-g1-pos: 8% 6%;
-  --bg-g1-a: 0.16;
-  --bg-g2-rgb: 120, 0, 30;
-  --bg-g2-pos: 88% 92%;
-  --bg-g2-a: 0.3;
-  --bg-vignette: rgba(0, 0, 0, 0.45);
-  --bg-grain-a: 0.07;
-  --bg-grain-blend: overlay;
-}
-
-:root[data-theme="rayquaza"] {
-  --bg-art: url("assets/bg/rayquaza.svg");
-  --bg-art-a: 0.1;
-  --bg-g1-pos: 85% 10%;
-  --bg-g1-a: 0.12;
-  --bg-g2-rgb: 20, 40, 32;
-  --bg-g2-pos: 10% 95%;
-  --bg-g2-a: 0.55;
-  --bg-vignette: rgba(14, 34, 25, 0.55);
-}
-
-:root[data-theme="reshiram"] {
-  --bg-art: url("assets/bg/reshiram.svg");
-  --bg-art-a: 0.13;
-  --bg-g1-pos: 82% 22%;
-  --bg-g1-a: 0.16;
-  --bg-g2-rgb: 150, 185, 220;
-  --bg-g2-pos: 10% 90%;
-  --bg-g2-a: 0.22;
-  --bg-vignette: rgba(120, 110, 105, 0.16);
-  --bg-grain-a: 0.09;
-  --bg-grain-blend: multiply;
-}
-
-:root[data-theme="zekrom"] {
-  --bg-art: url("assets/bg/zekrom.svg");
-  --bg-art-a: 0.085;
-  --bg-g1-pos: 84% 78%;
-  --bg-g1-a: 0.11;
-  --bg-g2-rgb: 40, 30, 90;
-  --bg-g2-pos: 12% 10%;
-  --bg-g2-a: 0.45;
-}
-
-:root[data-theme="blaziken"] {
-  --bg-art: url("assets/bg/blaziken.svg");
-  --bg-art-a: 0.24;
-  --bg-g1-pos: 82% 55%;
-  --bg-g1-a: 0.14;
-  --bg-g2-rgb: 255, 120, 40;
-  --bg-g2-pos: 20% 110%;
-  --bg-g2-a: 0.22;
-  --bg-vignette: rgba(80, 22, 12, 0.38);
-}
-
-:root[data-theme="luxray"] {
-  --bg-art: url("assets/bg/luxray.svg");
-  --bg-art-a: 0.12;
-  --bg-g1-pos: 80% 22%;
-  --bg-g1-a: 0.1;
-  --bg-g2-rgb: 50, 80, 210;
-  --bg-g2-pos: 12% 88%;
-  --bg-g2-a: 0.22;
-}
-
-:root[data-theme="mewtwo"] {
-  --bg-art: url("assets/bg/mewtwo.svg");
-  --bg-art-a: 0.17;
-  --bg-g1-pos: 78% 28%;
-  --bg-g1-a: 0.2;
-  --bg-g2-rgb: 40, 20, 50;
-  --bg-g2-pos: 8% 95%;
-  --bg-g2-a: 0.5;
-  --bg-vignette: rgba(30, 18, 32, 0.5);
-}
-
-:root[data-theme="mew"] {
-  --bg-art: url("assets/bg/mew.svg");
-  --bg-art-a: 0.2;
-  --bg-g1-pos: 80% 25%;
-  --bg-g1-a: 0.18;
-  --bg-g2-rgb: 140, 200, 240;
-  --bg-g2-pos: 10% 85%;
-  --bg-g2-a: 0.25;
-  --bg-vignette: rgba(150, 110, 125, 0.16);
-  --bg-grain-a: 0.09;
-  --bg-grain-blend: multiply;
-}
-
+/* Capa fija detrás de toda la app. Los temas con imagen propia
+   (assets/bg/<tema>.png, 2560x1440) la muestran tal cual, cubriendo la
+   ventana; el resto se quedan con su color de fondo liso. z-index negativo
+   para quedar por detrás de .app y #intro-screen sin tocar su z-index. */
 .theme-bg {
   position: fixed;
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  overflow: hidden;
-  background: radial-gradient(ellipse 120% 95% at 50% 45%, transparent 55%, var(--bg-vignette)),
-    radial-gradient(
-      ellipse 65% 60% at var(--bg-g1-pos),
-      rgba(var(--red-500-rgb), var(--bg-g1-a)),
-      transparent 70%
-    ),
-    radial-gradient(ellipse 60% 65% at var(--bg-g2-pos), rgba(var(--bg-g2-rgb), var(--bg-g2-a)), transparent 72%),
-    var(--ink-950);
-  transition: background-color 0.4s var(--ease-smooth);
+  background: var(--ink-950) var(--bg-image, none) center / cover no-repeat;
 }
 
-.theme-bg::before,
-.theme-bg::after {
-  content: "";
-  position: absolute;
-  inset: 0;
+:root[data-theme="rayquaza"] {
+  --bg-image: url("assets/bg/rayquaza.png");
 }
 
-.theme-bg::before {
-  background: rgb(var(--red-500-rgb));
-  opacity: var(--bg-art-a);
-  -webkit-mask: var(--bg-art) var(--bg-art-pos) / cover no-repeat;
-  mask: var(--bg-art) var(--bg-art-pos) / cover no-repeat;
+:root[data-theme="reshiram"] {
+  --bg-image: url("assets/bg/reshiram.png");
 }
 
-.theme-bg::after {
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  background-size: 220px 220px;
-  mix-blend-mode: var(--bg-grain-blend);
-  opacity: var(--bg-grain-a);
+:root[data-theme="zekrom"] {
+  --bg-image: url("assets/bg/zekrom.png");
 }
 
 h1,
