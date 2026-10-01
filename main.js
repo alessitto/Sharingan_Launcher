@@ -643,7 +643,9 @@ async function igdbGamesQuery(body, endpoint = "games", isRetry = false) {
 // ports, Triple Pack, Season Pass, Designer's/Director's Cut, packs de DLC.
 // Las ediciones especiales (Deluxe/Ultimate) IGDB las sigue marcando como
 // Main Game, asi que esas seguiran saliendo aparte del juego base.
-const IGDB_REAL_GAME_TYPES = "(0,8,9,10)";
+// 4 = Standalone Expansion: juego completo que se instala y juega solo
+// (Dishonored: Death of the Outsider, Far Cry 3: Blood Dragon...), no un DLC.
+const IGDB_REAL_GAME_TYPES = "(0,4,8,9,10)";
 
 // Ordena en JS en vez de confiar en el "sort" de Apicalypse: IGDB lo ignora
 // en cuanto la query lleva "search" (ordena siempre por relevancia de texto),
