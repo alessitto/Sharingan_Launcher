@@ -307,13 +307,13 @@ body {
 
 :root[data-theme="blaziken"] {
   --bg-art: url("assets/bg/blaziken.svg");
-  --bg-art-a: 0.15;
-  --bg-g1-pos: 50% 105%;
-  --bg-g1-a: 0.16;
-  --bg-g2-rgb: 230, 80, 30;
-  --bg-g2-pos: 90% 0%;
-  --bg-g2-a: 0.2;
-  --bg-vignette: rgba(40, 12, 6, 0.5);
+  --bg-art-a: 0.17;
+  --bg-g1-pos: 76% 30%;
+  --bg-g1-a: 0.13;
+  --bg-g2-rgb: 255, 96, 30;
+  --bg-g2-pos: 30% 112%;
+  --bg-g2-a: 0.3;
+  --bg-vignette: rgba(28, 8, 4, 0.62);
 }
 
 :root[data-theme="luxray"] {
