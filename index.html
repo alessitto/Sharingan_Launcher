@@ -95,15 +95,19 @@
               id="linkedFilterBtn"
               class="filter-btn"
               onclick="toggleLinkedFilter()"
+              title="Mostrar solo los juegos que se pueden lanzar"
             >
-              Vinculados
+              <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+              Jugables
             </button>
 
             <button class="filter-btn" onclick="openImportModal()">
+              <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
               Importar instalados
             </button>
 
             <button class="filter-btn" onclick="openSagasModal()">
+              <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></svg>
               Sagas
             </button>
           </div>
@@ -126,8 +130,9 @@
         class="scroll-top-btn"
         onclick="scrollActiveSectionToTop()"
         title="Volver arriba"
+        aria-label="Volver arriba"
       >
-        ↑
+        <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg>
       </button>
     </div>
 
@@ -173,6 +178,136 @@
           .replace(/>/g, "&gt;")
           .replace(/"/g, "&quot;")
           .replace(/'/g, "&#39;");
+      }
+
+      // ===============================
+      // Iconos (trazos estilo Lucide, heredan color con currentColor)
+      // ===============================
+      const ICON_PATHS = {
+        more: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
+        arrowUp: '<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
+        crown: '<path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"/><path d="M5 21h14"/>',
+        layers: '<path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/>',
+        grip: '<circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/>',
+        x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+        trash: '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>',
+        pencil: '<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/>',
+        plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+        search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+        searchX: '<path d="m13.5 8.5-5 5"/><path d="m8.5 8.5 5 5"/><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+        check: '<path d="M20 6 9 17l-5-5"/>',
+        checkCircle: '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+        alert: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+        xCircle: '<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>',
+        folderOpen: '<path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/>',
+        folderPlus: '<path d="M12 10v6"/><path d="M9 13h6"/><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
+        link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+        calendar: '<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>',
+        download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>',
+        sparkles: '<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>',
+        info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+        gamepad: '<line x1="6" x2="10" y1="11" y2="11"/><line x1="8" x2="8" y1="9" y2="13"/><line x1="15" x2="15.01" y1="12" y2="12"/><line x1="18" x2="18.01" y1="10" y2="10"/><path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0 0 17.32 5z"/>',
+        play: '<polygon points="6 3 20 12 6 21 6 3"/>',
+      };
+
+      function icon(name, cls = "") {
+        return `<svg class="i ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[name] || ""}</svg>`;
+      }
+
+      function coverOf(game) {
+        return (
+          game?.coverUrl ||
+          (game?.cover?.image_id
+            ? `https://images.igdb.com/igdb/image/upload/t_cover_big/${game.cover.image_id}.jpg`
+            : "assets/no-cover.png")
+        );
+      }
+
+      function releaseYear(game) {
+        return game?.first_release_date ? new Date(game.first_release_date * 1000).getFullYear() : null;
+      }
+
+      // Se puede jugar si tiene .exe o si su launcher sabe abrirlo (Steam,
+      // Epic o GOG Galaxy con su id) - mismo criterio que main.js.
+      function canPlay(g) {
+        return !!(
+          g.executable ||
+          (g.platform === "steam" && g.steamAppId) ||
+          (g.platform === "epic" && g.epicAppName) ||
+          (g.platform === "gog" && g.gogGameId)
+        );
+      }
+
+      // ===============================
+      // Modales (SweetAlert2 con el aspecto de la app)
+      // ===============================
+      // Todo sale de las variables del tema activo, así los modales cambian
+      // de color con el tema igual que el resto (antes llevaban el negro y
+      // rojo de Uchiha fijos).
+      function openModal(opts = {}) {
+        const { eyebrow, title, customClass = {}, ...rest } = opts;
+        return Swal.fire({
+          background: "var(--ink-900)",
+          color: "var(--washi-100)",
+          buttonsStyling: false,
+          reverseButtons: true,
+          closeButtonHtml: icon("x"),
+          showClass: { popup: "sl-modal-in" },
+          hideClass: { popup: "sl-modal-out" },
+          title: title
+            ? `${eyebrow ? `<span class="sl-modal-eyebrow">${escapeHtml(eyebrow)}</span>` : ""}${escapeHtml(title)}`
+            : undefined,
+          ...rest,
+          customClass: {
+            popup: `sl-modal ${customClass.popup || ""}`,
+            title: "sl-modal-title",
+            htmlContainer: "sl-modal-body",
+            actions: "sl-modal-actions",
+            confirmButton: `sl-btn sl-btn-primary ${customClass.confirmButton || ""}`,
+            cancelButton: "sl-btn sl-btn-ghost",
+            denyButton: "sl-btn sl-btn-ghost",
+            closeButton: "sl-modal-close",
+            input: "sl-input",
+            inputLabel: "sl-input-label",
+            validationMessage: "sl-validation",
+          },
+        });
+      }
+
+      // Confirmación corta con icono propio (sin los iconos animados de
+      // SweetAlert, que no pegan con el resto de la app).
+      async function confirmDialog({ title, text, confirmText = "Aceptar", danger = false, iconName }) {
+        const { isConfirmed } = await openModal({
+          width: 420,
+          html: `
+            <div class="sl-confirm">
+              <span class="sl-confirm-icon ${danger ? "is-danger" : ""}">${icon(iconName || (danger ? "trash" : "info"))}</span>
+              <h3 class="sl-confirm-title">${escapeHtml(title)}</h3>
+              ${text ? `<p class="sl-confirm-text">${escapeHtml(text)}</p>` : ""}
+            </div>`,
+          showCancelButton: true,
+          confirmButtonText: confirmText,
+          cancelButtonText: "Cancelar",
+          focusCancel: danger,
+          customClass: { popup: "sl-modal-sm", confirmButton: danger ? "sl-btn-danger" : "" },
+        });
+        return isConfirmed;
+      }
+
+      function loadingModal(title, text = "") {
+        return openModal({
+          width: 400,
+          html: `
+            <div class="sl-loading">
+              <span class="sl-spinner"></span>
+              <h3 class="sl-confirm-title">${escapeHtml(title)}</h3>
+              <p class="sl-confirm-text" id="slLoadingText">${escapeHtml(text)}</p>
+            </div>`,
+          showConfirmButton: false,
+          allowOutsideClick: false,
+          allowEscapeKey: false,
+          customClass: { popup: "sl-modal-sm" },
+        });
       }
 
       // Botón "Información" reutilizable — en Juegos populares deja ver los
@@ -256,7 +391,7 @@
 
       // Cerrar dropdowns al hacer click fuera
       window.addEventListener("click", (e) => {
-        if (!e.target.matches(".more-btn")) {
+        if (!e.target.closest(".more-btn")) {
           document
             .querySelectorAll(".dropdown-content")
             .forEach((d) => d.classList.remove("show"));
@@ -524,22 +659,103 @@
             container.appendChild(buildGameCard(entry.game, "completed"));
             return;
           }
-
-          const wrap = document.createElement("div");
-          wrap.className = "saga-group";
-
-          const header = document.createElement("div");
-          header.className = "saga-group-header";
-          header.innerHTML = `📚 ${escapeHtml(entry.saga.name)}`;
-          wrap.appendChild(header);
-
-          const grid = document.createElement("div");
-          grid.className = "saga-group-grid";
-          entry.games.forEach((g) => grid.appendChild(buildGameCard(g, "completed")));
-          wrap.appendChild(grid);
-
-          container.appendChild(wrap);
+          container.appendChild(
+            buildSagaGroup(entry.saga, entry.games, (g) => buildGameCard(g, "completed"))
+          );
         });
+      }
+
+      function currentGridColumns() {
+        const cols = Number(getComputedStyle(document.documentElement).getPropertyValue("--grid-cols")) || 5;
+        return window.innerWidth <= 700 ? Math.min(cols, 2) : cols;
+      }
+
+      // Bloque de saga dentro de una rejilla (biblioteca y pasados). Ocupa
+      // solo tantas columnas como juegos tenga (hasta el máximo de la fila),
+      // así se coloca en línea con el resto de cards en vez de partir la
+      // fila y dejar huecos. Cada card lleva su número dentro de la saga (el
+      // de la saga completa, aunque alguno esté en la otra sección).
+      function buildSagaGroup(saga, gamesInOrder, buildCard, letter) {
+        const wrap = document.createElement("div");
+        wrap.className = "saga-group";
+        wrap.dataset.sagaId = saga.id;
+        if (letter) wrap.dataset.letter = letter;
+        const span = Math.max(1, Math.min(gamesInOrder.length, currentGridColumns()));
+        wrap.style.gridColumn = `span ${span}`;
+        wrap.style.setProperty("--saga-cols", span);
+
+        const total = saga.gameIds.length;
+        const header = document.createElement("div");
+        header.className = "saga-group-header";
+        header.innerHTML = `
+          <span class="saga-group-icon">${icon("layers")}</span>
+          <span class="saga-group-name">${escapeHtml(saga.name)}</span>
+          <span class="saga-group-count">${total} ${total === 1 ? "juego" : "juegos"}</span>
+          <button type="button" class="icon-btn saga-group-edit" title="Editar saga" aria-label="Editar saga">${icon("pencil")}</button>
+        `;
+        header.querySelector(".saga-group-edit").onclick = () => openSagasModal(saga.id);
+        wrap.appendChild(header);
+
+        gamesInOrder.forEach((g) => {
+          const card = buildCard(g);
+          const pos = saga.gameIds.indexOf(Number(g.id)) + 1;
+          const cover = card.querySelector(".card-cover");
+          if (cover && pos > 0) {
+            cover.insertAdjacentHTML("beforeend", `<span class="saga-order" title="Orden en la saga">${pos}</span>`);
+          }
+          wrap.appendChild(card);
+        });
+
+        return wrap;
+      }
+
+      // Botones de una card de biblioteca o de pasados. "Jugar" sale siempre
+      // que el juego se pueda lanzar (por .exe o por su launcher); "Vincular"
+      // solo cuando no hay ninguna forma de lanzarlo.
+      function cardActionsHtml(game, mode) {
+        const id = game.id;
+        const playable = canPlay(game);
+        const linkBtn = game.executable
+          ? `<button class="linked-btn is-icon" onclick="confirmUnlink('${id}')" title="Ejecutable vinculado (clic para desvincular)" aria-label="Ejecutable vinculado">${icon("link")}</button>`
+          : playable
+          ? ""
+          : `<button onclick="setExecutable('${id}')">${icon("link")}<span>Vincular</span></button>`;
+        const playBtn = playable
+          ? `<button class="primary" onclick="launchGame('${id}')">${icon("play")}<span>Jugar</span></button>`
+          : "";
+
+        const saga = sagaForGame(id);
+        const sagaItem = saga
+          ? `<div class="dropdown-item" onclick="removeGameFromItsSaga('${id}')">${icon("layers")}Quitar de "${escapeHtml(saga.name)}"</div>`
+          : `<div class="dropdown-item" onclick="openAddToSagaModal('${id}')">${icon("layers")}Añadir a una saga</div>`;
+        const exeItem = !game.executable && playable
+          ? `<div class="dropdown-item" onclick="setExecutable('${id}')">${icon("link")}Vincular ejecutable</div>`
+          : "";
+
+        const items =
+          mode === "completed"
+            ? `
+              <div class="dropdown-item" onclick="openInfoModal('${id}')">${icon("info")}Información</div>
+              <div class="dropdown-item" onclick="togglePlatinum('${id}')">${icon("crown")}${game.isPlatinum ? "Quitar platino" : "Marcar platino"}</div>
+              ${sagaItem}
+              <div class="dropdown-item" onclick="returnToLibrary('${id}')">${icon("arrowUp")}Volver a biblioteca</div>
+              <div class="dropdown-item is-danger" onclick="removeFromLibrary('${id}')">${icon("trash")}Quitar de pasados</div>`
+            : `
+              <div class="dropdown-item" onclick="openInfoModal('${id}')">${icon("info")}Información</div>
+              <div class="dropdown-item" onclick="markCompleted('${id}')">${icon("check")}Marcar como pasado</div>
+              ${sagaItem}
+              ${exeItem}
+              <div class="dropdown-item" onclick="openSortKeyEditor('${id}')">${icon("pencil")}Nombre para ordenar</div>
+              <div class="dropdown-item is-danger" onclick="removeFromLibrary('${id}')">${icon("trash")}Quitar de biblioteca</div>`;
+
+        return `
+          ${linkBtn}
+          ${playBtn}
+          <div class="action-menu">
+            <button class="more-btn" onclick="toggleDropdown(event, '${id}')" title="Más opciones" aria-label="Más opciones">${icon("more")}</button>
+            <div id="dropdown-${id}" class="dropdown-content">${items}</div>
+          </div>
+        `;
       }
 
       function refreshSearchUI() {
@@ -613,18 +829,14 @@
       }
 
       async function removeFromLibrary(id) {
-        const { isConfirmed } = await Swal.fire({
-          background: "#100e10",
-          color: "#f3efe6",
-          title: "¿Eliminar de la biblioteca?",
-          text: "Esta acción no se puede deshacer.",
-          icon: "warning",
-          showCancelButton: true,
-          confirmButtonColor: "#bc002d",
-          confirmButtonText: "Eliminar",
-          cancelButtonText: "Cancelar",
+        const game = [...libraryGamesCache, ...completedGamesCache].find((g) => String(g.id) === String(id));
+        const ok = await confirmDialog({
+          title: game ? `¿Quitar "${game.name}"?` : "¿Quitar de la biblioteca?",
+          text: "Se borra de Sharingan Launcher (no se desinstala nada). No se puede deshacer.",
+          confirmText: "Quitar",
+          danger: true,
         });
-        if (!isConfirmed) return;
+        if (!ok) return;
 
         await window.electronAPI.removeGame(Number(id));
         await loadLibrary();
@@ -673,13 +885,7 @@
         // Aviso de carga: los 3 pasos siguientes pueden tardar un poco (sobre
         // todo la primera vez, que Steam descarga su lista completa de apps
         // para la busqueda por nombre), y antes no se veia nada mientras tanto.
-        Swal.fire({
-          background: "#100e10",
-          color: "#f3efe6",
-          title: "Cargando información...",
-          allowOutsideClick: false,
-          didOpen: () => Swal.showLoading(),
-        });
+        loadingModal("Cargando información", game.name);
 
         // 2+3+3b. IGDB, requisitos de Steam y specs del equipo: independientes
         // entre si, se piden en paralelo en vez de uno detras de otro.
@@ -829,7 +1035,7 @@
           <div><img src="${coverUrl}" class="info-cover"></div>
           <div class="info-details">
              <h3>${escapeHtml(game.name)}</h3>
-             <p style="font-size:12px; color:#888;">${escapeHtml(genres)}</p>
+             <p class="info-genres">${escapeHtml(genres)}</p>
              
              <div class="req-real-container">
                 <div class="req-box">
@@ -843,18 +1049,14 @@
              </div>
              
              ${mySpecsHtml}
-             <p style="font-size:10px; opacity:0.3; margin-top:10px; text-align:center;">
-               Datos provistos por Steam Store API
-             </p>
+             <p class="info-source">Requisitos: Steam Store</p>
           </div>
         </div>
       `;
 
-        Swal.fire({
+        openModal({
           html: html,
           width: 950,
-          background: "#100e10",
-          color: "#f3efe6",
           showConfirmButton: false,
           showCloseButton: true,
           customClass: { popup: "info-popup" },
@@ -872,45 +1074,16 @@
         div.dataset.gameId = game.id;
 
         const name = game.name || "Sin nombre";
-        const safeAttrName = name.replace(/"/g, "&quot;");
-
-        const coverUrl =
-          game.coverUrl ||
-          (game.cover && game.cover.image_id
-            ? `https://images.igdb.com/igdb/image/upload/t_cover_big/${game.cover.image_id}.jpg`
-            : "assets/no-cover.png");
-
-        const hasExe = !!game.executable;
-        const exeStatus = hasExe
-          ? `<button class="linked-btn" onclick="confirmUnlink('${game.id}')">Vinculado</button>`
-          : `<button onclick="setExecutable('${game.id}')">Vincular</button>`;
-        const playButton = hasExe
-          ? `<button class="primary" onclick="launchGame('${game.id}')">Jugar</button>`
+        if (game.isPlatinum) div.classList.add("platinum-card");
+        const crownHtml = game.isPlatinum
+          ? `<span class="platinum-crown" title="Platino">${icon("crown")}</span>`
           : "";
 
-        const platText = game.isPlatinum ? "Desmarcar Platino" : "Marcar Platino 👑";
-        if (game.isPlatinum) div.classList.add("platinum-card");
-        const crownHtml = game.isPlatinum ? `<div class="platinum-crown">👑</div>` : "";
-
-        const buttonsHtml = `
-          ${crownHtml}
-          ${exeStatus}
-          ${playButton}
-          <div class="action-menu">
-            <button class="more-btn" onclick="toggleDropdown(event, '${game.id}')">⋯</button>
-            <div id="dropdown-${game.id}" class="dropdown-content">
-               <div class="dropdown-item" onclick="openInfoModal('${game.id}')">Información</div>
-               <div class="dropdown-item" onclick="togglePlatinum('${game.id}')">${platText}</div>
-               <div class="dropdown-item" onclick="returnToLibrary('${game.id}')">Volver a biblioteca</div>
-               <div class="dropdown-item" onclick="removeFromLibrary('${game.id}')" style="color: #ff6b6b;">Quitar de pasados</div>
-            </div>
-          </div>
-        `;
-
         div.innerHTML = `
-          <div class="card-cover"><img src="${coverUrl}" alt="${safeAttrName}"></div>
+          ${crownHtml}
+          <div class="card-cover"><img src="${coverOf(game)}" alt="${escapeHtml(name)}" loading="lazy"></div>
           <h3>${escapeHtml(name)}</h3>
-          <div class="card-actions">${buttonsHtml}</div>
+          <div class="card-actions">${cardActionsHtml(game, mode)}</div>
         `;
 
         return div;
@@ -966,11 +1139,11 @@
         return "#";
       }
 
-      function renderLibraryIndexBar(gamesShown) {
+      function renderLibraryIndexBar(keysShown) {
         const bar = document.getElementById("libraryIndexBar");
         if (!bar) return;
 
-        const present = new Set(gamesShown.map((g) => letterBucket(g.sortKey || g.name)));
+        const present = new Set(keysShown.map((k) => letterBucket(k)));
         bar.innerHTML = INDEX_BUCKETS.map((b) => {
           const has = present.has(b);
           return `<button type="button" class="index-btn" data-bucket="${b}" ${has ? "" : "disabled"}>${b}</button>`;
@@ -1077,58 +1250,43 @@
           return;
         }
 
-        games.forEach((game) => {
-          const div = document.createElement("div");
-          div.className = "game-card";
-          div.dataset.gameId = game.id;
-          div.dataset.letter = letterBucket(game.sortKey || game.name);
-
-          const name = game.name || "Sin nombre";
-          const safeAttrName = name.replace(/"/g, "&quot;");
-
-          const coverUrl =
-            game.coverUrl ||
-            (game.cover && game.cover.image_id
-              ? `https://images.igdb.com/igdb/image/upload/t_cover_big/${game.cover.image_id}.jpg`
-              : "assets/no-cover.png");
-
-          const hasExe = !!game.executable;
-          const exeStatus = hasExe
-            ? `<button class="linked-btn" onclick="confirmUnlink('${game.id}')">Vinculado</button>`
-            : `<button onclick="setExecutable('${game.id}')">Vincular</button>`;
-          const playButton = hasExe
-            ? `<button class="primary" onclick="launchGame('${game.id}')">Jugar</button>`
-            : "";
-
-          // Dropdown para biblioteca
-          const buttonsHtml = `
-            ${exeStatus}
-            ${playButton}
-            <div class="action-menu">
-              <button class="more-btn" onclick="toggleDropdown(event, '${game.id}')">⋯</button>
-              <div id="dropdown-${game.id}" class="dropdown-content">
-                 <div class="dropdown-item" onclick="openInfoModal('${game.id}')">Información</div>
-                 <div class="dropdown-item" onclick="markCompleted('${game.id}')">Marcar como pasado</div>
-                 <div class="dropdown-item" onclick="openSortKeyEditor('${game.id}')">Cambiar orden</div>
-                 <div class="dropdown-item" onclick="removeFromLibrary('${game.id}')" style="color: #ff6b6b;">Quitar de biblioteca</div>
-              </div>
-            </div>
-          `;
-
-          const saga = sagaForGame(game.id);
-          const sagaTagHtml = saga ? `<div class="saga-tag">📚 ${escapeHtml(saga.name)}</div>` : "";
-
-          div.innerHTML = `
-          <div class="card-cover"><img src="${coverUrl}" alt="${safeAttrName}"></div>
-          <h3>${escapeHtml(name)}</h3>
-          ${sagaTagHtml}
-          <div class="card-actions">${buttonsHtml}</div>
-        `;
-
-          container.appendChild(div);
+        // Biblioteca: los juegos sueltos van por orden alfabético y cada saga
+        // es un bloque que ocupa el sitio alfabético de su nombre, con sus
+        // juegos siempre en el orden de la saga.
+        const entries = buildLibraryEntries(games);
+        entries.forEach((entry) => {
+          if (entry.type === "saga") {
+            container.appendChild(
+              buildSagaGroup(entry.saga, entry.games, (g) => buildGameCard(g, "library"), letterBucket(entry.key))
+            );
+          } else {
+            const card = buildGameCard(entry.game, "library");
+            card.dataset.letter = letterBucket(entry.key);
+            container.appendChild(card);
+          }
         });
 
-        if (mode === "library") renderLibraryIndexBar(games);
+        if (mode === "library") renderLibraryIndexBar(entries.map((e) => e.key));
+      }
+
+      function buildLibraryEntries(list) {
+        const byId = new Map(list.map((g) => [Number(g.id), g]));
+        const grouped = new Set();
+        const entries = [];
+
+        sagasCache.forEach((saga) => {
+          const members = saga.gameIds.map((id) => byId.get(Number(id))).filter(Boolean);
+          if (!members.length) return;
+          members.forEach((m) => grouped.add(Number(m.id)));
+          entries.push({ type: "saga", saga, games: members, key: saga.name || "" });
+        });
+
+        list.forEach((g) => {
+          if (!grouped.has(Number(g.id))) entries.push({ type: "game", game: g, key: g.sortKey || g.name || "" });
+        });
+
+        entries.sort((a, b) => a.key.localeCompare(b.key, "es", { sensitivity: "base", numeric: true }));
+        return entries;
       }
 
       document.addEventListener("click", (e) => {
@@ -1165,8 +1323,7 @@
         btn.classList.toggle("active", showOnlyLinked);
 
         let gamesToShow = libraryGamesCache;
-        if (showOnlyLinked)
-          gamesToShow = libraryGamesCache.filter((g) => !!g.executable);
+        if (showOnlyLinked) gamesToShow = libraryGamesCache.filter(canPlay);
 
         const title = document.getElementById("libraryTitle");
         title.textContent = `Juegos (${gamesToShow.length})`;
@@ -1175,17 +1332,13 @@
       }
 
       async function confirmUnlink(id) {
-        const { isConfirmed } = await Swal.fire({
-          background: "#100e10",
-          color: "#f3efe6",
-          title: "¿Desvincular ejecutable?",
-          icon: "question",
-          showCancelButton: true,
-          confirmButtonColor: "#bc002d",
-          confirmButtonText: "Desvincular",
-          cancelButtonText: "Cancelar",
+        const ok = await confirmDialog({
+          title: "¿Desvincular el ejecutable?",
+          text: "El juego sigue en tu biblioteca; solo se olvida qué .exe lanzar.",
+          confirmText: "Desvincular",
+          iconName: "link",
         });
-        if (!isConfirmed) return;
+        if (!ok) return;
 
         try {
           await window.electronAPI.unlinkExecutable(id);
@@ -1215,24 +1368,18 @@
         const name = game.name || "Sin nombre";
         const currentSortKey = game.sortKey || name;
 
-        const coverUrl =
-          game.coverUrl ||
-          (game.cover && game.cover.image_id
-            ? `https://images.igdb.com/igdb/image/upload/t_cover_big/${game.cover.image_id}.jpg`
-            : "assets/no-cover.png");
-
-        const { value: newSortKey } = await Swal.fire({
-          background: "#100e10",
-          color: "#f3efe6",
+        const { value: newSortKey } = await openModal({
+          eyebrow: "Biblioteca",
           title: "Nombre para ordenar",
+          width: 440,
           html: `
           <div class="sortkey-modal">
-            <img src="${coverUrl}" alt="${escapeHtml(name)}" class="sortkey-cover">
+            <img src="${coverOf(game)}" alt="${escapeHtml(name)}" class="sortkey-cover">
             <p>${escapeHtml(name)}</p>
+            <span class="sl-hint">Se usa para colocarlo en el orden alfabético (por ejemplo, "Witcher 3" en vez de "The Witcher 3").</span>
           </div>
         `,
           input: "text",
-          inputLabel: "Texto usado para ordenar en la biblioteca",
           inputValue: currentSortKey,
           showCancelButton: true,
           confirmButtonText: "Guardar",
@@ -1252,185 +1399,474 @@
       }
 
       // ===============================
-      // Sagas (carpetas de juegos, con orden propio)
+      // Sagas
       // ===============================
-      async function openSagasModal() {
+      // Una saga es una carpeta de juegos: se crea, se le meten juegos y ya
+      // está - el orden lo pone sola por fecha de lanzamiento (main.js la
+      // busca en IGDB si el juego no la trae). Se puede retocar arrastrando,
+      // y "Ordenar por lanzamiento" lo vuelve a dejar cronológico. Biblioteca
+      // y pasados muestran cada saga como un bloque en ese mismo orden.
+      async function openSagasModal(selectId = null) {
         let sagas = (await window.electronAPI.getSagas()) || [];
-        const { games: libGames, completedGames: doneGames } =
-          await window.electronAPI.getGames();
+        const { games: libGames, completedGames: doneGames } = await window.electronAPI.getGames();
         const allOwned = [...(libGames || []), ...(doneGames || [])];
+        const byId = new Map(allOwned.map((g) => [Number(g.id), g]));
+        const doneIds = new Set((doneGames || []).map((g) => Number(g.id)));
 
-        const esc = (s) =>
-          s
-            ? String(s)
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-            : "";
+        let selectedId = sagas.some((s) => s.id === selectId) ? selectId : sagas[0]?.id || null;
+        let query = "";
+        let confirmingDelete = false;
+        let busy = false;
+        let root = null;
 
-        function gameName(id) {
-          const g = allOwned.find((x) => Number(x.id) === Number(id));
-          return g ? g.name : `#${id}`;
+        const esc = escapeHtml;
+        const selected = () => sagas.find((s) => s.id === selectedId) || null;
+        const ownerOf = (gid) => sagas.find((s) => s.gameIds.includes(Number(gid)));
+        const norm = (s) =>
+          String(s || "")
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[̀-ͯ]/g, "")
+            .replace(/[^a-z0-9ñ ]+/g, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+        const countLabel = (n) => `${n} ${n === 1 ? "juego" : "juegos"}`;
+
+        async function refresh(list) {
+          sagas = list || (await window.electronAPI.getSagas()) || [];
+          if (!sagas.some((s) => s.id === selectedId)) selectedId = sagas[0]?.id || null;
         }
 
-        function sagaOwnerName(gameId, exceptSagaId) {
-          const owner = sagas.find(
-            (s) => s.id !== exceptSagaId && s.gameIds.includes(Number(gameId))
-          );
-          return owner ? owner.name : null;
+        function thumbs(saga) {
+          const covers = saga.gameIds.slice(0, 3).map((id) => coverOf(byId.get(id)));
+          if (!covers.length) return `<span class="sg-thumb-empty">${icon("layers")}</span>`;
+          return covers.map((c) => `<img src="${c}" alt="">`).join("");
         }
 
-        function sagaBlock(saga) {
-          const rows = saga.gameIds
-            .map((gid, idx) => {
-              return `
-              <div class="saga-game-row">
-                <span class="saga-game-index">${idx + 1}</span>
-                <span class="saga-game-name">${esc(gameName(gid))}</span>
-                <button type="button" class="saga-icon-btn" data-saga-up="${saga.id}" data-game="${gid}" ${idx === 0 ? "disabled" : ""} title="Subir">↑</button>
-                <button type="button" class="saga-icon-btn" data-saga-down="${saga.id}" data-game="${gid}" ${idx === saga.gameIds.length - 1 ? "disabled" : ""} title="Bajar">↓</button>
-                <button type="button" class="saga-icon-btn danger" data-saga-remove="${saga.id}" data-game="${gid}" title="Quitar de la saga">✕</button>
+        function renderList() {
+          const ul = root.querySelector(".sg-list");
+          ul.innerHTML = sagas.length
+            ? sagas
+                .map(
+                  (s) => `
+              <li class="sg-item ${s.id === selectedId ? "is-active" : ""}" data-id="${s.id}" draggable="true">
+                <span class="sg-item-thumbs">${thumbs(s)}</span>
+                <span class="sg-item-text">
+                  <span class="sg-item-name">${esc(s.name)}</span>
+                  <span class="sg-item-count">${countLabel(s.gameIds.length)}</span>
+                </span>
+                <span class="sg-grip" title="Arrastra para reordenar">${icon("grip")}</span>
+              </li>`
+                )
+                .join("")
+            : `<li class="sg-list-empty">Aún no tienes sagas. Escribe un nombre arriba para crear la primera.</li>`;
+          root.querySelector(".sg-side-hint").style.display = sagas.length > 1 ? "" : "none";
+        }
+
+        function renderDetail() {
+          const s = selected();
+          const d = root.querySelector(".sg-detail");
+          if (!s) {
+            d.innerHTML = `
+              <div class="sg-blank">
+                <span class="sg-blank-icon">${icon("layers")}</span>
+                <h3>Agrupa tus juegos por saga</h3>
+                <p>Crea una saga (por ejemplo, <em>Dark Souls</em>) y añádele sus juegos. Se ordenan solos por fecha de lanzamiento y en la biblioteca aparecen juntos, siempre en ese orden.</p>
+              </div>`;
+            return;
+          }
+
+          const deleteHtml = confirmingDelete
+            ? `<span class="sg-del-confirm">
+                 <span>¿Eliminar la saga? Los juegos no se borran.</span>
+                 <button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-act="del-no">Cancelar</button>
+                 <button type="button" class="sl-btn sl-btn-danger sl-btn-sm" data-act="del-yes">Eliminar</button>
+               </span>`
+            : `<button type="button" class="icon-btn sg-del" data-act="del" title="Eliminar saga" aria-label="Eliminar saga">${icon("trash")}</button>`;
+
+          d.innerHTML = `
+            <div class="sg-head">
+              <div class="sg-name-wrap" title="Haz clic para renombrar">
+                <input type="text" class="sg-name" value="${esc(s.name)}" maxlength="80" spellcheck="false" aria-label="Nombre de la saga">
+                ${icon("pencil", "sg-name-icon")}
               </div>
-            `;
-            })
-            .join("");
-
-          const addableOptions = allOwned
-            .filter((g) => !saga.gameIds.includes(Number(g.id)))
-            .map((g) => {
-              const otherSaga = sagaOwnerName(g.id, saga.id);
-              const label = otherSaga ? `${g.name} (en: ${otherSaga})` : g.name;
-              return `<option value="${g.id}">${esc(label)}</option>`;
-            })
-            .join("");
-
-          return `
-          <div class="saga-card">
-            <div class="saga-card-header">
-              <span class="saga-card-title">📚 ${esc(saga.name)}</span>
-              <button type="button" class="saga-delete-btn" data-saga-delete="${saga.id}">Eliminar saga</button>
+              <div class="sg-head-actions">
+                ${confirmingDelete ? "" : `<button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-act="sort" title="Vuelve a colocar los juegos por fecha de lanzamiento">${icon("calendar")}<span>Ordenar por lanzamiento</span></button>`}
+                ${deleteHtml}
+              </div>
             </div>
-            <div class="saga-games">
-              ${rows || '<p class="saga-empty">Sin juegos todavía — añade alguno abajo.</p>'}
-            </div>
-            <div class="saga-add-row">
-              <select class="saga-select" data-saga-addselect="${saga.id}">
-                <option value="">${addableOptions ? "Añadir juego..." : "No hay más juegos disponibles"}</option>
-                ${addableOptions}
-              </select>
-              <button type="button" class="primary" data-saga-addbtn="${saga.id}">Añadir</button>
-            </div>
-          </div>
-        `;
+            <ol class="sg-games"></ol>
+            <div class="sg-add">
+              <label class="sg-search">
+                ${icon("search")}
+                <input type="text" class="sg-search-input" placeholder="Añadir juegos: busca en tu biblioteca" value="${esc(query)}">
+              </label>
+              <div class="sg-results"></div>
+            </div>`;
+          renderGames();
+          renderResults();
         }
 
-        function render() {
-          const sagasHtml = sagas.length
-            ? sagas.map(sagaBlock).join("")
-            : '<p class="saga-empty" style="margin-bottom:16px;">Todavía no tienes ninguna saga creada.</p>';
-
-          return `
-          <div class="sagas-wrap">
-            ${sagasHtml}
-            <div class="saga-new-row">
-              <input type="text" id="newSagaName" placeholder="Nombre de la nueva saga (ej. The Legend of Zelda)">
-              <button type="button" id="newSagaBtn" class="primary">+ Nueva saga</button>
-            </div>
-          </div>
-        `;
+        function renderGames() {
+          const s = selected();
+          const ol = root.querySelector(".sg-games");
+          if (!s || !ol) return;
+          // Ordenar solo tiene sentido con dos juegos o más.
+          root.querySelector('[data-act="sort"]')?.toggleAttribute("hidden", s.gameIds.length < 2);
+          ol.innerHTML = s.gameIds.length
+            ? s.gameIds
+                .map((gid, i) => {
+                  const g = byId.get(gid);
+                  const meta = [releaseYear(g), doneIds.has(gid) ? "Pasado" : null].filter(Boolean).join(" · ");
+                  return `
+                <li class="sg-game" draggable="true" data-gid="${gid}">
+                  <span class="sg-grip" title="Arrastra para reordenar">${icon("grip")}</span>
+                  <span class="sg-game-pos">${i + 1}</span>
+                  <img class="sg-game-cover" src="${coverOf(g)}" alt="">
+                  <span class="sg-game-text">
+                    <span class="sg-game-name">${esc(g?.name || "Juego eliminado")}</span>
+                    <span class="sg-game-meta">${meta || "Sin fecha de lanzamiento"}</span>
+                  </span>
+                  <button type="button" class="icon-btn sg-game-remove" data-act="remove" data-gid="${gid}" title="Quitar de la saga" aria-label="Quitar de la saga">${icon("x")}</button>
+                </li>`;
+                })
+                .join("")
+            : `<li class="sg-games-empty">${icon("plus")}<span>Esta saga está vacía. Busca abajo sus juegos y pulsa en ellos para añadirlos; se colocan solos en orden de lanzamiento.</span></li>`;
         }
 
-        function bind() {
-          const popup = Swal.getPopup();
-          if (!popup) return;
+        function renderResults() {
+          const s = selected();
+          const box = root.querySelector(".sg-results");
+          if (!s || !box) return;
 
-          const refresh = async () => {
-            sagas = (await window.electronAPI.getSagas()) || [];
-            Swal.update({ html: render() });
-          };
+          const q = norm(query);
+          let list = allOwned.filter((g) => !s.gameIds.includes(Number(g.id)));
+          let heading;
+          if (q) {
+            list = list.filter((g) => norm(g.name).includes(q));
+            heading = `${icon("search")}Resultados`;
+          } else {
+            // Sugerencias: juegos cuyo nombre contiene el de la saga.
+            const sn = norm(s.name);
+            list = sn ? list.filter((g) => norm(g.name).includes(sn)) : [];
+            heading = `${icon("sparkles")}Sugerencias para esta saga`;
+          }
+          list = list
+            .sort((a, b) => String(a.name).localeCompare(String(b.name), "es", { numeric: true }))
+            .slice(0, 40);
 
-          popup.querySelectorAll("[data-saga-up]").forEach((btn) => {
-            btn.onclick = async () => {
-              await window.electronAPI.moveGameInSaga(
-                btn.dataset.sagaUp,
-                btn.dataset.game,
-                "up"
-              );
-              refresh();
-            };
-          });
-          popup.querySelectorAll("[data-saga-down]").forEach((btn) => {
-            btn.onclick = async () => {
-              await window.electronAPI.moveGameInSaga(
-                btn.dataset.sagaDown,
-                btn.dataset.game,
-                "down"
-              );
-              refresh();
-            };
-          });
-          popup.querySelectorAll("[data-saga-remove]").forEach((btn) => {
-            btn.onclick = async () => {
-              await window.electronAPI.removeGameFromSaga(
-                btn.dataset.sagaRemove,
-                btn.dataset.game
-              );
-              refresh();
-            };
-          });
-          popup.querySelectorAll("[data-saga-delete]").forEach((btn) => {
-            btn.onclick = async () => {
-              const { isConfirmed } = await Swal.fire({
-                background: "#100e10",
-                color: "#f3efe6",
-                title: "¿Eliminar esta saga?",
-                text: "Los juegos no se borran, solo dejan de estar agrupados.",
-                icon: "warning",
-                showCancelButton: true,
-                confirmButtonColor: "#bc002d",
-                confirmButtonText: "Eliminar",
-                cancelButtonText: "Cancelar",
-              });
-              if (!isConfirmed) return;
-              await window.electronAPI.deleteSaga(btn.dataset.sagaDelete);
-              refresh();
-            };
-          });
-          popup.querySelectorAll("[data-saga-addbtn]").forEach((btn) => {
-            btn.onclick = async () => {
-              const sagaId = btn.dataset.sagaAddbtn;
-              const select = popup.querySelector(`[data-saga-addselect="${sagaId}"]`);
-              if (!select || !select.value) return;
-              await window.electronAPI.addGameToSaga(sagaId, select.value);
-              refresh();
-            };
-          });
+          if (!list.length) {
+            box.innerHTML = q
+              ? `<p class="sg-results-empty">Ningún juego de tu biblioteca coincide con "${esc(query)}".</p>`
+              : `<p class="sg-results-empty">Escribe para buscar entre los juegos de tu biblioteca.</p>`;
+            return;
+          }
 
-          const newBtn = popup.querySelector("#newSagaBtn");
-          if (newBtn) {
-            newBtn.onclick = async () => {
-              const input = popup.querySelector("#newSagaName");
-              const name = (input?.value || "").trim();
-              if (!name) return;
-              await window.electronAPI.createSaga(name);
-              refresh();
-            };
+          box.innerHTML = `
+            <span class="sg-results-title">${heading}</span>
+            <div class="sg-results-grid">
+              ${list
+                .map((g) => {
+                  const owner = ownerOf(g.id);
+                  return `
+                <button type="button" class="sg-result" data-act="add" data-gid="${g.id}" title="Añadir a ${esc(s.name)}">
+                  <img src="${coverOf(g)}" alt="">
+                  <span class="sg-result-text">
+                    <span class="sg-result-name">${esc(g.name)}</span>
+                    ${owner ? `<span class="sg-result-meta">Ahora en ${esc(owner.name)}</span>` : ""}
+                  </span>
+                  <span class="sg-result-add">${icon("plus")}</span>
+                </button>`;
+                })
+                .join("")}
+            </div>`;
+        }
+
+        async function run(fn) {
+          if (busy) return;
+          busy = true;
+          root.classList.add("is-busy");
+          try {
+            await fn();
+          } catch (err) {
+            console.error(err);
+            showNotification("No se pudo guardar el cambio en la saga.", "error");
+          } finally {
+            busy = false;
+            root.classList.remove("is-busy");
           }
         }
 
-        await Swal.fire({
-          background: "#100e10",
-          color: "#f3efe6",
+        async function createSaga(name) {
+          const before = new Set(sagas.map((s) => s.id));
+          await refresh(await window.electronAPI.createSaga(name));
+          const created = sagas.find((s) => !before.has(s.id));
+          if (created) selectedId = created.id;
+          query = "";
+          confirmingDelete = false;
+          renderList();
+          renderDetail();
+          root.querySelector(".sg-search-input")?.focus();
+        }
+
+        async function saveName(input) {
+          const s = selected();
+          const name = input.value.trim();
+          if (!s) return;
+          if (!name) {
+            input.value = s.name;
+            return;
+          }
+          if (name === s.name) return;
+          await refresh(await window.electronAPI.renameSaga(s.id, name));
+          renderList();
+          renderResults();
+        }
+
+        function bind() {
+          root.querySelector(".sg-new").addEventListener("submit", (e) => {
+            e.preventDefault();
+            const input = root.querySelector(".sg-new-input");
+            const name = input.value.trim();
+            if (!name) return input.focus();
+            input.value = "";
+            run(() => createSaga(name));
+          });
+
+          root.addEventListener("click", (e) => {
+            const item = e.target.closest(".sg-item");
+            if (item && item.dataset.id !== selectedId) {
+              selectedId = item.dataset.id;
+              query = "";
+              confirmingDelete = false;
+              renderList();
+              renderDetail();
+              return;
+            }
+
+            const btn = e.target.closest("[data-act]");
+            if (!btn) return;
+            const s = selected();
+            const act = btn.dataset.act;
+
+            if (act === "add") {
+              btn.classList.add("is-adding");
+              run(async () => {
+                await refresh(await window.electronAPI.addGameToSaga(s.id, btn.dataset.gid));
+                renderList();
+                renderGames();
+                renderResults();
+              });
+            } else if (act === "remove") {
+              run(async () => {
+                await refresh(await window.electronAPI.removeGameFromSaga(s.id, btn.dataset.gid));
+                renderList();
+                renderGames();
+                renderResults();
+              });
+            } else if (act === "sort") {
+              btn.classList.add("is-loading");
+              run(async () => {
+                await refresh(await window.electronAPI.sortSagaByRelease(s.id));
+                renderList();
+                renderGames();
+                showNotification(`"${s.name}" ordenada por fecha de lanzamiento.`);
+              });
+            } else if (act === "del") {
+              confirmingDelete = true;
+              renderDetail();
+            } else if (act === "del-no") {
+              confirmingDelete = false;
+              renderDetail();
+            } else if (act === "del-yes") {
+              run(async () => {
+                await window.electronAPI.deleteSaga(s.id);
+                confirmingDelete = false;
+                query = "";
+                await refresh();
+                renderList();
+                renderDetail();
+                showNotification(`Saga "${s.name}" eliminada.`);
+              });
+            }
+          });
+
+          root.addEventListener("input", (e) => {
+            if (e.target.matches(".sg-search-input")) {
+              query = e.target.value;
+              renderResults();
+            }
+          });
+
+          root.addEventListener("keydown", (e) => {
+            if (e.target.matches(".sg-name") && (e.key === "Enter" || e.key === "Escape")) {
+              if (e.key === "Escape") e.target.value = selected()?.name || "";
+              e.preventDefault();
+              e.stopPropagation();
+              e.target.blur();
+            }
+          });
+
+          root.addEventListener("focusout", (e) => {
+            if (e.target.matches(".sg-name")) run(() => saveName(e.target));
+          });
+
+          // Arrastrar y soltar: juegos dentro de la saga y sagas en la lista.
+          // Se mueve el elemento en vivo y al soltar se guarda el orden que
+          // haya quedado en pantalla.
+          let dragEl = null;
+          root.addEventListener("dragstart", (e) => {
+            const el = e.target.closest?.(".sg-game, .sg-item");
+            if (!el) return;
+            dragEl = el;
+            el.classList.add("is-dragging");
+            e.dataTransfer.effectAllowed = "move";
+            e.dataTransfer.setData("text/plain", "");
+          });
+          root.addEventListener("dragover", (e) => {
+            if (!dragEl) return;
+            e.preventDefault();
+            const sel = dragEl.classList.contains("sg-game") ? ".sg-game" : ".sg-item";
+            const over = e.target.closest?.(sel);
+            if (!over || over === dragEl || over.parentNode !== dragEl.parentNode) return;
+            const r = over.getBoundingClientRect();
+            const after = e.clientY > r.top + r.height / 2;
+            over.parentNode.insertBefore(dragEl, after ? over.nextSibling : over);
+          });
+          root.addEventListener("drop", (e) => e.preventDefault());
+          root.addEventListener("dragend", () => {
+            if (!dragEl) return;
+            const el = dragEl;
+            dragEl = null;
+            el.classList.remove("is-dragging");
+            if (el.classList.contains("sg-game")) {
+              const ids = [...root.querySelectorAll(".sg-games .sg-game")].map((li) => Number(li.dataset.gid));
+              run(async () => {
+                await refresh(await window.electronAPI.setSagaOrder(selectedId, ids));
+                renderList();
+                renderGames();
+              });
+            } else {
+              const ids = [...root.querySelectorAll(".sg-list .sg-item")].map((li) => li.dataset.id);
+              run(async () => {
+                await refresh(await window.electronAPI.reorderSagas(ids));
+                renderList();
+              });
+            }
+          });
+        }
+
+        await openModal({
+          eyebrow: "Biblioteca",
           title: "Sagas",
-          width: 760,
-          html: render(),
+          width: 1000,
+          html: `
+            <div class="sg-root">
+              <aside class="sg-side">
+                <form class="sg-new">
+                  <input type="text" class="sg-new-input" placeholder="Nueva saga" maxlength="80" aria-label="Nombre de la nueva saga">
+                  <button type="submit" class="sl-btn sl-btn-primary sl-btn-sm" title="Crear saga">${icon("plus")}<span>Crear</span></button>
+                </form>
+                <ul class="sg-list"></ul>
+                <p class="sg-side-hint">Arrastra para cambiar el orden.</p>
+              </aside>
+              <section class="sg-detail"></section>
+            </div>`,
           showConfirmButton: false,
           showCloseButton: true,
           customClass: { popup: "sagas-popup" },
-          didRender: () => bind(),
+          didOpen: (popup) => {
+            root = popup.querySelector(".sg-root");
+            renderList();
+            renderDetail();
+            bind();
+            if (!sagas.length) root.querySelector(".sg-new-input").focus();
+          },
         });
 
         await loadLibrary();
+      }
+
+      // Atajo desde el menú de una card: elegir saga (o crear una) sin pasar
+      // por el gestor completo.
+      async function openAddToSagaModal(gameId) {
+        const game = [...libraryGamesCache, ...completedGamesCache].find((g) => String(g.id) === String(gameId));
+        const sagas = sagasCache;
+        let chosen = null;
+
+        await openModal({
+          eyebrow: "Añadir a una saga",
+          title: game?.name || "Juego",
+          width: 460,
+          html: `
+            <div class="sg-pick">
+              ${
+                sagas.length
+                  ? `<div class="sg-pick-list">
+                      ${sagas
+                        .map(
+                          (s) => `
+                        <button type="button" class="sg-pick-item" data-id="${s.id}">
+                          ${icon("layers")}
+                          <span class="sg-pick-name">${escapeHtml(s.name)}</span>
+                          <span class="sg-pick-count">${s.gameIds.length}</span>
+                        </button>`
+                        )
+                        .join("")}
+                    </div>
+                    <div class="sg-pick-or"><span>o crea una nueva</span></div>`
+                  : ""
+              }
+              <form class="sg-pick-new">
+                <input type="text" placeholder="Nombre de la saga" maxlength="80" aria-label="Nombre de la saga">
+                <button type="submit" class="sl-btn sl-btn-primary sl-btn-sm">${icon("plus")}<span>Crear y añadir</span></button>
+              </form>
+            </div>`,
+          showConfirmButton: false,
+          showCloseButton: true,
+          didOpen: (popup) => {
+            popup.querySelectorAll(".sg-pick-item").forEach((b) => {
+              b.onclick = () => {
+                chosen = { id: b.dataset.id };
+                Swal.close();
+              };
+            });
+            const form = popup.querySelector(".sg-pick-new");
+            form.onsubmit = (e) => {
+              e.preventDefault();
+              const name = form.querySelector("input").value.trim();
+              if (!name) return form.querySelector("input").focus();
+              chosen = { name };
+              Swal.close();
+            };
+            if (!sagas.length) form.querySelector("input").focus();
+          },
+        });
+
+        if (!chosen) return;
+        try {
+          let saga = sagas.find((s) => s.id === chosen.id);
+          if (!saga) {
+            const before = new Set(sagas.map((s) => s.id));
+            const list = await window.electronAPI.createSaga(chosen.name);
+            saga = (list || []).find((s) => !before.has(s.id));
+          }
+          if (!saga) return;
+          await window.electronAPI.addGameToSaga(saga.id, gameId);
+          await loadLibrary();
+          showNotification(`Añadido a la saga "${saga.name}".`);
+        } catch (err) {
+          console.error(err);
+          showNotification("No se pudo añadir a la saga.", "error");
+        }
+      }
+
+      async function removeGameFromItsSaga(gameId) {
+        const saga = sagaForGame(gameId);
+        if (!saga) return;
+        await window.electronAPI.removeGameFromSaga(saga.id, gameId);
+        await loadLibrary();
+        showNotification(`Quitado de la saga "${saga.name}".`);
       }
 
       // ===============================
@@ -1447,17 +1883,17 @@
       }
 
       async function openChangelogModal() {
-        const version = document.getElementById("versionLink")?.textContent || "";
+        const version = (document.getElementById("versionLink")?.textContent || "").replace(/^v/, "");
+        let root = null;
 
-        Swal.fire({
-          background: "#100e10",
-          color: "#f3efe6",
+        openModal({
+          eyebrow: "Sharingan Launcher",
           title: "Historial de versiones",
-          html: '<p style="font-size:13px; opacity:.7;">Cargando…</p>',
+          html: `<div class="cl-root"><div class="sl-loading"><span class="sl-spinner"></span></div></div>`,
           showConfirmButton: false,
           showCloseButton: true,
-          width: 560,
-          didOpen: () => Swal.showLoading(),
+          width: 600,
+          didOpen: (popup) => (root = popup.querySelector(".cl-root")),
         });
 
         let releases = [];
@@ -1466,45 +1902,36 @@
         } catch (err) {
           console.error(err);
         }
+        if (!root || !root.isConnected) return;
 
         if (!releases.length) {
-          Swal.update({
-            html: '<p style="font-size:13px; opacity:.7;">No se pudo cargar el historial ahora mismo (necesita conexión a internet).</p>',
-          });
+          root.innerHTML = `<p class="sl-hint cl-empty">No se ha podido cargar el historial (necesita conexión a internet).</p>`;
           return;
         }
 
-        const rows = releases
+        root.innerHTML = releases
           .map((r) => {
             const date = r.publishedAt
-              ? new Date(r.publishedAt).toLocaleDateString("es-ES", {
-                  day: "numeric",
-                  month: "short",
-                  year: "numeric",
-                })
+              ? new Date(r.publishedAt).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" })
               : "";
+            const isCurrent = version && String(r.tag || "").replace(/^v/, "") === version;
             const lines = (r.body || "")
               .split("\n")
               .map((l) => l.trim())
-              .filter(Boolean)
+              .filter((l) => l && !/^#+\s/.test(l))
               .map((l) => `<li>${escapeHtml(l.replace(/^[-*]\s*/, ""))}</li>`)
               .join("");
-
             return `
-            <div style="border-bottom:1px solid var(--ink-800); padding:14px 0; text-align:left;">
-              <div style="display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin-bottom:6px;">
-                <span style="font-family:'Shippori Mincho', serif; font-size:16px;">${escapeHtml(r.name)}</span>
-                <span style="font-size:11px; opacity:.5; flex-shrink:0;">${date}</span>
-              </div>
-              ${lines ? `<ul style="margin:0; padding-left:18px; font-size:13px; opacity:.8; line-height:1.6;">${lines}</ul>` : ""}
-            </div>
-          `;
+            <article class="cl-release ${isCurrent ? "is-current" : ""}">
+              <header class="cl-head">
+                <span class="cl-name">${escapeHtml(r.name)}</span>
+                ${isCurrent ? `<span class="cl-badge">Instalada</span>` : ""}
+                <span class="cl-date">${date}</span>
+              </header>
+              ${lines ? `<ul class="cl-list">${lines}</ul>` : ""}
+            </article>`;
           })
           .join("");
-
-        Swal.update({
-          html: `<div style="max-height:60vh; overflow-y:auto; margin-top:-8px;">${rows}</div>`,
-        });
       }
 
       // ===============================
@@ -1535,6 +1962,11 @@
       function applyGridColumns(value) {
         if (!value) return;
         document.documentElement.style.setProperty("--grid-cols", value);
+        // Los bloques de saga calculan su ancho en columnas al pintarse.
+        if (document.querySelector(".saga-group")) {
+          applyLibraryFilter();
+          renderCompletedList();
+        }
       }
 
       function applyTheme(themeId) {
@@ -1576,9 +2008,8 @@
           `
         ).join("");
 
-        await Swal.fire({
-          background: "#100e10",
-          color: "#f3efe6",
+        await openModal({
+          eyebrow: "Sharingan Launcher",
           title: "Ajustes",
           showConfirmButton: false,
           showCloseButton: true,
@@ -1659,235 +2090,252 @@
       }
 
       // ===============================
-      // Import modal (sin cambios funcionales)
+      // Importar juegos instalados
       // ===============================
+      // Al pulsar se busca todo solo (Steam, Epic y GOG se localizan por el
+      // registro de Windows) y después se enseña qué se ha encontrado. Solo
+      // se pide una carpeta para lo que no se haya encontrado o haya fallado,
+      // y el .exe de los juegos que no se sepa cómo lanzar.
+      const IMPORT_PLATFORMS = {
+        steam: {
+          label: "Steam",
+          key: "steamRoot",
+          pickTitle: "Carpeta de Steam o de una biblioteca de Steam (p. ej. D:\\SteamLibrary)",
+          notFound: "No se ha encontrado Steam en este equipo.",
+        },
+        epic: {
+          label: "Epic Games",
+          key: "epicManifestsDir",
+          pickTitle: "Carpeta Manifests de Epic (C:\\ProgramData\\Epic\\EpicGamesLauncher\\Data\\Manifests)",
+          notFound: "No se ha encontrado Epic Games Launcher.",
+        },
+        gog: {
+          label: "GOG",
+          key: "gogRoot",
+          pickTitle: "Carpeta donde instalas los juegos de GOG",
+          notFound: "No se ha encontrado GOG Galaxy ni la carpeta C:\\GOG Games.",
+        },
+        none: {
+          label: "Sin launcher",
+          key: "noneRoot",
+          pickTitle: "Carpeta con tus juegos sin launcher (una subcarpeta por juego)",
+          notFound: "",
+        },
+      };
+
+      let enrichingCovers = false;
+      async function enrichCoversInBackground() {
+        if (enrichingCovers) return;
+        enrichingCovers = true;
+        try {
+          const r = await window.electronAPI.enrichCovers({ limit: 80 });
+          if (r?.updated) await loadLibrary();
+        } catch (err) {
+          console.error(err);
+        } finally {
+          enrichingCovers = false;
+        }
+      }
+
       async function openImportModal() {
-        const state = {
-          steamRoot: null,
-          epicManifestsDir: null,
-          epicDatDir: null,
-          gogRoot: null,
-          noneRoot: null,
+        loadingModal("Buscando juegos instalados", "Steam, Epic Games y GOG");
+
+        let report;
+        try {
+          report = (await window.electronAPI.importInstalledGames({}))?.report || {};
+        } catch (err) {
+          console.error(err);
+          const retry = await confirmDialog({
+            title: "No se ha podido completar la búsqueda",
+            text: String(err?.message || err),
+            confirmText: "Reintentar",
+            iconName: "alert",
+          });
+          if (retry) openImportModal();
+          return;
+        }
+
+        await loadLibrary();
+        refreshSearchUI();
+        enrichCoversInBackground();
+        showImportResults(report);
+      }
+
+      function mergeImportReport(prev, next) {
+        if (next.status !== "ok") {
+          if (prev?.status === "ok") {
+            showNotification(next.error || "No se encontró nada en esa carpeta.", "error");
+            return prev;
+          }
+          return next;
+        }
+        if (!prev || prev.status !== "ok") return next;
+        return {
+          status: "ok",
+          location: next.location,
+          added: [...prev.added, ...next.added],
+          existing: prev.existing + next.existing,
+          noLaunch: [...prev.noLaunch, ...next.noLaunch.filter((n) => !prev.noLaunch.some((p) => p.id === n.id))],
+          error: null,
         };
+      }
 
-        const esc = (s) =>
-          s
-            ? String(s)
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-            : "";
+      function showImportResults(report) {
+        const linked = new Set();
+        let root = null;
+        let busy = false;
 
-        function row(title, value, btnId, hint) {
+        function rowHtml(key) {
+          const p = IMPORT_PLATFORMS[key];
+          const r = report[key];
+          if (!r) return "";
+
+          let state, iconName, text;
+          if (r.status === "ok") {
+            const n = r.added.length;
+            state = "ok";
+            iconName = "checkCircle";
+            text = n ? `${n} ${n === 1 ? "juego nuevo" : "juegos nuevos"}` : "Sin juegos nuevos";
+            if (r.existing) text += ` · ${r.existing} ya ${r.existing === 1 ? "estaba" : "estaban"} en tu biblioteca`;
+            if (!n && !r.existing) {
+              state = "warn";
+              iconName = "alert";
+              text = "Encontrado, pero sin juegos instalados.";
+            }
+          } else if (r.status === "error") {
+            state = "error";
+            iconName = "xCircle";
+            text = r.error || "No se ha podido leer.";
+          } else {
+            state = "missing";
+            iconName = "searchX";
+            text = p.notFound;
+          }
+
+          const needsAction = state === "missing" || state === "error";
           return `
-          <div style="padding:10px; border:1px solid rgba(255,255,255,.08); border-radius:10px;">
-            <div style="display:flex; justify-content:space-between; gap:10px; align-items:center;">
-              <div>
-                <div><b>${title}</b></div>
-                <div style="font-size:12px; opacity:.85; margin-top:6px">${esc(
-                  value || "(no seleccionado / auto)"
-                )}</div>
+            <div class="imp-row is-${state}" data-key="${key}">
+              <span class="imp-row-icon">${icon(iconName)}</span>
+              <div class="imp-row-text">
+                <span class="imp-row-name">${p.label}</span>
+                <span class="imp-row-detail">${escapeHtml(text)}</span>
+                ${r.location && r.status === "ok" ? `<span class="imp-row-path">${escapeHtml(r.location)}</span>` : ""}
                 ${
-                  hint
-                    ? `<div style="font-size:12px; opacity:.7; margin-top:6px">${esc(
-                        hint
-                      )}</div>`
+                  r.added.length
+                    ? `<details class="imp-added"><summary>Ver juegos nuevos</summary><p>${r.added.map(escapeHtml).join(", ")}</p></details>`
                     : ""
                 }
               </div>
-              <div>
-                <button type="button" id="${btnId}" class="swal2-confirm swal2-styled" style="margin:0;">Seleccionar</button>
-              </div>
-            </div>
-          </div>
-        `;
+              <button type="button" class="sl-btn ${needsAction ? "sl-btn-primary" : "sl-btn-ghost"} sl-btn-sm" data-pick="${key}" title="${escapeHtml(p.pickTitle)}">
+                ${icon(needsAction ? "folderOpen" : "folderPlus")}<span>${needsAction ? "Indicar carpeta" : "Otra carpeta"}</span>
+              </button>
+            </div>`;
+        }
+
+        function noLaunchHtml() {
+          const list = Object.values(report)
+            .flatMap((r) => r?.noLaunch || [])
+            .filter((g) => !linked.has(String(g.id)));
+          if (!list.length) return "";
+          return `
+            <div class="imp-nolaunch">
+              <div class="imp-section-title">${icon("alert")}Falta el ejecutable de ${list.length === 1 ? "1 juego" : `${list.length} juegos`}</div>
+              <p class="sl-hint">Ya están en tu biblioteca, pero no se ha encontrado cómo lanzarlos. Elige su .exe ahora o más tarde desde su card.</p>
+              ${list
+                .map(
+                  (g) => `
+                <div class="imp-nl-row">
+                  <span>${escapeHtml(g.name)}</span>
+                  <button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-link="${g.id}">${icon("link")}<span>Elegir .exe</span></button>
+                </div>`
+                )
+                .join("")}
+            </div>`;
         }
 
         function render() {
-          return `
-          <div style="text-align:left; display:grid; gap:10px;">
-            ${row(
-              "Steam",
-              state.steamRoot,
-              "pickSteam",
-              "Carpeta raíz de Steam (donde está steam.exe)"
-            )}
-            ${row(
-              "Epic",
-              state.epicManifestsDir,
-              "pickEpic",
-              "Normalmente: C:\\ProgramData\\Epic\\EpicGamesLauncher\\Data\\Manifests"
-            )}
-            ${row(
-              "GOG (carpeta juegos)",
-              state.gogRoot,
-              "pickGog",
-              "Vale tanto una carpeta con varios juegos (una subcarpeta por juego) como la carpeta de un único juego"
-            )}
-            ${row(
-              "Sin plataforma (pirata)",
-              state.noneRoot,
-              "pickNone",
-              "Vale tanto una carpeta con varios juegos (una subcarpeta por juego) como la carpeta de un único juego"
-            )}
-            ${row(
-              "Epic LauncherInstalled.dat (opcional)",
-              state.epicDatDir,
-              "pickEpicDat",
-              "Normalmente: C:\\ProgramData\\Epic\\UnrealEngineLauncher"
-            )}
-            <div style="font-size:12px; opacity:.75">
-              Nota: Steam/Epic intentan detectar instalados por manifests. GOG/Sin plataforma importan cada subcarpeta como juego y buscan el .exe.
+          const reps = Object.values(report).filter(Boolean);
+          const added = reps.reduce((n, r) => n + (r.added?.length || 0), 0);
+          const existing = reps.reduce((n, r) => n + (r.existing || 0), 0);
+          const pending = reps.some((r) => r.status !== "ok");
+
+          root.innerHTML = `
+            <div class="imp-summary">
+              <span class="imp-summary-num">${added}</span>
+              <div>
+                <span class="imp-summary-title">${added === 1 ? "juego importado" : "juegos importados"}</span>
+                <span class="imp-summary-sub">${
+                  [existing ? `${existing} ya estaban en tu biblioteca` : null, pending ? "Revisa abajo lo que no se ha encontrado" : null]
+                    .filter(Boolean)
+                    .join(" · ") || "Todo encontrado"
+                }</span>
+              </div>
             </div>
-          </div>
-        `;
+            <div class="imp-rows">${["steam", "epic", "gog", "none"].map(rowHtml).join("")}</div>
+            ${noLaunchHtml()}
+            <button type="button" class="imp-add-none" data-pick="none">
+              ${icon("folderPlus")}
+              <span>
+                <b>Añadir una carpeta de juegos sin launcher</b>
+                <small>Juegos que no son de Steam, Epic ni GOG, con una subcarpeta por juego.</small>
+              </span>
+            </button>`;
         }
 
-        function bindButtons() {
-          const popup = Swal.getPopup();
-          if (!popup) return;
+        async function pick(key) {
+          const p = IMPORT_PLATFORMS[key];
+          const res = await window.electronAPI.openDirectoryDialog({ title: p.pickTitle });
+          if (res.canceled || !res.dirPath) return;
 
-          const bind = (id, handler) => {
-            const el = popup.querySelector("#" + id);
-            if (!el) return;
-            el.onclick = handler;
-          };
-
-          bind("pickSteam", async () => {
-            const res = await window.electronAPI.openDirectoryDialog({
-              title: "Selecciona la carpeta raíz de Steam",
-            });
-            if (!res.canceled) state.steamRoot = res.dirPath;
-            Swal.update({ html: render() });
-          });
-
-          bind("pickEpic", async () => {
-            const res = await window.electronAPI.openDirectoryDialog({
-              title: "Selecciona la carpeta Manifests de Epic",
-            });
-            if (!res.canceled) state.epicManifestsDir = res.dirPath;
-            Swal.update({ html: render() });
-          });
-
-          bind("pickEpicDat", async () => {
-            const res = await window.electronAPI.openDirectoryDialog({
-              title: "Selecciona la carpeta donde está LauncherInstalled.dat",
-            });
-            if (!res.canceled) state.epicDatDir = res.dirPath;
-            Swal.update({ html: render() });
-          });
-
-          bind("pickGog", async () => {
-            const res = await window.electronAPI.openDirectoryDialog({
-              title: "Selecciona la carpeta donde están los juegos de GOG",
-            });
-            if (!res.canceled) state.gogRoot = res.dirPath;
-            Swal.update({ html: render() });
-          });
-
-          bind("pickNone", async () => {
-            const res = await window.electronAPI.openDirectoryDialog({
-              title: "Selecciona la carpeta de juegos sin plataforma (pirata)",
-            });
-            if (!res.canceled) state.noneRoot = res.dirPath;
-            Swal.update({ html: render() });
-          });
-        }
-
-        const result = await Swal.fire({
-          background: "#100e10",
-          color: "#f3efe6",
-          title: "Importar juegos instalados",
-          width: 760,
-          html: render(),
-          showCancelButton: true,
-          confirmButtonText: "Importar",
-          cancelButtonText: "Cancelar",
-          focusConfirm: false,
-          customClass: { popup: "import-popup" },
-          didRender: () => bindButtons(),
-        });
-
-        if (!result.isConfirmed) return;
-
-        const epicLauncherInstalledDat = state.epicDatDir
-          ? state.epicDatDir.replace(/\\+$/, "") + "\\LauncherInstalled.dat"
-          : null;
-
-        const payload = {
-          steamRoot: state.steamRoot,
-          epicManifestsDir: state.epicManifestsDir,
-          epicLauncherInstalledDat,
-          gogRoot: state.gogRoot,
-          noneRoot: state.noneRoot,
-        };
-
-        try {
-          Swal.fire({
-            background: "#100e10",
-            color: "#f3efe6",
-            title: "Importando...",
-            allowOutsideClick: false,
-            didOpen: () => Swal.showLoading(),
-          });
-
-          // El resumen final se construye con el reporte real de la
-          // importación (antes se descartaba y se mostraban los numeros del
-          // enriquecido de caratulas, que no tienen nada que ver - por eso
-          // parecia que "no pasaba nada" aunque sí se hubiera importado, o
-          // al revés).
-          const importResult = await window.electronAPI.importInstalledGames(payload);
-          const report = importResult?.report || {};
-          const labels = { steam: "Steam", epic: "Epic", gog: "GOG", none: "Sin plataforma" };
-
-          const lines = [];
-          let totalImported = 0;
-          for (const key of ["steam", "epic", "gog", "none"]) {
-            const r = report[key];
-            if (!r) continue;
-            totalImported += r.imported || 0;
-            if (r.imported > 0) lines.push(`${labels[key]}: ${r.imported} juego(s) importados`);
-            (r.errors || []).forEach((e) => lines.push(`${labels[key]}: ${e}`));
-          }
-
-          await window.electronAPI.enrichCovers({ limit: 80 });
+          root.querySelector(`.imp-row[data-key="${key}"]`)?.classList.add("is-loading");
+          const out = await window.electronAPI.importInstalledGames({ platforms: [key], [p.key]: res.dirPath });
+          const next = out?.report?.[key];
+          if (next) report[key] = mergeImportReport(report[key], next);
+          render();
           await loadLibrary();
           refreshSearchUI();
-
-          if (totalImported === 0) {
-            showNotification(
-              "No se encontró ningún juego nuevo en las carpetas seleccionadas.",
-              "error"
-            );
-            Swal.fire({
-              background: "#100e10",
-              color: "#f3efe6",
-              icon: "info",
-              title: "No se importó nada",
-              html: lines.length
-                ? lines.map((l) => `<div>${escapeHtml(l)}</div>`).join("")
-                : "Revisa que hayas seleccionado la carpeta correcta (la que contiene el juego o sus subcarpetas).",
-            });
-          } else {
-            showNotification(`${totalImported} juego(s) importados correctamente.`);
-            Swal.fire({
-              background: "#100e10",
-              color: "#f3efe6",
-              icon: "success",
-              title: "Importación completada",
-              html: lines.map((l) => `<div>${escapeHtml(l)}</div>`).join(""),
-            });
-          }
-        } catch (err) {
-          console.error(err);
-          Swal.fire({
-            background: "#100e10",
-            color: "#f3efe6",
-            icon: "error",
-            title: "Error importando",
-            text: String(err?.message || err),
-          });
+          enrichCoversInBackground();
         }
+
+        async function link(id) {
+          const res = await window.electronAPI.openFileDialog();
+          if (res.canceled) return;
+          await window.electronAPI.setExecutable(id, { path: res.filePath });
+          linked.add(String(id));
+          render();
+          await loadLibrary();
+        }
+
+        openModal({
+          eyebrow: "Importar",
+          title: "Juegos instalados",
+          width: 640,
+          html: `<div class="imp-root"></div>`,
+          confirmButtonText: "Listo",
+          showCloseButton: true,
+          customClass: { popup: "import-popup" },
+          didOpen: (popup) => {
+            root = popup.querySelector(".imp-root");
+            render();
+            root.addEventListener("click", async (e) => {
+              const b = e.target.closest("[data-pick], [data-link]");
+              if (!b || busy) return;
+              busy = true;
+              root.classList.add("is-busy");
+              try {
+                if (b.dataset.pick) await pick(b.dataset.pick);
+                else await link(b.dataset.link);
+              } catch (err) {
+                console.error(err);
+                showNotification("No se pudo completar la acción.", "error");
+                render();
+              } finally {
+                busy = false;
+                root.classList.remove("is-busy");
+              }
+            });
+          },
+        });
       }
 
       // ===============================

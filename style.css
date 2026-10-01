@@ -515,6 +515,7 @@ input[type="text"]:focus {
      1366px) cae justo ahí, así que nunca se podía poner más de 5. */
   grid-template-columns: repeat(var(--grid-cols, 5), minmax(0, 1fr));
   gap: 14px;
+  align-items: start;
 }
 
 @media (max-width: 700px) {
@@ -535,7 +536,6 @@ input[type="text"]:focus {
   gap: 8px;
   border: 1px solid var(--ink-800);
   transition: transform 0.25s var(--ease-smooth), box-shadow 0.25s var(--ease-smooth), border-color 0.2s var(--ease-smooth);
-  height: 100%;
   z-index: 1;
 }
 
@@ -570,6 +570,14 @@ input[type="text"]:focus {
   line-height: 1.3;
   margin: 4px 0 0;
   color: var(--washi-100);
+  /* Siempre 2 líneas de alto: así todas las cards miden lo mismo sin
+     tener que estirarse a la altura de la fila (los bloques de saga son
+     más altos y dejaban las cards de al lado huecas). */
+  min-height: 2.6em;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 /* Botones */
@@ -625,15 +633,6 @@ button:disabled:active {
   padding: 6px 10px;
   border-radius: 999px;
   background: rgba(95, 127, 71, 0.15);
-}
-
-/* Etiqueta de saga en una card suelta (biblioteca / pasados) */
-
-.saga-tag {
-  font-size: 11px;
-  color: var(--gold-500);
-  opacity: 0.85;
-  margin-top: -4px;
 }
 
 /* Botón "Cargar más" en Descubrir */
@@ -724,33 +723,6 @@ button:disabled:active {
 .scroll-top-btn:hover {
   background: var(--red-600);
   transform: translateY(-3px) scale(1.04);
-}
-
-/* Bloque de saga en "Juegos pasados": agrupa sus juegos en vez de
-   dispersarlos por la linea de tiempo de completados. */
-
-.saga-group {
-  grid-column: 1 / -1;
-  border: 1px solid var(--ink-700);
-  border-radius: 14px;
-  padding: 14px;
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.saga-group-header {
-  font-family: "Shippori Mincho", serif;
-  font-size: 16px;
-  color: var(--washi-100);
-  margin-bottom: 12px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.saga-group-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 14px;
 }
 
 .badge-owned {
@@ -980,15 +952,6 @@ button:disabled:active {
   border-radius: 8px;
 }
 
-.more-btn {
-  background: transparent;
-  border: none;
-  color: var(--washi-200);
-  padding: 4px 8px;
-  cursor: pointer;
-  font-size: 18px;
-}
-
 .icon-btn {
   display: inline-flex;
   align-items: center;
@@ -1038,165 +1001,6 @@ button:disabled:active {
   font-size: 13px;
   color: var(--ink-300);
   margin: 0 0 18px;
-}
-
-/* Sagas */
-.sagas-popup {
-  font-size: 14px;
-}
-
-.sagas-wrap {
-  text-align: left;
-}
-
-.saga-card {
-  background: var(--ink-900);
-  border: 1px solid var(--ink-700);
-  border-radius: 14px;
-  padding: 16px;
-  margin-bottom: 16px;
-}
-
-.saga-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-}
-
-.saga-card-title {
-  font-family: "Shippori Mincho", serif;
-  font-size: 17px;
-  color: var(--washi-100);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.saga-delete-btn {
-  background: transparent;
-  color: var(--ink-300);
-  font-size: 12px;
-  padding: 5px 10px;
-}
-
-.saga-delete-btn:hover {
-  background: rgba(var(--red-500-rgb), 0.15);
-  color: var(--red-400);
-}
-
-.saga-games {
-  margin: 12px 0 0;
-}
-
-.saga-game-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 7px 2px;
-  border-bottom: 1px solid var(--ink-800);
-}
-
-.saga-game-row:last-child {
-  border-bottom: none;
-}
-
-.saga-game-index {
-  width: 20px;
-  flex-shrink: 0;
-  font-size: 12px;
-  color: var(--gold-500);
-  text-align: center;
-}
-
-.saga-game-name {
-  flex: 1;
-  font-size: 13px;
-  color: var(--washi-100);
-}
-
-.saga-icon-btn {
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-  border-radius: 8px;
-  flex-shrink: 0;
-}
-
-.saga-icon-btn:disabled {
-  opacity: 0.25;
-  cursor: default;
-}
-
-.saga-icon-btn:disabled:hover {
-  background: var(--ink-800);
-  transform: none;
-}
-
-.saga-icon-btn.danger:hover {
-  background: rgba(var(--red-500-rgb), 0.15);
-  color: var(--red-400);
-}
-
-.saga-empty {
-  font-size: 13px;
-  color: var(--ink-300);
-  padding: 4px 2px 2px;
-}
-
-.saga-add-row {
-  display: flex;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.saga-select {
-  flex: 1;
-  padding: 8px 12px;
-  border-radius: 999px;
-  border: 1px solid var(--ink-700);
-  background: var(--ink-900);
-  color: var(--washi-100);
-  font-size: 13px;
-  font-family: inherit;
-  outline: none;
-}
-
-.saga-select:focus {
-  border-color: var(--red-500);
-}
-
-.saga-new-row {
-  display: flex;
-  gap: 8px;
-  border-top: 1px solid var(--ink-700);
-  padding-top: 16px;
-}
-
-.saga-new-row input[type="text"] {
-  max-width: none;
-  margin-bottom: 0;
-  flex: 1;
-}
-
-/* Importar */
-.import-popup {
-  font-size: 14px;
-}
-
-.import-popup #pickSteam,
-.import-popup #pickEpic,
-.import-popup #pickGog,
-.import-popup #pickNone,
-.import-popup #pickEpicDat {
-  font-size: 13px;
-  padding: 8px 12px;
-  min-height: 34px;
-  border-radius: 999px;
 }
 
 /* --- Dropdown Menu --- */
@@ -1271,17 +1075,6 @@ button:disabled:active {
 
 .game-card.platinum-card:hover {
   transform: translateY(-5px);
-}
-
-.platinum-crown {
-  position: absolute;
-  top: -16px;
-  right: -10px;
-  font-size: 38px;
-  z-index: 10;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.8));
-  animation: floatCrown 3s ease-in-out infinite;
-  pointer-events: none;
 }
 
 @keyframes floatCrown {
@@ -1409,31 +1202,6 @@ button:disabled:active {
   line-height: 1.4;
 }
 
-/* --- SweetAlert2: unificar con la paleta washi/ink --- */
-.swal2-confirm {
-  background: var(--red-500) !important;
-  color: var(--on-accent) !important;
-  font-family: inherit !important;
-}
-.swal2-confirm:focus {
-  box-shadow: 0 0 0 3px rgba(var(--red-500-rgb), 0.4) !important;
-}
-.swal2-cancel {
-  background: var(--ink-700) !important;
-  font-family: inherit !important;
-}
-.swal2-popup {
-  font-family: "Zen Kaku Gothic New", "Hiragino Sans", system-ui, sans-serif !important;
-  border: 1px solid var(--ink-800);
-}
-.swal2-title {
-  font-family: "Shippori Mincho", serif !important;
-}
-.swal2-input {
-  background: var(--ink-800) !important;
-  color: var(--washi-100) !important;
-  border: 1px solid var(--ink-700) !important;
-}
 .swal2-loader {
   border-color: var(--red-500) transparent var(--red-500) transparent !important;
 }
@@ -1587,4 +1355,1418 @@ button:disabled:active {
   .theme-grid {
     grid-template-columns: repeat(3, 1fr);
   }
+}
+
+/* =====================================================================
+   2.2.5 - Iconos, cards, sagas, importación y sistema de modales
+   ===================================================================== */
+
+/* Iconos SVG (trazo, heredan el color del texto) */
+.i {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.filter-btn .i {
+  width: 15px;
+  height: 15px;
+}
+
+.scroll-top-btn .i {
+  width: 20px;
+  height: 20px;
+}
+
+/* Botones de las cards con icono + texto */
+.card-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.card-actions button .i {
+  width: 13px;
+  height: 13px;
+}
+
+.card-actions button.primary .i {
+  fill: currentColor;
+  stroke-width: 0;
+}
+
+.more-btn {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-300);
+}
+
+.more-btn:hover {
+  background: var(--ink-800);
+  color: var(--washi-50);
+}
+
+.card-actions .more-btn .i {
+  width: 18px;
+  height: 18px;
+}
+
+.dropdown-content {
+  min-width: 210px;
+  padding: 6px;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 11px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.dropdown-item .i {
+  width: 15px;
+  height: 15px;
+  opacity: 0.75;
+}
+
+.dropdown-item.is-danger {
+  color: #e2607a;
+}
+
+.dropdown-item.is-danger:hover {
+  background: rgba(226, 96, 122, 0.12);
+  color: #ef7a92;
+}
+
+/* Corona de platino (SVG en medalla dorada) */
+.platinum-crown {
+  position: absolute;
+  top: -12px;
+  right: -8px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(145deg, #f3d98b, #c9a44c 55%, #9c7a2c);
+  color: #3b2a06;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5), 0 0 0 2px var(--ink-900);
+  z-index: 10;
+  pointer-events: none;
+  animation: floatCrown 3s ease-in-out infinite;
+}
+
+.platinum-crown .i {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2.2;
+}
+
+/* Bloque de saga dentro de la rejilla (biblioteca y pasados). Subgrid:
+   las cards de dentro miden igual que las sueltas y siguen --grid-cols. */
+.saga-group {
+  display: grid;
+  grid-template-columns: repeat(var(--saga-cols, 1), minmax(0, 1fr));
+  align-content: start;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 18px;
+  border: 1px solid rgba(var(--red-500-rgb), 0.22);
+  background: linear-gradient(180deg, rgba(var(--red-500-rgb), 0.08), rgba(var(--red-500-rgb), 0.015) 140px),
+    rgba(var(--ink-900-rgb), 0.55);
+}
+
+.saga-group-header {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.saga-group-icon,
+.saga-group-count,
+.saga-group-edit {
+  flex-shrink: 0;
+}
+
+.saga-group-name {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.sl-btn[hidden] {
+  display: none;
+}
+
+.saga-group-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(var(--red-500-rgb), 0.15);
+  color: var(--red-500);
+}
+
+.saga-group-name {
+  font-family: "Shippori Mincho", serif;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--washi-50);
+}
+
+.saga-group-count {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-300);
+}
+
+.saga-group-edit {
+  margin-left: auto;
+  opacity: 0.6;
+}
+
+.saga-group:hover .saga-group-edit {
+  opacity: 1;
+}
+
+.game-card .card-cover {
+  position: relative;
+}
+
+.saga-order {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 7px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(var(--ink-900-rgb), 0.85);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(var(--red-500-rgb), 0.55);
+  color: var(--washi-50);
+  font-size: 12px;
+  font-weight: 700;
+  z-index: 2;
+}
+
+/* ---------- Sistema de modales ---------- */
+.swal2-container.swal2-backdrop-show {
+  background: rgba(0, 0, 0, 0.62) !important;
+  backdrop-filter: blur(6px);
+}
+
+:root[data-theme="reshiram"] .swal2-container.swal2-backdrop-show,
+:root[data-theme="mew"] .swal2-container.swal2-backdrop-show {
+  background: rgba(30, 15, 20, 0.35) !important;
+}
+
+.swal2-popup.sl-modal {
+  position: relative;
+  font-family: "Zen Kaku Gothic New", "Hiragino Sans", system-ui, sans-serif !important;
+  border-radius: 20px;
+  border: 1px solid var(--ink-700);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(var(--red-500-rgb), 0.06);
+  padding: 26px 28px 24px;
+}
+
+.swal2-popup.sl-modal::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 28px;
+  right: 28px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--red-500), transparent);
+  opacity: 0.7;
+}
+
+.sl-modal .sl-modal-title {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  gap: 4px;
+  padding: 0 40px 0 0 !important;
+  margin: 0 0 18px !important;
+  text-align: left !important;
+  font-family: "Shippori Mincho", serif !important;
+  font-size: 24px !important;
+  color: var(--washi-50) !important;
+}
+
+.sl-modal-eyebrow {
+  font-family: "Zen Kaku Gothic New", system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--red-500);
+}
+
+.sl-modal .sl-modal-body {
+  margin: 0 !important;
+  padding: 0 !important;
+  text-align: left !important;
+  color: var(--washi-200) !important;
+  font-size: 14px !important;
+  overflow: visible;
+}
+
+.sl-modal .sl-modal-actions {
+  width: 100%;
+  margin: 22px 0 0 !important;
+  padding: 0 !important;
+  justify-content: flex-end !important;
+  gap: 10px;
+}
+
+.sl-modal-sm .sl-modal-actions {
+  justify-content: center !important;
+}
+
+.sl-modal .sl-modal-close {
+  top: 16px;
+  right: 16px;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  color: var(--ink-300) !important;
+  transition: background 0.15s var(--ease-smooth), color 0.15s var(--ease-smooth) !important;
+}
+
+.sl-modal .sl-modal-close:hover {
+  background: var(--ink-800) !important;
+  color: var(--washi-50) !important;
+}
+
+.sl-modal .sl-modal-close .i {
+  width: 18px;
+  height: 18px;
+}
+
+.sl-modal .sl-modal-close:focus {
+  box-shadow: none !important;
+}
+
+@keyframes slModalIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes slModalOut {
+  to {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+}
+
+.sl-modal-in {
+  animation: slModalIn 0.28s var(--ease-smooth);
+}
+
+.sl-modal-out {
+  animation: slModalOut 0.16s ease forwards;
+}
+
+/* Botones de modal */
+.sl-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s var(--ease-smooth), border-color 0.2s var(--ease-smooth), box-shadow 0.2s var(--ease-smooth),
+    transform 0.15s var(--ease-smooth);
+}
+
+.sl-btn .i {
+  width: 15px;
+  height: 15px;
+}
+
+.sl-btn-sm {
+  padding: 7px 13px;
+  font-size: 12px;
+}
+
+.sl-btn-primary {
+  background: var(--red-500);
+  color: var(--on-accent);
+  box-shadow: 0 6px 18px rgba(var(--red-500-rgb), 0.3);
+}
+
+.sl-btn-primary:hover {
+  background: var(--red-600);
+  box-shadow: 0 8px 22px rgba(var(--red-500-rgb), 0.45);
+}
+
+.sl-btn-ghost {
+  background: transparent;
+  color: var(--washi-100);
+  border-color: var(--ink-700);
+}
+
+.sl-btn-ghost:hover {
+  background: var(--ink-800);
+  border-color: var(--ink-600);
+}
+
+.sl-btn.sl-btn-danger {
+  background: #c2334d;
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(194, 51, 77, 0.3);
+}
+
+.sl-btn.sl-btn-danger:hover {
+  background: #a82a42;
+}
+
+.sl-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(var(--red-500-rgb), 0.4);
+}
+
+/* Input de modal (nombre para ordenar, etc.) */
+.swal2-input.sl-input {
+  width: 100% !important;
+  height: 44px;
+  margin: 14px 0 0 !important;
+  padding: 0 14px !important;
+  border-radius: 12px !important;
+  background: var(--ink-800) !important;
+  border: 1px solid var(--ink-700) !important;
+  color: var(--washi-50) !important;
+  box-shadow: none !important;
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.swal2-input.sl-input:focus {
+  border-color: var(--red-500) !important;
+}
+
+/* Confirmaciones y cargas */
+.sl-confirm,
+.sl-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  padding-top: 6px;
+}
+
+.sl-confirm-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(var(--red-500-rgb), 0.12);
+  color: var(--red-500);
+}
+
+.sl-confirm-icon .i {
+  width: 24px;
+  height: 24px;
+}
+
+.sl-confirm-icon.is-danger {
+  background: rgba(226, 96, 122, 0.14);
+  color: #e2607a;
+}
+
+.sl-confirm-title {
+  margin: 4px 0 0;
+  font-family: "Shippori Mincho", serif;
+  font-size: 19px;
+  color: var(--washi-50);
+}
+
+.sl-confirm-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink-300);
+}
+
+.sl-spinner {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 3px solid var(--ink-700);
+  border-top-color: var(--red-500);
+  animation: spin 0.8s linear infinite;
+}
+
+.sl-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-300);
+}
+
+.sortkey-modal .sl-hint {
+  text-align: center;
+}
+
+.info-genres {
+  margin: 0 0 4px;
+  font-size: 12px;
+  color: var(--ink-300);
+}
+
+.info-source {
+  margin-top: 10px;
+  font-size: 10px;
+  text-align: center;
+  color: var(--ink-500);
+}
+
+/* ---------- Gestor de sagas ---------- */
+.sg-root {
+  display: grid;
+  grid-template-columns: 290px minmax(0, 1fr);
+  height: min(66vh, 620px);
+  border: 1px solid var(--ink-800);
+  border-radius: 16px;
+  overflow: hidden;
+  background: rgba(var(--ink-900-rgb), 0.4);
+}
+
+.sg-root.is-busy {
+  cursor: progress;
+}
+
+.sg-root input[type="text"] {
+  max-width: none;
+  margin: 0;
+  border-radius: 12px;
+}
+
+.sg-side {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--ink-950);
+  border-right: 1px solid var(--ink-800);
+}
+
+.sg-new {
+  display: flex;
+  gap: 8px;
+  padding: 14px;
+  border-bottom: 1px solid var(--ink-800);
+}
+
+.sg-new input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 12px;
+  font-size: 13px;
+}
+
+.sg-list {
+  list-style: none;
+  margin: 0;
+  padding: 8px;
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sg-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 10px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.15s var(--ease-smooth), border-color 0.15s var(--ease-smooth);
+}
+
+.sg-item:hover {
+  background: var(--ink-800);
+}
+
+.sg-item.is-active {
+  background: rgba(var(--red-500-rgb), 0.1);
+  border-color: rgba(var(--red-500-rgb), 0.45);
+}
+
+.sg-item-thumbs {
+  position: relative;
+  width: 48px;
+  height: 40px;
+  flex-shrink: 0;
+}
+
+.sg-item-thumbs img {
+  position: absolute;
+  top: 1px;
+  width: 28px;
+  height: 38px;
+  object-fit: cover;
+  border-radius: 5px;
+  border: 1px solid var(--ink-950);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.sg-item-thumbs img:nth-child(1) {
+  left: 0;
+  z-index: 3;
+}
+
+.sg-item-thumbs img:nth-child(2) {
+  left: 10px;
+  z-index: 2;
+  transform: scale(0.92);
+}
+
+.sg-item-thumbs img:nth-child(3) {
+  left: 20px;
+  z-index: 1;
+  transform: scale(0.84);
+}
+
+.sg-thumb-empty {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ink-800);
+  color: var(--ink-400);
+}
+
+.sg-item-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sg-item-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--washi-50);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sg-item-count {
+  font-size: 11px;
+  color: var(--ink-300);
+}
+
+.sg-grip {
+  display: flex;
+  color: var(--ink-400);
+  cursor: grab;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.sg-grip .i {
+  width: 15px;
+  height: 15px;
+}
+
+.sg-item:hover .sg-grip,
+.sg-game:hover .sg-grip {
+  opacity: 1;
+}
+
+.sg-root .is-dragging {
+  opacity: 0.4;
+}
+
+.sg-list-empty {
+  padding: 18px 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-300);
+}
+
+.sg-side-hint {
+  margin: 0;
+  padding: 10px 14px;
+  font-size: 11px;
+  color: var(--ink-400);
+  border-top: 1px solid var(--ink-800);
+}
+
+.sg-detail {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+
+.sg-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--ink-800);
+}
+
+.sg-name-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.sg-root input.sg-name {
+  width: 100%;
+  padding: 6px 32px 6px 8px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  font-family: "Shippori Mincho", serif;
+  font-size: 21px;
+  font-weight: 700;
+  color: var(--washi-50);
+}
+
+.sg-root input.sg-name:hover {
+  border-color: var(--ink-700);
+}
+
+.sg-root input.sg-name:focus {
+  border-color: var(--red-500);
+  background: var(--ink-950);
+}
+
+.sg-name-icon {
+  position: absolute;
+  right: 10px;
+  width: 14px;
+  height: 14px;
+  color: var(--ink-400);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.sg-name-wrap:hover .sg-name-icon {
+  opacity: 1;
+}
+
+.sg-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.sg-del:hover,
+.sg-game-remove:hover {
+  background: rgba(226, 96, 122, 0.15);
+  color: #e2607a;
+}
+
+.sg-del-confirm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #e2607a;
+}
+
+.sg-games {
+  list-style: none;
+  margin: 0;
+  padding: 10px 12px;
+  flex: 1 1 auto;
+  min-height: 110px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sg-game {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 10px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  transition: background 0.15s var(--ease-smooth), border-color 0.15s var(--ease-smooth);
+}
+
+.sg-game:hover {
+  background: var(--ink-800);
+  border-color: var(--ink-700);
+}
+
+.sg-game-pos {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: rgba(var(--red-500-rgb), 0.14);
+  color: var(--red-500);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.sg-game-cover {
+  width: 34px;
+  height: 46px;
+  object-fit: cover;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.sg-game-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sg-game-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--washi-50);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sg-game-meta {
+  font-size: 11px;
+  color: var(--ink-300);
+}
+
+.sg-game-remove {
+  opacity: 0;
+}
+
+.sg-game:hover .sg-game-remove {
+  opacity: 1;
+}
+
+.sg-games-empty {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 6px 0;
+  padding: 18px;
+  border: 1px dashed var(--ink-700);
+  border-radius: 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-300);
+}
+
+.sg-games-empty .i {
+  width: 20px;
+  height: 20px;
+  color: var(--red-500);
+}
+
+.sg-add {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 48%;
+  min-height: 0;
+  padding: 12px 14px 14px;
+  border-top: 1px solid var(--ink-800);
+}
+
+.sg-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  border: 1px solid var(--ink-700);
+  border-radius: 12px;
+  background: var(--ink-950);
+  color: var(--ink-400);
+  cursor: text;
+}
+
+.sg-search:focus-within {
+  border-color: var(--red-500);
+}
+
+.sg-root .sg-search input {
+  flex: 1;
+  padding: 10px 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+}
+
+.sg-results {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.sg-results-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-300);
+}
+
+.sg-results-title .i {
+  width: 13px;
+  height: 13px;
+}
+
+.sg-results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 6px;
+}
+
+.sg-result {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: var(--ink-800);
+  color: var(--washi-100);
+  text-align: left;
+  font-size: 13px;
+}
+
+.sg-result:hover {
+  transform: none;
+  background: var(--ink-700);
+  border-color: rgba(var(--red-500-rgb), 0.6);
+}
+
+.sg-result img {
+  width: 26px;
+  height: 35px;
+  object-fit: cover;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.sg-result-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sg-result-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sg-result-meta {
+  font-size: 11px;
+  color: var(--ink-300);
+}
+
+.sg-result-add {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: rgba(var(--red-500-rgb), 0.15);
+  color: var(--red-500);
+  transition: background 0.15s, color 0.15s;
+}
+
+.sg-result-add .i {
+  width: 14px;
+  height: 14px;
+}
+
+.sg-result:hover .sg-result-add {
+  background: var(--red-500);
+  color: var(--on-accent);
+}
+
+.sg-result.is-adding {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.sg-results-empty {
+  margin: 0;
+  padding: 4px 2px;
+  font-size: 12px;
+  color: var(--ink-300);
+}
+
+.sg-blank {
+  margin: auto;
+  max-width: 400px;
+  padding: 30px;
+  text-align: center;
+}
+
+.sg-blank-icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 16px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(var(--red-500-rgb), 0.12);
+  color: var(--red-500);
+}
+
+.sg-blank-icon .i {
+  width: 30px;
+  height: 30px;
+}
+
+.sg-blank h3 {
+  margin: 0 0 8px;
+  font-size: 20px;
+}
+
+.sg-blank p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ink-300);
+}
+
+/* Elegir saga desde una card */
+.sg-pick-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.sg-pick-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--ink-700);
+  background: var(--ink-800);
+  color: var(--washi-100);
+  font-size: 14px;
+  text-align: left;
+}
+
+.sg-pick-item:hover {
+  transform: none;
+  border-color: var(--red-500);
+}
+
+.sg-pick-item .i {
+  color: var(--red-500);
+}
+
+.sg-pick-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.sg-pick-count {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--ink-700);
+  font-size: 11px;
+  color: var(--ink-200);
+}
+
+.sg-pick-or {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0 12px;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-400);
+}
+
+.sg-pick-or::before,
+.sg-pick-or::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--ink-700);
+}
+
+.sg-pick-new {
+  display: flex;
+  gap: 8px;
+}
+
+.sg-pick-new input[type="text"] {
+  flex: 1;
+  max-width: none;
+  margin: 0;
+  border-radius: 12px;
+}
+
+/* ---------- Importar instalados ---------- */
+.imp-root.is-busy {
+  cursor: progress;
+}
+
+.imp-summary {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 14px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  border: 1px solid rgba(var(--red-500-rgb), 0.25);
+  background: linear-gradient(135deg, rgba(var(--red-500-rgb), 0.14), rgba(var(--red-500-rgb), 0.03));
+}
+
+.imp-summary-num {
+  font-family: "Shippori Mincho", serif;
+  font-size: 40px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--red-500);
+}
+
+.imp-summary-title {
+  display: block;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--washi-50);
+}
+
+.imp-summary-sub {
+  font-size: 12px;
+  color: var(--ink-300);
+}
+
+.imp-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.imp-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 13px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--ink-800);
+  background: var(--ink-950);
+  transition: opacity 0.2s;
+}
+
+.imp-row.is-missing,
+.imp-row.is-error {
+  border-style: dashed;
+  border-color: var(--ink-700);
+}
+
+.imp-row.is-loading {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.imp-row-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.imp-row-icon .i {
+  width: 18px;
+  height: 18px;
+}
+
+.is-ok .imp-row-icon {
+  background: rgba(95, 127, 71, 0.18);
+  color: #8fb572;
+}
+
+.is-warn .imp-row-icon {
+  background: rgba(201, 164, 76, 0.16);
+  color: var(--gold-400);
+}
+
+.is-missing .imp-row-icon {
+  background: var(--ink-800);
+  color: var(--ink-300);
+}
+
+.is-error .imp-row-icon {
+  background: rgba(226, 96, 122, 0.15);
+  color: #e2607a;
+}
+
+.imp-row-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.imp-row-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--washi-50);
+}
+
+.imp-row-detail {
+  font-size: 12.5px;
+  color: var(--ink-200);
+}
+
+.imp-row-path {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 11px;
+  color: var(--ink-400);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.imp-added summary {
+  margin-top: 4px;
+  font-size: 11.5px;
+  color: var(--red-500);
+  cursor: pointer;
+}
+
+.imp-added p {
+  max-height: 110px;
+  overflow-y: auto;
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-300);
+}
+
+.imp-row .sl-btn {
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.imp-nolaunch {
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(201, 164, 76, 0.3);
+  background: rgba(201, 164, 76, 0.06);
+}
+
+.imp-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--gold-400);
+}
+
+.imp-nl-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid var(--ink-800);
+  font-size: 13px;
+  color: var(--washi-100);
+}
+
+.imp-nl-row:first-of-type {
+  margin-top: 10px;
+}
+
+.imp-add-none {
+  width: 100%;
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px dashed var(--ink-600);
+  background: transparent;
+  color: var(--washi-100);
+  text-align: left;
+}
+
+.imp-add-none:hover {
+  transform: none;
+  border-color: var(--red-500);
+  background: rgba(var(--red-500-rgb), 0.05);
+}
+
+.imp-add-none .i {
+  width: 22px;
+  height: 22px;
+  color: var(--red-500);
+}
+
+.imp-add-none b {
+  display: block;
+  font-size: 13.5px;
+}
+
+.imp-add-none small {
+  display: block;
+  font-size: 12px;
+  color: var(--ink-300);
+}
+
+/* ---------- Historial de versiones ---------- */
+.cl-root {
+  max-height: 60vh;
+  overflow-y: auto;
+  margin-right: -8px;
+  padding-right: 8px;
+}
+
+.cl-release {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--ink-800);
+}
+
+.cl-release:last-child {
+  border-bottom: none;
+}
+
+.cl-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.cl-name {
+  font-family: "Shippori Mincho", serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--washi-50);
+}
+
+.cl-badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(var(--red-500-rgb), 0.15);
+  color: var(--red-500);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.cl-date {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--ink-400);
+}
+
+.cl-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--ink-200);
+}
+
+@media (max-width: 860px) {
+  .sg-root {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+  .sg-side {
+    max-height: 220px;
+    border-right: none;
+    border-bottom: 1px solid var(--ink-800);
+  }
+}
+
+.linked-btn.is-icon {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.card-actions button.primary {
+  flex: 1;
+  justify-content: center;
+  min-width: 0;
 }

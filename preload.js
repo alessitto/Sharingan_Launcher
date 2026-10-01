@@ -49,4 +49,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   addGameToSaga: (sagaId, gameId) => ipcRenderer.invoke('sagas:addGame', { sagaId, gameId }),
   removeGameFromSaga: (sagaId, gameId) => ipcRenderer.invoke('sagas:removeGame', { sagaId, gameId }),
   moveGameInSaga: (sagaId, gameId, direction) => ipcRenderer.invoke('sagas:moveGame', { sagaId, gameId, direction }),
+  renameSaga: (sagaId, name) => ipcRenderer.invoke('sagas:rename', { sagaId, name }),
+  reorderSagas: (ids) => ipcRenderer.invoke('sagas:reorder', ids),
+  setSagaOrder: (sagaId, gameIds) => ipcRenderer.invoke('sagas:setOrder', { sagaId, gameIds }),
+  sortSagaByRelease: (sagaId) => ipcRenderer.invoke('sagas:sortByRelease', sagaId),
 });

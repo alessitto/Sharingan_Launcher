@@ -392,14 +392,6 @@ function parseSteamLibraryFoldersVdf(vdfText) {
   return [...libs];
 }
 
-function findSteamDefaultRoot() {
-  const p1 = "C:\\Program Files (x86)\\Steam";
-  const p2 = "C:\\Program Files\\Steam";
-  if (exists(p1)) return p1;
-  if (exists(p2)) return p2;
-  return null;
-}
-
 // -------------------- IDs/Upsert --------------------
 function stableNegativeId(input) {
   const s = String(input || "");
@@ -455,6 +447,35 @@ function findGameByName(gameObj) {
   );
 }
 
+function samePath(a, b) {
+  if (!a || !b) return false;
+  const norm = (p) => path.resolve(p).replace(/[\\/]+$/, "").toLowerCase();
+  return norm(a) === norm(b);
+}
+
+// Mismo juego detectado por dos vías distintas (p.ej. GOG por el registro
+// de Galaxy y antes por escaneo de carpeta, con nombres algo distintos):
+// si apuntan a la misma carpeta de instalación es el mismo juego.
+function findGameByInstallDir(gameObj) {
+  if (!gameObj.installDir) return null;
+  return (
+    games.find((x) => samePath(x.installDir, gameObj.installDir)) ||
+    completedGames.find((x) => samePath(x.installDir, gameObj.installDir)) ||
+    null
+  );
+}
+
+function canLaunch(g) {
+  return !!(
+    g.executable ||
+    (g.platform === "steam" && g.steamAppId) ||
+    (g.platform === "epic" && g.epicAppName) ||
+    (g.platform === "gog" && g.gogGameId)
+  );
+}
+
+// Devuelve si el juego era nuevo o ya estaba en la biblioteca, para que el
+// resumen de la importación no cuente como "importado" lo que ya tenías.
 function upsertGameImported(gameObj) {
   const gameId = Number(gameObj.id);
 
@@ -482,7 +503,7 @@ function upsertGameImported(gameObj) {
         ""
       ).toString(),
     });
-    return;
+    return { status: "existing", game: g };
   }
 
   // 2) Mismo juego pero con otro id "principal": ya se habia emparejado
@@ -493,7 +514,7 @@ function upsertGameImported(gameObj) {
   // tecnicos que le falten (ejecutable, carpeta, ids de plataforma) sin
   // pisar el nombre/caratula que ya tuviera - para no cambiar una ficha
   // buena de IGDB por el nombre en crudo del launcher de turno.
-  g = findGameByExternalId(gameObj) || findGameByName(gameObj);
+  g = findGameByExternalId(gameObj) || findGameByInstallDir(gameObj) || findGameByName(gameObj);
   if (g) {
     g.executable = g.executable ?? gameObj.executable ?? null;
     if (!g.platform || g.platform === "none") g.platform = gameObj.platform ?? "none";
@@ -506,7 +527,7 @@ function upsertGameImported(gameObj) {
       g.coverUrl = gameObj.coverUrl ?? null;
     }
     if (!g.name) g.name = gameObj.name ?? "";
-    return;
+    return { status: "existing", game: g };
   }
 
   // 3) De verdad nuevo.
@@ -524,6 +545,7 @@ function upsertGameImported(gameObj) {
     installDir: gameObj.installDir ?? null,
     sortKey: (gameObj.sortKey ?? gameObj.name ?? "").toString(),
   });
+  return { status: "new", game: g };
 }
 
 // -------------------- Window --------------------
@@ -914,7 +936,77 @@ ipcMain.handle("sagas:delete", (_e, id) => {
   return sagas;
 });
 
-ipcMain.handle("sagas:addGame", (_e, { sagaId, gameId }) => {
+ipcMain.handle("sagas:rename", (_e, { sagaId, name }) => {
+  const trimmed = (name || "").trim();
+  const target = sagas.find((x) => x.id === sagaId);
+  if (target && trimmed) {
+    target.name = trimmed;
+    saveData();
+  }
+  return sagas;
+});
+
+// Orden de las sagas en la lista (y por tanto en la biblioteca).
+ipcMain.handle("sagas:reorder", (_e, ids) => {
+  const pos = new Map((ids || []).map((id, i) => [id, i]));
+  sagas.sort((a, b) => (pos.get(a.id) ?? 1e9) - (pos.get(b.id) ?? 1e9));
+  saveData();
+  return sagas;
+});
+
+// Orden de los juegos dentro de una saga (arrastrar y soltar).
+ipcMain.handle("sagas:setOrder", (_e, { sagaId, gameIds }) => {
+  const target = sagas.find((x) => x.id === sagaId);
+  if (!target) return sagas;
+  const wanted = (gameIds || []).map(Number).filter((id) => target.gameIds.includes(id));
+  const rest = target.gameIds.filter((id) => !wanted.includes(id));
+  target.gameIds = [...wanted, ...rest];
+  saveData();
+  return sagas;
+});
+
+function findAnyGame(id) {
+  return games.find((x) => x.id === id) || completedGames.find((x) => x.id === id) || null;
+}
+
+// Orden "natural" de una saga: por fecha de lanzamiento y, si no se conoce,
+// por nombre teniendo en cuenta los números (Juego 2 antes que Juego 10).
+function compareChronological(a, b) {
+  const da = a?.first_release_date || 0;
+  const db = b?.first_release_date || 0;
+  if (da && db && da !== db) return da - db;
+  if (da && !db) return -1;
+  if (!da && db) return 1;
+  return String(a?.sortKey || a?.name || "").localeCompare(String(b?.sortKey || b?.name || ""), "es", {
+    numeric: true,
+    sensitivity: "base",
+  });
+}
+
+// Los juegos importados no traen fecha de lanzamiento: se busca en IGDB por
+// nombre (una vez, queda guardada en el juego).
+async function ensureReleaseDate(g) {
+  if (!g || g.first_release_date || g.releaseDateChecked) return;
+  const q = String(g.name || "").replace(/[®™©]/g, "").replace(/"/g, '\\"').trim();
+  if (!q) return;
+  try {
+    const data = await igdbGamesQuery(`search "${q}"; fields name,first_release_date; limit 10;`);
+    const target = normalizeGameName(g.name);
+    const hit =
+      (Array.isArray(data) ? data : []).find(
+        (x) => x.first_release_date && normalizeGameName(x.name) === target
+      ) || (Array.isArray(data) ? data : []).find((x) => x.first_release_date);
+    if (hit) g.first_release_date = hit.first_release_date;
+  } catch {}
+  g.releaseDateChecked = true;
+}
+
+async function sortSagaChronologically(saga) {
+  for (const id of saga.gameIds) await ensureReleaseDate(findAnyGame(id));
+  saga.gameIds.sort((a, b) => compareChronological(findAnyGame(a), findAnyGame(b)));
+}
+
+ipcMain.handle("sagas:addGame", async (_e, { sagaId, gameId }) => {
   const gid = Number(gameId);
   const target = sagas.find((x) => x.id === sagaId);
   if (!target) return sagas;
@@ -922,8 +1014,23 @@ ipcMain.handle("sagas:addGame", (_e, { sagaId, gameId }) => {
   sagas.forEach((s) => {
     s.gameIds = s.gameIds.filter((id) => id !== gid);
   });
-  target.gameIds.push(gid);
+  // Se coloca en su sitio cronológico respetando el orden que ya tenga la
+  // saga (por si el usuario lo retocó a mano).
+  const g = findAnyGame(gid);
+  await ensureReleaseDate(g);
+  let at = target.gameIds.findIndex((id) => compareChronological(g, findAnyGame(id)) < 0);
+  if (at < 0) at = target.gameIds.length;
+  target.gameIds.splice(at, 0, gid);
   saveData();
+  return sagas;
+});
+
+ipcMain.handle("sagas:sortByRelease", async (_e, sagaId) => {
+  const target = sagas.find((x) => x.id === sagaId);
+  if (target) {
+    await sortSagaChronologically(target);
+    saveData();
+  }
   return sagas;
 });
 
@@ -994,314 +1101,344 @@ ipcMain.handle("dialog:openDirectory", async (_e, opts = {}) => {
   return { canceled, dirPath: filePaths?.[0] };
 });
 
-// -------------------- Import installed (Steam/Epic/GOG/NONE) --------------------
-ipcMain.handle("games:importInstalled", async (_e, config) => {
-  const report = {
-    steam: { found: 0, imported: 0, errors: [] },
-    epic: { found: 0, imported: 0, errors: [] },
-    gog: { found: 0, imported: 0, errors: [] },
-    none: { found: 0, imported: 0, errors: [] },
-  };
+// -------------------- Importar instalados (Steam/Epic/GOG/sin launcher) --------------------
+// Se detecta todo solo al pulsar "Importar": el registro de Windows es donde
+// Steam, Epic y GOG Galaxy dejan apuntado dónde están instalados, así que se
+// mira ahí primero y las rutas típicas solo se usan de respaldo. Solo se le
+// pide una carpeta al usuario para lo que no se haya encontrado.
+function regQuery(key, valueName) {
+  return new Promise((resolve) => {
+    const args = valueName ? ["query", key, "/v", valueName] : ["query", key, "/s"];
+    execFile("reg", args, { windowsHide: true, maxBuffer: 16 * 1024 * 1024 }, (err, stdout) =>
+      resolve(err ? "" : String(stdout || ""))
+    );
+  });
+}
 
-  // ===== STEAM =====
-  try {
-    const steamRoot = config?.steamRoot || findSteamDefaultRoot();
-    if (steamRoot && exists(steamRoot)) {
-      const libraryVdf1 = path.join(
-        steamRoot,
-        "steamapps",
-        "libraryfolders.vdf"
-      );
-      const libraryVdf2 = path.join(steamRoot, "config", "libraryfolders.vdf");
-      const vdfText = safeReadText(libraryVdf1) || safeReadText(libraryVdf2);
+function regValue(text, name) {
+  const m = String(text || "").match(new RegExp(`^\\s*${name}\\s+REG_\\w+\\s+(.*)$`, "im"));
+  return m ? m[1].trim() : null;
+}
 
-      const libraries = parseSteamLibraryFoldersVdf(vdfText);
-      libraries.push(steamRoot);
+// Acepta la carpeta de Steam, una biblioteca secundaria (D:\SteamLibrary) o
+// directamente su carpeta steamapps.
+function resolveSteamRoot(dir) {
+  if (!dir) return null;
+  if (path.basename(dir).toLowerCase() === "steamapps") dir = path.dirname(dir);
+  return exists(path.join(dir, "steamapps")) ? dir : null;
+}
 
-      const uniqLibs = [...new Set(libraries)].filter((p) => !!p && exists(p));
+async function detectSteamRoot() {
+  const candidates = [];
+  const user = regValue(await regQuery("HKCU\\Software\\Valve\\Steam", "SteamPath"), "SteamPath");
+  if (user) candidates.push(path.normalize(user));
+  const machine = regValue(
+    await regQuery("HKLM\\SOFTWARE\\WOW6432Node\\Valve\\Steam", "InstallPath"),
+    "InstallPath"
+  );
+  if (machine) candidates.push(path.normalize(machine));
+  candidates.push("C:\\Program Files (x86)\\Steam", "C:\\Program Files\\Steam");
+  for (const c of candidates) {
+    const root = resolveSteamRoot(c);
+    if (root) return root;
+  }
+  return null;
+}
 
-      for (const lib of uniqLibs) {
-        const steamapps = path.join(lib, "steamapps");
-        if (!exists(steamapps)) continue;
+// Acepta la carpeta Manifests o la carpeta de datos de Epic que la contiene.
+function resolveEpicManifests(dir) {
+  if (!dir) return null;
+  const hasItems = (d) => listFiles(d).some((f) => f.toLowerCase().endsWith(".item"));
+  if (exists(dir) && hasItems(dir)) return dir;
+  const nested = path.join(dir, "Manifests");
+  return exists(nested) ? nested : null;
+}
 
-        const manifests = listFiles(steamapps).filter(
-          (f) =>
-            path.basename(f).toLowerCase().startsWith("appmanifest_") &&
-            f.toLowerCase().endsWith(".acf")
-        );
+async function detectEpicManifests() {
+  const appData = regValue(
+    await regQuery("HKLM\\SOFTWARE\\WOW6432Node\\Epic Games\\EpicGamesLauncher", "AppDataPath"),
+    "AppDataPath"
+  );
+  const candidates = [];
+  if (appData) candidates.push(path.join(appData, "Manifests"));
+  candidates.push("C:\\ProgramData\\Epic\\EpicGamesLauncher\\Data\\Manifests");
+  return candidates.find((p) => exists(p)) || null;
+}
 
-        for (const mf of manifests) {
-          const acf = safeReadText(mf);
-          const fields = parseAcfRootFields(acf);
-          if (!fields.appid) continue;
+// GOG Galaxy registra cada juego instalado (nombre, carpeta y .exe), una
+// subclave por juego.
+async function readGogRegistryGames() {
+  const out = await regQuery("HKLM\\SOFTWARE\\WOW6432Node\\GOG.com\\Games");
+  if (!out) return [];
+  return out
+    .split(/\r?\n(?=HKEY_)/)
+    .map((block) => ({
+      id: regValue(block, "gameID"),
+      name: regValue(block, "gameName"),
+      dir: regValue(block, "path"),
+      exe: regValue(block, "exe"),
+    }))
+    .filter((g) => g.name && g.dir && exists(g.dir));
+}
 
-          const appid = Number(fields.appid);
+function newImportReport() {
+  return { status: "not_found", location: null, added: [], existing: 0, noLaunch: [], error: null };
+}
 
-          const blacklistAppIds = new Set([
-            431960, // Wallpaper Engine
-            1812620, // DSX
-          ]);
+function trackImported(report, gameObj) {
+  const { status, game } = upsertGameImported(gameObj);
+  if (status === "new") report.added.push(game.name);
+  else report.existing++;
+  if (!canLaunch(game)) report.noLaunch.push({ id: game.id, name: game.name });
+}
 
-          if (blacklistAppIds.has(appid)) {
-            continue;
-          }
+const STEAM_SKIP_APPIDS = new Set([
+  228980, // Steamworks Common Redistributables
+  431960, // Wallpaper Engine
+  1812620, // DSX
+]);
 
-          const lowerName = (fields.name || "").toLowerCase();
-          const looksLikeTool =
-            lowerName.includes("wallpaper engine") ||
-            lowerName.includes("driver booster") ||
-            lowerName.includes("controller") ||
-            lowerName.includes("soundtrack") ||
-            lowerName.includes("editor") ||
-            lowerName.includes("sdk");
+function looksLikeSteamTool(name) {
+  const n = (name || "").toLowerCase();
+  return ["wallpaper engine", "driver booster", "controller", "soundtrack", "editor", "sdk", "redistributable"].some(
+    (w) => n.includes(w)
+  );
+}
 
-          if (looksLikeTool) {
-            continue;
-          }
-          report.steam.found++;
+function importSteam(root, report) {
+  report.status = "ok";
+  report.location = root;
+  const vdfText =
+    safeReadText(path.join(root, "steamapps", "libraryfolders.vdf")) ||
+    safeReadText(path.join(root, "config", "libraryfolders.vdf"));
+  const libraries = [...new Set([...parseSteamLibraryFoldersVdf(vdfText), root])].filter(
+    (p) => p && exists(p)
+  );
 
-          // Ignorar Steamworks Common Redistributables
-          if (appid === 228980) {
-            continue;
-          }
-          const name = fields.name || `Steam App ${appid}`;
-          const installdir = fields.installdir;
+  for (const lib of libraries) {
+    const steamapps = path.join(lib, "steamapps");
+    const manifests = listFiles(steamapps).filter(
+      (f) => path.basename(f).toLowerCase().startsWith("appmanifest_") && f.toLowerCase().endsWith(".acf")
+    );
 
-          const installDirAbs = installdir
-            ? path.join(steamapps, "common", installdir)
-            : null;
-          let exe = null;
-          if (installDirAbs && exists(installDirAbs))
-            exe = pickBestExe(installDirAbs);
+    for (const mf of manifests) {
+      const fields = parseAcfRootFields(safeReadText(mf));
+      if (!fields.appid) continue;
+      const appid = Number(fields.appid);
+      if (STEAM_SKIP_APPIDS.has(appid) || looksLikeSteamTool(fields.name)) continue;
 
-          upsertGameImported({
-            id: appid,
-            name,
-            platform: "steam",
-            steamAppId: appid,
-            executable: exe,
-            installDir: installDirAbs,
-            sortKey: name,
-          });
+      const name = fields.name || `Steam App ${appid}`;
+      const installDir = fields.installdir ? path.join(steamapps, "common", fields.installdir) : null;
+      const exe = installDir && exists(installDir) ? pickBestExe(installDir) : null;
 
-          report.steam.imported++;
-        }
-      }
-
-      saveData();
-    } else {
-      report.steam.errors.push("No se encontró SteamRoot.");
+      trackImported(report, {
+        id: appid,
+        name,
+        platform: "steam",
+        steamAppId: appid,
+        executable: exe,
+        installDir,
+        sortKey: name,
+      });
     }
-  } catch (err) {
-    report.steam.errors.push(String(err?.message || err));
+  }
+}
+
+function importEpic(manifestsDir, report) {
+  report.status = "ok";
+  report.location = manifestsDir;
+
+  let installedList = null;
+  const dat = safeReadText("C:\\ProgramData\\Epic\\UnrealEngineLauncher\\LauncherInstalled.dat");
+  if (dat) {
+    try {
+      installedList = JSON.parse(dat)?.InstallationList || null;
+    } catch {}
   }
 
-  // ===== EPIC =====
-  try {
-    const epicManifestsDir =
-      config?.epicManifestsDir ||
-      "C:\\ProgramData\\Epic\\EpicGamesLauncher\\Data\\Manifests";
+  for (const file of listFiles(manifestsDir).filter((f) => f.toLowerCase().endsWith(".item"))) {
+    let obj;
+    try {
+      obj = JSON.parse(safeReadText(file));
+    } catch {
+      continue;
+    }
+    if (!obj || obj.bIsIncompleteInstall) continue;
+    const appName = obj.AppName || null;
+    // Unreal Engine y sus plugins también dejan manifiesto, no son juegos.
+    if (appName && /^UE_/i.test(appName)) continue;
 
-    const launcherInstalledDat =
-      config?.epicLauncherInstalledDat ||
-      "C:\\ProgramData\\Epic\\UnrealEngineLauncher\\LauncherInstalled.dat";
-
-    let launcherInstalled = null;
-    if (exists(launcherInstalledDat)) {
-      try {
-        launcherInstalled = JSON.parse(safeReadText(launcherInstalledDat));
-      } catch {}
+    const name = obj.DisplayName || appName || "Juego de Epic";
+    let installLocation = obj.InstallLocation || null;
+    if (!installLocation && installedList && appName) {
+      installLocation = installedList.find((x) => x?.AppName === appName)?.InstallLocation || null;
     }
 
-    if (exists(epicManifestsDir)) {
-      const items = listFiles(epicManifestsDir).filter((f) =>
-        f.toLowerCase().endsWith(".item")
-      );
-
-      for (const file of items) {
-        let obj;
-        try {
-          obj = JSON.parse(safeReadText(file));
-        } catch {
-          continue;
-        }
-        if (!obj) continue;
-
-        report.epic.found++;
-
-        const name = obj.DisplayName || obj.AppName || "Epic Game";
-        const appName = obj.AppName || null;
-
-        let installLocation = obj.InstallLocation || null;
-
-        if (
-          !installLocation &&
-          launcherInstalled?.InstallationList &&
-          appName
-        ) {
-          const hit = launcherInstalled.InstallationList.find(
-            (x) => x?.AppName === appName
-          );
-          if (hit?.InstallLocation) installLocation = hit.InstallLocation;
-        }
-
-        let exe = null;
-        if (installLocation && exists(installLocation)) {
-          if (obj.LaunchExecutable) {
-            const candidate = path.join(installLocation, obj.LaunchExecutable);
-            if (exists(candidate)) exe = candidate;
-          }
-          if (!exe) exe = pickBestExe(installLocation);
-        }
-
-        const epicId = stableNegativeId(`epic:${appName || name}`);
-
-        upsertGameImported({
-          id: epicId,
-          name,
-          platform: "epic",
-          epicAppName: appName,
-          executable: exe,
-          installDir: installLocation,
-          sortKey: name,
-        });
-
-        report.epic.imported++;
+    let exe = null;
+    if (installLocation && exists(installLocation)) {
+      if (obj.LaunchExecutable) {
+        const candidate = path.join(installLocation, obj.LaunchExecutable);
+        if (exists(candidate)) exe = candidate;
       }
-
-      saveData();
-    } else if (config?.epicManifestsDir) {
-      report.epic.errors.push("No se encontró carpeta de manifests de Epic.");
+      if (!exe) exe = pickBestExe(installLocation);
     }
-  } catch (err) {
-    report.epic.errors.push(String(err?.message || err));
+
+    trackImported(report, {
+      id: stableNegativeId(`epic:${appName || name}`),
+      name,
+      platform: "epic",
+      epicAppName: appName,
+      executable: exe,
+      installDir: installLocation,
+      sortKey: name,
+    });
+  }
+}
+
+// Carpeta con varios juegos (una subcarpeta por juego); si ninguna
+// subcarpeta tiene .exe, se prueba la propia carpeta como un único juego.
+function importGamesFolder(root, platform, report, skipDirs = []) {
+  report.status = "ok";
+  report.location = report.location || root;
+  let found = 0;
+
+  for (const dir of listFiles(root).filter(isDirectory)) {
+    if (skipDirs.some((d) => samePath(d, dir))) continue;
+    const exe = pickBestExe(dir);
+    if (!exe) continue; // extras, banda sonora, etc.
+    found++;
+    const name = path.basename(dir);
+    trackImported(report, {
+      id: stableNegativeId(`${platform}:${dir}`),
+      name,
+      platform,
+      executable: exe,
+      installDir: dir,
+      sortKey: name,
+    });
   }
 
-  // ===== GOG (subcarpetas, con fallback a "carpeta = 1 juego") =====
-  try {
-    const gogRoot = config?.gogRoot || findFirstExisting(["C:\\GOG Games"]);
-    if (gogRoot && exists(gogRoot)) {
-      const subdirs = listFiles(gogRoot).filter(isDirectory);
-      let foundInSubdirs = 0;
-
-      for (const dir of subdirs) {
-        const name = path.basename(dir);
-        const exe = pickBestExe(dir);
-        if (!exe) continue; // carpeta sin .exe (extras, soundtrack, etc.)
-
-        foundInSubdirs++;
-        report.gog.found++;
-
-        const gogId = stableNegativeId(`gog:${dir}`);
-        upsertGameImported({
-          id: gogId,
-          name,
-          platform: "gog",
-          executable: exe,
-          installDir: dir,
-          sortKey: name,
-        });
-
-        report.gog.imported++;
-      }
-
-      // Si no salió ningún juego de las subcarpetas, puede que se haya
-      // seleccionado directamente la carpeta de UN solo juego en vez de la
-      // carpeta que los contiene a todos - se prueba también como juego
-      // suelto antes de dejarlo en "0 encontrados" sin más explicación.
-      if (foundInSubdirs === 0) {
-        const exe = pickBestExe(gogRoot);
-        if (exe) {
-          const name = path.basename(gogRoot);
-          const gogId = stableNegativeId(`gog:${gogRoot}`);
-          upsertGameImported({
-            id: gogId,
-            name,
-            platform: "gog",
-            executable: exe,
-            installDir: gogRoot,
-            sortKey: name,
-          });
-          report.gog.found++;
-          report.gog.imported++;
-        }
-      }
-
-      saveData();
-    } else if (config?.gogRoot) {
-      report.gog.errors.push("La carpeta de GOG no existe o no es accesible.");
+  if (found === 0 && !skipDirs.some((d) => samePath(d, root))) {
+    const exe = pickBestExe(root);
+    if (exe) {
+      const name = path.basename(root);
+      trackImported(report, {
+        id: stableNegativeId(`${platform}:${root}`),
+        name,
+        platform,
+        executable: exe,
+        installDir: root,
+        sortKey: name,
+      });
     }
-  } catch (err) {
-    report.gog.errors.push(String(err?.message || err));
+  }
+}
+
+async function importGog(customRoot, report) {
+  if (customRoot) {
+    importGamesFolder(customRoot, "gog", report);
+    return;
   }
 
-  // ===== NONE (pirata/sin plataforma: subcarpetas, con el mismo fallback) =====
-  try {
-    const noneRoot = config?.noneRoot;
-    if (noneRoot && exists(noneRoot)) {
-      const subdirs = listFiles(noneRoot).filter(isDirectory);
-      let foundInSubdirs = 0;
-
-      for (const dir of subdirs) {
-        const name = path.basename(dir);
-
-        // Busca ejecutable dentro (ya ignora unins, setup, redist, etc.)
-        const exe = pickBestExe(dir);
-
-        // Si no hay .exe válido, no es juego => lo saltamos
-        if (!exe) continue;
-
-        foundInSubdirs++;
-        report.none.found++;
-
-        const noneId = stableNegativeId(`none:${dir}`);
-        upsertGameImported({
-          id: noneId,
-          name,
-          platform: "none",
-          executable: exe,
-          installDir: dir,
-          sortKey: name,
-        });
-
-        report.none.imported++;
-      }
-
-      if (foundInSubdirs === 0) {
-        const exe = pickBestExe(noneRoot);
-        if (exe) {
-          const name = path.basename(noneRoot);
-          const noneId = stableNegativeId(`none:${noneRoot}`);
-          upsertGameImported({
-            id: noneId,
-            name,
-            platform: "none",
-            executable: exe,
-            installDir: noneRoot,
-            sortKey: name,
-          });
-          report.none.found++;
-          report.none.imported++;
-        }
-      }
-
-      saveData();
-    } else if (config?.noneRoot) {
-      report.none.errors.push(
-        "La carpeta de “sin plataforma” no existe o no es accesible."
-      );
-    }
-  } catch (err) {
-    report.none.errors.push(String(err?.message || err));
+  const fromRegistry = await readGogRegistryGames();
+  for (const rg of fromRegistry) {
+    const exe = rg.exe && exists(rg.exe) ? rg.exe : pickBestExe(rg.dir);
+    trackImported(report, {
+      id: stableNegativeId(`gog:${rg.dir}`),
+      name: rg.name,
+      platform: "gog",
+      executable: exe,
+      installDir: rg.dir,
+      // Con .exe se lanza directo (sin DRM); el id de Galaxy solo hace falta
+      // si no hay ejecutable, para al menos abrir el juego en Galaxy.
+      gogGameId: exe ? null : Number(rg.id) || null,
+      sortKey: rg.name,
+    });
+  }
+  if (fromRegistry.length) {
+    report.status = "ok";
+    report.location = "GOG Galaxy";
   }
 
-  return {
-    ok: true,
-    report,
-    gamesCount: games.length,
-    completedCount: completedGames.length,
-  };
+  const skip = fromRegistry.map((g) => g.dir);
+  for (const root of ["C:\\GOG Games", "C:\\Program Files (x86)\\GOG Galaxy\\Games"].filter(exists)) {
+    importGamesFolder(root, "gog", report, skip);
+  }
+}
+
+// config: { platforms?: ["steam","epic","gog","none"], steamRoot?, epicManifestsDir?, gogRoot?, noneRoot? }
+// Sin "platforms" se buscan Steam, Epic y GOG automáticamente; las carpetas
+// solo llegan cuando el usuario indica a mano dónde está algo que no se
+// encontró solo.
+ipcMain.handle("games:importInstalled", async (_e, config = {}) => {
+  const want = new Set(config.platforms || ["steam", "epic", "gog"]);
+  const report = {};
+
+  if (want.has("steam")) {
+    const r = (report.steam = newImportReport());
+    try {
+      const root = config.steamRoot ? resolveSteamRoot(config.steamRoot) : await detectSteamRoot();
+      if (root) importSteam(root, r);
+      else if (config.steamRoot) {
+        r.status = "error";
+        r.error = "En esa carpeta no hay una instalación de Steam.";
+      }
+    } catch (err) {
+      r.status = "error";
+      r.error = String(err?.message || err);
+    }
+  }
+
+  if (want.has("epic")) {
+    const r = (report.epic = newImportReport());
+    try {
+      const dir = config.epicManifestsDir
+        ? resolveEpicManifests(config.epicManifestsDir)
+        : await detectEpicManifests();
+      if (dir) importEpic(dir, r);
+      else if (config.epicManifestsDir) {
+        r.status = "error";
+        r.error = "En esa carpeta no hay manifiestos de Epic Games.";
+      }
+    } catch (err) {
+      r.status = "error";
+      r.error = String(err?.message || err);
+    }
+  }
+
+  if (want.has("gog")) {
+    const r = (report.gog = newImportReport());
+    try {
+      if (config.gogRoot && !exists(config.gogRoot)) {
+        r.status = "error";
+        r.error = "Esa carpeta no existe o no es accesible.";
+      } else {
+        await importGog(config.gogRoot || null, r);
+      }
+    } catch (err) {
+      r.status = "error";
+      r.error = String(err?.message || err);
+    }
+  }
+
+  if (want.has("none") && config.noneRoot) {
+    const r = (report.none = newImportReport());
+    try {
+      if (exists(config.noneRoot)) importGamesFolder(config.noneRoot, "none", r);
+      else {
+        r.status = "error";
+        r.error = "Esa carpeta no existe o no es accesible.";
+      }
+    } catch (err) {
+      r.status = "error";
+      r.error = String(err?.message || err);
+    }
+  }
+
+  saveData();
+  return { ok: true, report };
 });
+
 
 // -------------------- Enrich covers from IGDB --------------------
 ipcMain.handle("games:enrichCovers", async (_e, opts = {}) => {
