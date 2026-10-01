@@ -536,9 +536,9 @@ const THEME_BG_COLORS = {
   rayquaza: "#264737",
   reshiram: "#e9e7e7",
   zekrom: "#131013",
-  blaziken: "#522222",
-  luxray: "#0c0e18",
-  mewtwo: "#111014",
+  blaziken: "#49251d",
+  luxray: "#08081c",
+  mewtwo: "#493b49",
   mew: "#ece4e6",
 };
 
