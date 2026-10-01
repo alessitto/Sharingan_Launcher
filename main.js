@@ -537,7 +537,7 @@ const THEME_BG_COLORS = {
   reshiram: "#e9e7e7",
   zekrom: "#131013",
   blaziken: "#522222",
-  luxray: "#101014",
+  luxray: "#101114",
 };
 
 function createWindow() {
