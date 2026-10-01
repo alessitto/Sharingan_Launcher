@@ -1542,6 +1542,17 @@
         }
       }
 
+      // Cada ajuste se aplica y se guarda al momento (como un panel de
+      // ajustes de Linear/Notion) - no hay Guardar/Cancelar, solo cerrar
+      // con la × o Esc, porque no queda nada pendiente de confirmar.
+      async function persistSetting(patch) {
+        try {
+          return await window.electronAPI.setSettings(patch);
+        } catch (err) {
+          console.error("No se pudo guardar el ajuste", err);
+        }
+      }
+
       async function openSettingsModal() {
         const settings = (await window.electronAPI.getSettings()) || {};
         const currentGamesPerPage = settings.gamesPerPage || DISCOVER_PAGE_SIZE || 60;
@@ -1549,12 +1560,11 @@
           Number(getComputedStyle(document.documentElement).getPropertyValue("--grid-cols")) ||
           settings.gridColumns ||
           5;
-        const originalTheme = document.documentElement.getAttribute("data-theme") || "uchiha";
-        let selectedTheme = originalTheme;
+        const currentTheme = document.documentElement.getAttribute("data-theme") || "uchiha";
 
         const themeSwatches = THEMES.map(
           (t) => `
-            <div class="theme-swatch${t.id === selectedTheme ? " is-selected" : ""}" data-theme-id="${t.id}" title="${t.name}">
+            <div class="theme-swatch${t.id === currentTheme ? " is-selected" : ""}" data-theme-id="${t.id}" title="${t.name}">
               <span class="theme-swatch-preview" style="background:${t.bg};">
                 <span class="theme-swatch-accent" style="background:${t.accent};"></span>
               </span>
@@ -1563,89 +1573,86 @@
           `
         ).join("");
 
-        const { value: formValues } = await Swal.fire({
+        await Swal.fire({
           background: "#100e10",
           color: "#f3efe6",
           title: "Ajustes",
-          showCancelButton: true,
-          confirmButtonText: "Guardar",
-          cancelButtonText: "Cancelar",
-          width: 460,
+          showConfirmButton: false,
+          showCloseButton: true,
+          allowEscapeKey: true,
+          allowOutsideClick: true,
+          width: 560,
           html: `
-            <div class="settings-form">
-              <div class="settings-row">
-                <div class="settings-row-head">
-                  <label>Tema</label>
-                </div>
+            <div class="settings-panel">
+              <div class="settings-section">
+                <span class="section-eyebrow">Tema</span>
                 <div class="theme-grid" id="themeGrid">${themeSwatches}</div>
               </div>
 
-              <div class="settings-row">
-                <div class="settings-row-head">
-                  <label for="settingsGamesPerPage">Juegos por página en Descubrir</label>
-                  <span id="settingsGamesPerPageValue" class="settings-value">${currentGamesPerPage}</span>
-                </div>
-                <input id="settingsGamesPerPage" class="settings-slider" type="range" min="12" max="200" step="1" value="${currentGamesPerPage}" />
-                <div class="settings-row-ends"><span>12</span><span>200</span></div>
-              </div>
+              <div class="settings-divider"></div>
 
-              <div class="settings-row">
-                <div class="settings-row-head">
-                  <label for="settingsGridColumns">Juegos por fila en el grid</label>
-                  <span id="settingsGridColumnsValue" class="settings-value">${currentGridColumns}</span>
+              <div class="settings-section">
+                <span class="section-eyebrow">Descubrir</span>
+                <div class="settings-cols-2">
+                  <div>
+                    <div class="settings-row-head">
+                      <label for="settingsGamesPerPage">Juegos por página</label>
+                      <span id="settingsGamesPerPageValue" class="settings-value">${currentGamesPerPage}</span>
+                    </div>
+                    <input id="settingsGamesPerPage" class="settings-slider" type="range" min="12" max="200" step="1" value="${currentGamesPerPage}" />
+                    <div class="settings-row-ends"><span>12</span><span>200</span></div>
+                  </div>
+
+                  <div>
+                    <div class="settings-row-head">
+                      <label for="settingsGridColumns">Juegos por fila en el grid</label>
+                      <span id="settingsGridColumnsValue" class="settings-value">${currentGridColumns}</span>
+                    </div>
+                    <input id="settingsGridColumns" class="settings-slider" type="range" min="3" max="10" step="1" value="${currentGridColumns}" />
+                    <div class="settings-row-ends"><span>3</span><span>10</span></div>
+                  </div>
                 </div>
-                <input id="settingsGridColumns" class="settings-slider" type="range" min="3" max="10" step="1" value="${currentGridColumns}" />
-                <div class="settings-row-ends"><span>3</span><span>10</span></div>
               </div>
             </div>
           `,
-          focusConfirm: false,
           didOpen: () => {
             const pageInput = document.getElementById("settingsGamesPerPage");
             const pageValue = document.getElementById("settingsGamesPerPageValue");
             pageInput?.addEventListener("input", () => {
               pageValue.textContent = pageInput.value;
             });
+            pageInput?.addEventListener("change", async () => {
+              const n = Math.round(Number(pageInput.value));
+              const saved = await persistSetting({ gamesPerPage: n });
+              if (saved) DISCOVER_PAGE_SIZE = saved.gamesPerPage;
+              if (document.getElementById("popular")?.classList.contains("active")) {
+                await loadDiscoverGames();
+              }
+            });
 
             const colsInput = document.getElementById("settingsGridColumns");
             const colsValue = document.getElementById("settingsGridColumnsValue");
             colsInput?.addEventListener("input", () => {
               colsValue.textContent = colsInput.value;
+              applyGridColumns(colsInput.value);
+            });
+            colsInput?.addEventListener("change", () => {
+              persistSetting({ gridColumns: Math.round(Number(colsInput.value)) });
             });
 
             const themeGrid = document.getElementById("themeGrid");
             themeGrid?.addEventListener("click", (e) => {
               const swatch = e.target.closest(".theme-swatch");
               if (!swatch) return;
-              selectedTheme = swatch.dataset.themeId;
+              const themeId = swatch.dataset.themeId;
               themeGrid.querySelectorAll(".theme-swatch").forEach((el) => {
-                el.classList.toggle("is-selected", el.dataset.themeId === selectedTheme);
+                el.classList.toggle("is-selected", el.dataset.themeId === themeId);
               });
-              applyTheme(selectedTheme);
+              applyTheme(themeId);
+              persistSetting({ theme: themeId });
             });
           },
-          preConfirm: () => {
-            const n = Number(document.getElementById("settingsGamesPerPage")?.value);
-            const cols = Number(document.getElementById("settingsGridColumns")?.value);
-            return { gamesPerPage: Math.round(n), gridColumns: Math.round(cols), theme: selectedTheme };
-          },
         });
-
-        if (!formValues) {
-          // Cancelado / cerrado sin guardar: deshace la vista previa en vivo
-          // del tema y vuelve al que ya estaba guardado.
-          applyTheme(originalTheme);
-          return;
-        }
-
-        const saved = await window.electronAPI.setSettings(formValues);
-        DISCOVER_PAGE_SIZE = saved.gamesPerPage;
-        applyGridColumns(saved.gridColumns);
-        applyTheme(saved.theme);
-
-        if (document.getElementById("popular")?.classList.contains("active")) {
-          await loadDiscoverGames();
-        }
       }
 
       // ===============================
