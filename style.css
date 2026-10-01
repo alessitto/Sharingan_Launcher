@@ -246,6 +246,99 @@ body {
   color: var(--washi-200);
 }
 
+/* ===============================
+   Fondo decorativo por tema
+   =============================== */
+/* Capa fija detrás de toda la app (CSS puro, sin imágenes) - se ve en los
+   huecos entre cards y márgenes, donde no hay nada opaco encima. Cada tema
+   tiene su propio patrón geométrico relacionado con el Pokémon: Uchiha usa
+   anillos (el propio Sharingan), Rayquaza el cruce de sus anillos
+   amarillos, Zekrom/Luxray rayos y chispas, etc. El color sale siempre de
+   --red-500-rgb del tema activo, así que si el acento cambia el patrón
+   sigue a juego solo. z-index negativo para quedar por detrás de .app y
+   #intro-screen sin tener que tocar su z-index. */
+.theme-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Uchiha (tema por defecto): anillos concéntricos, como el propio ojo */
+.theme-bg {
+  background-image: repeating-radial-gradient(
+      circle at 18% 22%,
+      rgba(var(--red-500-rgb), 0.08) 0 2px,
+      transparent 2px 52px
+    ),
+    repeating-radial-gradient(circle at 82% 72%, rgba(var(--red-500-rgb), 0.06) 0 2px, transparent 2px 66px);
+}
+
+/* Rayquaza: cruce diagonal, como los anillos de su cuerpo */
+:root[data-theme="rayquaza"] .theme-bg {
+  background-image: repeating-linear-gradient(
+      58deg,
+      rgba(var(--red-500-rgb), 0.08) 0 2px,
+      transparent 2px 44px
+    ),
+    repeating-linear-gradient(-58deg, rgba(var(--red-500-rgb), 0.06) 0 2px, transparent 2px 44px);
+}
+
+/* Reshiram: rayas largas y suaves, como las llamas/cristales de su lomo */
+:root[data-theme="reshiram"] .theme-bg {
+  background-image: repeating-linear-gradient(
+    115deg,
+    rgba(var(--red-500-rgb), 0.07) 0 2px,
+    transparent 2px 90px
+  );
+}
+
+/* Zekrom: cruce de líneas quebradas, como un rayo */
+:root[data-theme="zekrom"] .theme-bg {
+  background-image: repeating-linear-gradient(
+      82deg,
+      rgba(var(--red-500-rgb), 0.09) 0 2px,
+      transparent 2px 38px
+    ),
+    repeating-linear-gradient(98deg, rgba(var(--red-500-rgb), 0.07) 0 2px, transparent 2px 38px);
+}
+
+/* Blaziken: franjas en diagonal, como las plumas de fuego de sus patas */
+:root[data-theme="blaziken"] .theme-bg {
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(var(--red-500-rgb), 0.08) 0 3px,
+    transparent 3px 36px
+  );
+}
+
+/* Luxray: chispas sueltas y pequeñas, como las marcas en forma de estrella
+   de su piel - dos capas de puntos a distinto tamaño/espaciado para que no
+   se vea como una rejilla perfecta. */
+:root[data-theme="luxray"] .theme-bg {
+  background-image: radial-gradient(circle, rgba(var(--red-500-rgb), 0.16) 1.4px, transparent 1.6px),
+    radial-gradient(circle, rgba(var(--red-500-rgb), 0.11) 1.4px, transparent 1.6px);
+  background-size: 64px 64px, 92px 92px;
+  background-position: 0 0, 34px 48px;
+}
+
+/* Mewtwo: burbujas grandes y blandas, muy espaciadas - sensación psíquica,
+   flotando, no "rejilla". */
+:root[data-theme="mewtwo"] .theme-bg {
+  background-image: radial-gradient(circle, rgba(var(--red-500-rgb), 0.11) 3px, transparent 3.5px),
+    radial-gradient(circle, rgba(var(--red-500-rgb), 0.08) 2px, transparent 2.5px);
+  background-size: 130px 130px, 88px 88px;
+  background-position: 18px 26px, 72px 10px;
+}
+
+/* Mew: burbujas pequeñas y más juntas, más ligero y juguetón que Mewtwo. */
+:root[data-theme="mew"] .theme-bg {
+  background-image: radial-gradient(circle, rgba(var(--red-500-rgb), 0.13) 2px, transparent 2.5px),
+    radial-gradient(circle, rgba(var(--red-500-rgb), 0.09) 1.5px, transparent 2px);
+  background-size: 54px 54px, 38px 38px;
+  background-position: 8px 10px, 26px 22px;
+}
+
 h1,
 h2,
 h3 {
