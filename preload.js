@@ -69,6 +69,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   pokeparkDex: () => ipcRenderer.invoke('pokepark:dex'),
   pokeparkGet: () => ipcRenderer.invoke('pokepark:get'),
   pokeparkSave: (state) => ipcRenderer.invoke('pokepark:save', state),
+  pokeparkSprite: (url) => ipcRenderer.invoke('pokepark:sprite', url),
 
   // Borrar todos los datos
   clearAllData: () => ipcRenderer.invoke('data:clearAll'),

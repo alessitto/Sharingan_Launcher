@@ -1060,6 +1060,38 @@ ipcMain.handle("pokepark:dex", () => {
   return pokedexCache;
 });
 
+// Sprites: se descargan desde aquí (sin CORS) y se guardan en disco. A la
+// ventana le llegan como data URL, así puede medirlos en un canvas (para
+// apoyar los pies en el suelo) y funcionan sin internet una vez vistos.
+const spriteCacheDir = path.join(app.getPath("userData"), "sprite-cache");
+const spriteMem = new Map();
+
+ipcMain.handle("pokepark:sprite", async (_e, url) => {
+  if (typeof url !== "string" || !/^https:\/\/(play\.pokemonshowdown\.com|raw\.githubusercontent\.com)\//.test(url)) return null;
+  if (spriteMem.has(url)) return spriteMem.get(url);
+  const ext = url.toLowerCase().endsWith(".gif") ? "gif" : "png";
+  const file = path.join(spriteCacheDir, url.replace(/^https:\/\//, "").replace(/[^a-z0-9.]+/gi, "_"));
+  let buf = null;
+  try {
+    if (fs.existsSync(file)) buf = fs.readFileSync(file);
+    else {
+      const res = await fetch(url, { timeout: 20000 });
+      if (!res.ok) {
+        spriteMem.set(url, null);
+        return null;
+      }
+      buf = await res.buffer();
+      fs.mkdirSync(spriteCacheDir, { recursive: true });
+      fs.writeFileSync(file, buf);
+    }
+  } catch {
+    return null; // sin conexión: no se cachea el fallo, se reintentará
+  }
+  const dataUrl = `data:image/${ext};base64,${buf.toString("base64")}`;
+  spriteMem.set(url, dataUrl);
+  return dataUrl;
+});
+
 ipcMain.handle("pokepark:get", () => {
   try {
     return fs.existsSync(pokeparkFilePath) ? JSON.parse(fs.readFileSync(pokeparkFilePath, "utf8")) : null;

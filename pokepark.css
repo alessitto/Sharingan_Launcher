@@ -151,6 +151,7 @@ body.in-pokepark .main-content {
 }
 
 .pp-portrait {
+  overflow: hidden;
   height: 150px;
   display: flex;
   align-items: flex-end;
@@ -161,6 +162,7 @@ body.in-pokepark .main-content {
 }
 
 .pp-portrait-img {
+  margin-bottom: calc(var(--pad, 0) / var(--h, 96) * -150px);
   height: 150px;
   max-width: 100%;
   object-fit: contain;
@@ -483,117 +485,23 @@ body.in-pokepark .main-content {
   user-select: none;
 }
 
-.pp-sky {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, var(--pp-sky-top), var(--pp-sky-bottom) 55%);
-  z-index: 0;
-}
-
-.pp-sun {
-  position: absolute;
-  top: 7%;
-  right: 12%;
-  width: 90px;
-  height: 90px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 244, 200, 0.9), rgba(var(--red-500-rgb), 0.35) 45%, transparent 70%);
-  filter: blur(1px);
-}
-
-.pp-stars {
-  position: absolute;
-  inset: 0 0 45% 0;
-  opacity: 0;
-  transition: opacity 1s;
-  background-image: radial-gradient(1.5px 1.5px at 12% 20%, #fff, transparent), radial-gradient(1px 1px at 28% 8%, #fff, transparent),
-    radial-gradient(1.5px 1.5px at 47% 26%, #fff, transparent), radial-gradient(1px 1px at 63% 12%, #fff, transparent),
-    radial-gradient(1.5px 1.5px at 78% 30%, #fff, transparent), radial-gradient(1px 1px at 90% 10%, #fff, transparent),
-    radial-gradient(1px 1px at 36% 38%, #fff, transparent), radial-gradient(1px 1px at 5% 40%, #fff, transparent);
-}
-
-.pp-park[data-tod="night"] .pp-stars {
-  opacity: 0.8;
-}
-
-.pp-park[data-tod="night"] .pp-sun {
-  background: radial-gradient(circle, rgba(235, 240, 255, 0.95), rgba(180, 200, 255, 0.25) 45%, transparent 70%);
-  width: 64px;
-  height: 64px;
-}
-
-/* De noche todo el paisaje se oscurece un poco */
-.pp-park[data-tod="night"]::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 3;
-  pointer-events: none;
-  background: linear-gradient(180deg, rgba(8, 10, 40, 0.38), rgba(8, 10, 40, 0.22));
-  mix-blend-mode: multiply;
-}
-
-.pp-scenery {
+/* Paisaje en pixel art: se dibuja a baja resolución y se amplía sin suavizar */
+.pp-canvas {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  z-index: 1;
+  image-rendering: pixelated;
+  z-index: 0;
 }
 
-.pp-hill-far {
-  fill: var(--pp-hill-far);
-}
-
-.pp-hill-mid {
-  fill: var(--pp-hill-mid);
-}
-
-.pp-ground-fill {
-  fill: var(--pp-ground);
-}
-
-.pp-tree rect {
-  fill: var(--pp-trunk);
-}
-
-.pp-tree circle,
-.pp-bush circle {
-  fill: var(--pp-leaf);
-}
-
-.pp-tree-b circle {
-  fill: color-mix(in srgb, var(--pp-leaf) 85%, #000);
-}
-
-.pp-pond {
-  fill: var(--pp-pond);
-  opacity: 0.85;
-}
-
-.pp-pond-shine {
-  fill: rgba(255, 255, 255, 0.25);
-}
-
-.pp-flowers circle {
-  fill: var(--pp-accent);
-  opacity: 0.85;
-}
-
-.pp-grass path {
-  fill: none;
-  stroke: var(--pp-leaf);
-  stroke-width: 2.5;
-  stroke-linecap: round;
-}
-
-/* Zona por la que caminan (la parte baja: el suelo del paisaje) */
+/* Zona por la que caminan: la coloca pokepark.js justo bajo el horizonte */
 .pp-ground {
   position: absolute;
-  left: 4%;
-  right: 4%;
-  top: 46%;
-  bottom: 6%;
+  left: 3%;
+  right: 3%;
+  top: 50%;
+  bottom: 4%;
   z-index: 2;
 }
 
@@ -614,16 +522,16 @@ body.in-pokepark .main-content {
 }
 
 .pp-mon-img {
+  --k: 1.25;
+  --drop: calc(var(--pad, 0) * var(--k) * 1px);
   position: absolute;
   left: 0;
   bottom: 0;
   height: auto;
   width: auto;
-  max-height: 150px;
-  transform: translateX(-50%) scale(1.6) scaleX(var(--face, 1));
+  transform: translateX(-50%) translateY(var(--drop)) scale(var(--k)) scaleX(var(--face, 1));
   transform-origin: 50% 100%;
   image-rendering: pixelated;
-  filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.12));
   transition: filter 0.2s;
 }
 
@@ -642,32 +550,32 @@ body.in-pokepark .main-content {
 
 @keyframes ppBreathe {
   50% {
-    transform: translateX(-50%) scale(1.6, 1.56) scaleX(var(--face, 1));
+    transform: translateX(-50%) translateY(var(--drop)) scale(var(--k), calc(var(--k) * 0.97)) scaleX(var(--face, 1));
   }
 }
 
 @keyframes ppWalkHop {
   50% {
-    transform: translateX(-50%) translateY(-5px) scale(1.6) scaleX(var(--face, 1));
+    transform: translateX(-50%) translateY(calc(var(--drop) - 4px)) scale(var(--k)) scaleX(var(--face, 1));
   }
 }
 
 .pp-mon-shadow {
   position: absolute;
-  left: -30px;
-  top: -9px;
-  width: 60px;
-  height: 18px;
+  left: -24px;
+  top: -6px;
+  width: 48px;
+  height: 12px;
   border-radius: 50%;
   background: radial-gradient(ellipse, rgba(0, 0, 0, 0.35), transparent 70%);
 }
 
 .pp-mon-ring {
   position: absolute;
-  left: -40px;
-  top: -14px;
-  width: 80px;
-  height: 28px;
+  left: -32px;
+  top: -10px;
+  width: 64px;
+  height: 20px;
   border-radius: 50%;
   border: 2px solid var(--red-500);
   box-shadow: 0 0 14px rgba(var(--red-500-rgb), 0.6);
@@ -713,14 +621,35 @@ body.in-pokepark .main-content {
 
 @keyframes ppHop {
   40% {
-    transform: translateX(-50%) translateY(-22px) scale(1.6) scaleX(var(--face, 1));
+    transform: translateX(-50%) translateY(calc(var(--drop) - 18px)) scale(var(--k)) scaleX(var(--face, 1));
   }
+}
+
+/* Al atacar se echan un poco hacia delante */
+.pp-mon.is-attacking .pp-mon-img {
+  animation: ppLunge 0.6s var(--ease-smooth);
+}
+
+@keyframes ppLunge {
+  35% {
+    transform: translateX(calc(-50% + var(--face, 1) * -10px)) translateY(calc(var(--drop) - 3px)) scale(var(--k)) scaleX(var(--face, 1));
+  }
+}
+
+.pp-fx {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: auto;
+  image-rendering: pixelated;
+  pointer-events: none;
+  will-change: transform, opacity;
 }
 
 .pp-float {
   position: absolute;
   left: 0;
-  bottom: 120px;
+  bottom: 96px;
   transform: translateX(-50%);
   font-size: 14px;
   font-weight: 900;
@@ -836,6 +765,25 @@ body.in-pokepark .main-content {
   background: rgba(var(--ink-900-rgb), 0.7);
   backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.pp-hud-right {
+  display: flex;
+  gap: 8px;
+}
+
+.pp-fs-btn {
+  pointer-events: auto;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.pp-fs-btn:hover {
+  border-color: rgba(var(--red-500-rgb), 0.6);
+  background: rgba(var(--red-500-rgb), 0.25);
 }
 
 .pp-chip svg {
@@ -1266,6 +1214,7 @@ body.in-pokepark .main-content {
 }
 
 .pp-evo-stage .pp-sprite {
+  margin-bottom: calc(var(--pad, 0) / var(--h, 96) * -150px);
   height: 150px;
   image-rendering: pixelated;
   object-fit: contain;
@@ -1346,4 +1295,125 @@ body.in-pokepark .main-content {
   .pp-park {
     height: 420px;
   }
+}
+
+/* ------------------------------------------------------------ Pantalla completa */
+.pp-park.is-fullscreen {
+  border-radius: 0;
+  border: none;
+}
+
+.pp-park.is-fullscreen .pp-fs-btn span {
+  display: none;
+}
+
+.pp-park.hide-cursor,
+.pp-park.hide-cursor * {
+  cursor: none !important;
+}
+
+/* ------------------------------------------------------------ Sin selección */
+.pp-overview {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pp-overview-hint {
+  margin: 2px 4px 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-300);
+}
+
+.pp-ov-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px 6px 4px;
+  border-radius: 12px;
+  border: 1px solid var(--ink-800);
+  background: none;
+  font: inherit;
+  text-align: left;
+  color: var(--washi-100);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.pp-ov-row:hover {
+  border-color: rgba(var(--red-500-rgb), 0.5);
+  background: rgba(var(--red-500-rgb), 0.07);
+}
+
+.pp-ov-row img {
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.pp-ov-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pp-ov-text b {
+  font-size: 13px;
+}
+
+.pp-ov-text small {
+  font-size: 11px;
+  color: var(--ink-300);
+}
+
+.pp-ov-text i {
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(var(--red-500-rgb), 0.14);
+  overflow: hidden;
+}
+
+.pp-ov-text em {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #4fb0e8, #77d2ff);
+}
+
+.pp-ov-hearts .pp-heart {
+  width: 12px;
+  height: 12px;
+}
+
+/* Género: se puede cambiar si la especie admite los dos */
+.pp-g.is-toggle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--ink-700);
+  background: rgba(var(--red-500-rgb), 0.06);
+  font: inherit;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s;
+}
+
+.pp-g.is-toggle:hover {
+  transform: scale(1.08);
+  border-color: currentColor;
+}
+
+/* Acciones arriba del todo de la ficha */
+.pp-card > .pp-actions {
+  margin-top: 0;
+}
+
+.pp-card > .pp-cooldowns {
+  margin: 6px 0 12px;
 }

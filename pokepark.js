@@ -119,10 +119,82 @@
     return !s.from && !s.leg && !s.myth && !s.ub;
   }
 
-  function spriteHtml(sp, cls = "") {
+  // El sprite se pide a main.js (lo descarga y lo cachea en disco) y llega
+  // como data URL, así se puede medir en un canvas cuánto hueco vacío trae
+  // por debajo de los pies (--pad) y apoyarlo de verdad en el suelo.
+  const spriteCache = new Map(); // id especie -> Promise<{ src, ani, w, h, pad }>
+
+  function measureSprite(src) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const w = img.naturalWidth;
+        const h = img.naturalHeight;
+        try {
+          const c = document.createElement("canvas");
+          c.width = w;
+          c.height = h;
+          const ctx = c.getContext("2d", { willReadFrequently: true });
+          ctx.drawImage(img, 0, 0);
+          const d = ctx.getImageData(0, 0, w, h).data;
+          let row = h - 1;
+          outer: for (; row >= 0; row--) {
+            for (let x = 0; x < w; x++) if (d[(row * w + x) * 4 + 3] > 40) break outer;
+          }
+          resolve({ w, h, pad: Math.max(0, h - 1 - row) });
+        } catch {
+          resolve({ w, h, pad: 0 });
+        }
+      };
+      img.onerror = () => resolve(null);
+      img.src = src;
+    });
+  }
+
+  function loadSprite(sp) {
     const s = species(sp);
-    const first = s.a ? SPRITE_ANI(s.sd) : SPRITE_PNG(s.sd);
-    return `<img class="pp-sprite ${cls} ${s.a ? "" : "is-static"}" src="${first}" data-sd="${s.sd}" data-fb="${s.sprite || ""}" alt="" draggable="false" onerror="PokePark._spriteError(this)">`;
+    if (!s) return Promise.resolve(null);
+    if (spriteCache.has(s.id)) return spriteCache.get(s.id);
+    const tries = [...(s.a ? [[SPRITE_ANI(s.sd), true]] : []), [SPRITE_PNG(s.sd), false]];
+    if (s.sprite) tries.push([s.sprite, false]);
+    const p = (async () => {
+      for (const [url, ani] of tries) {
+        const src = await window.electronAPI.pokeparkSprite(url).catch(() => null);
+        if (!src) continue;
+        const m = await measureSprite(src);
+        if (m) return { src, ani, ...m };
+      }
+      return null;
+    })();
+    spriteCache.set(s.id, p);
+    p.then((r) => !r && spriteCache.delete(s.id)); // sin conexión: se reintentará
+    return p;
+  }
+
+  function spriteHtml(sp, cls = "") {
+    return `<img class="pp-sprite ${cls}" data-sp="${sp}" alt="" draggable="false">`;
+  }
+
+  // Rellena las imágenes de sprite que haya dentro de "box".
+  function hydrate(box) {
+    box?.querySelectorAll("img.pp-sprite[data-sp]").forEach((img) => {
+      const sp = img.dataset.sp;
+      if (img.dataset.loaded === sp) return;
+      img.dataset.loaded = sp;
+      loadSprite(sp).then((r) => {
+        if (!r || img.dataset.sp !== sp) return;
+        img.style.setProperty("--pad", r.pad);
+        img.style.setProperty("--h", r.h);
+        img.classList.toggle("is-static", !r.ani);
+        img.src = r.src;
+      });
+    });
+  }
+
+  // Especies con los dos géneros posibles: el usuario puede elegirlo.
+  function canChooseGender(mon) {
+    const g = species(mon.sp)?.g;
+    return g > 0 && g < 8;
   }
 
   // Si falla el animado se prueba el fijo de 5ª gen y después el de PokeAPI.
@@ -330,6 +402,7 @@
       allowEscapeKey: false,
       customClass: { popup: "sl-modal-sm pp-evo-popup" },
       didOpen: (popup) => {
+        hydrate(popup);
         const box = popup.querySelector(".pp-evo");
         setTimeout(() => box.classList.add("is-morphing"), 300);
         setTimeout(() => {
@@ -479,7 +552,7 @@
 
   // ------------------------------------------------------------ Render
   function selected() {
-    return state.party.find((m) => m.uid === selectedUid) || state.party[0] || null;
+    return state.party.find((m) => m.uid === selectedUid) || null;
   }
 
   function render() {
@@ -489,6 +562,8 @@
     syncActors();
     renderGround();
     updateBagBadge();
+    layoutGround();
+    hydrate(root);
   }
 
   function shell() {
@@ -498,12 +573,14 @@
         <div class="pp-detail"></div>
       </aside>
       <div class="pp-park" data-tod="day">
-        <div class="pp-sky"><div class="pp-stars"></div><div class="pp-sun"></div></div>
-        ${SCENERY_SVG}
+        <canvas class="pp-canvas" aria-hidden="true"></canvas>
         <div class="pp-ground"><div class="pp-items"></div><div class="pp-mons"></div></div>
         <div class="pp-hud">
           <span class="pp-chip pp-clock"></span>
-          <span class="pp-chip pp-count"></span>
+          <span class="pp-hud-right">
+            <span class="pp-chip pp-count"></span>
+            <button type="button" class="pp-chip pp-fs-btn" data-pp="fullscreen" title="Pantalla completa (Esc para salir)">${FS_SVG}<span>Pantalla completa</span></button>
+          </span>
         </div>
         <div class="pp-empty"></div>
         <button type="button" class="pp-bag-btn" title="Bolsa" aria-label="Abrir la bolsa">
@@ -554,6 +631,24 @@
       <div class="pp-slots">${slots.join("")}</div>`;
 
     const det = root.querySelector(".pp-detail");
+    if (!sel && state.party.length) {
+      det.innerHTML = `
+        <div class="pp-overview">
+          <p class="pp-overview-hint">Toca un Pokémon en el parque o en tu equipo para ver su ficha, darle de comer o limpiarlo.</p>
+          ${state.party
+            .map((m) => {
+              const cur = expForLevel(m.lv);
+              const pct = m.lv >= 100 ? 100 : Math.max(0, Math.min(100, ((m.exp - cur) / (expForLevel(m.lv + 1) - cur)) * 100));
+              return `<button type="button" class="pp-ov-row" data-pp="select" data-uid="${m.uid}">
+                <img src="${SPRITE_PNG(species(m.sp).sd)}" alt="" onerror="this.style.visibility='hidden'">
+                <span class="pp-ov-text"><b>${esc(displayName(m))}</b><small>Nv. ${m.lv}</small><i><em style="width:${pct}%"></em></i></span>
+                <span class="pp-ov-hearts">${heartsHtml(m.fr)}</span>
+              </button>`;
+            })
+            .join("")}
+        </div>`;
+      return;
+    }
     if (!sel) {
       det.innerHTML = `
         <div class="pp-welcome">
@@ -571,10 +666,27 @@
     const fi = feedInfo(sel);
     const cleanWait = (sel.cleanedAt || 0) + CLEAN_COOLDOWN_MS - now();
     const hints = evolutionHints(sel);
-    const gender = sel.g === "m" ? '<span class="pp-g is-m">♂</span>' : sel.g === "f" ? '<span class="pp-g is-f">♀</span>' : "";
+    const gSym = sel.g === "m" ? "♂" : sel.g === "f" ? "♀" : "";
+    const gender = !gSym
+      ? ""
+      : canChooseGender(sel)
+        ? `<button type="button" class="pp-g is-${sel.g} is-toggle" data-pp="gender" title="Cambiar a ${sel.g === "m" ? "hembra" : "macho"}">${gSym}</button>`
+        : `<span class="pp-g is-${sel.g}" title="Esta especie solo puede ser ${sel.g === "m" ? "macho" : "hembra"}">${gSym}</span>`;
 
     det.innerHTML = `
       <div class="pp-card">
+        <div class="pp-actions">
+          <button type="button" class="sl-btn sl-btn-primary" data-pp="feed" ${fi.left ? "" : "disabled"}>
+            ${BERRY_SVG}<span>Dar de comer</span>
+          </button>
+          <button type="button" class="sl-btn sl-btn-ghost" data-pp="clean" ${cleanWait > 0 ? "disabled" : ""}>
+            ${icon("sparkles")}<span>Limpiar</span>
+          </button>
+        </div>
+        <p class="pp-cooldowns">
+          ${fi.left ? `Comidas con experiencia: ${fi.left}/${FEED_MAX}` : `Lleno · vuelve a tener hambre en ${fmtDuration(fi.resetIn)}`}
+          ${cleanWait > 0 ? ` · Limpio (${fmtDuration(cleanWait)})` : ""}
+        </p>
         <div class="pp-portrait">${spriteHtml(sel.sp, "pp-portrait-img")}</div>
         <div class="pp-name-row">
           <label class="pp-nick" title="Pulsa para ponerle un mote">
@@ -622,18 +734,6 @@
             : `<div class="pp-evo-hints"><span class="pp-held-label">Evolución</span><p class="is-final"><span>No evoluciona más.</span></p></div>`
         }
 
-        <div class="pp-actions">
-          <button type="button" class="sl-btn sl-btn-primary" data-pp="feed" ${fi.left ? "" : "disabled"}>
-            ${BERRY_SVG}<span>Dar de comer</span>
-          </button>
-          <button type="button" class="sl-btn sl-btn-ghost" data-pp="clean" ${cleanWait > 0 ? "disabled" : ""}>
-            ${icon("sparkles")}<span>Limpiar</span>
-          </button>
-        </div>
-        <p class="pp-cooldowns">
-          ${fi.left ? `Comidas con experiencia: ${fi.left}/${FEED_MAX}` : `Lleno · vuelve a tener hambre en ${fmtDuration(fi.resetIn)}`}
-          ${cleanWait > 0 ? ` · Limpio (${fmtDuration(cleanWait)})` : ""}
-        </p>
       </div>`;
   }
 
@@ -649,7 +749,10 @@
     if (!root) return;
     const tod = timeOfDay();
     const park = root.querySelector(".pp-park");
-    if (park && park.dataset.tod !== tod) park.dataset.tod = tod;
+    if (park && park.dataset.tod !== tod) {
+      park.dataset.tod = tod;
+      paintScenery(true);
+    }
     const c = root.querySelector(".pp-clock");
     if (c) {
       const d = new Date();
@@ -690,6 +793,250 @@
   let rafId = null;
   let lastFrame = 0;
 
+  // El suelo por el que pueden andar empieza un poco por debajo del
+  // horizonte del dibujo, así nunca pisan el cielo ni las colinas.
+  function layoutGround() {
+    paintScenery();
+    const ground = root?.querySelector(".pp-ground");
+    if (!ground || !scenery.horizonPx) return;
+    ground.style.top = `${Math.round(scenery.horizonPx + 22)}px`;
+  }
+  window.addEventListener("resize", () => layoutGround());
+  document.addEventListener("fullscreenchange", () => {
+    const park = root?.querySelector(".pp-park");
+    const fs = document.fullscreenElement === park;
+    park?.classList.toggle("is-fullscreen", fs);
+    setTimeout(layoutGround, 50);
+  });
+
+  // ------------------------------------------------------------ Paisaje pixel art
+  // Se dibuja a baja resolución (cada "píxel" del dibujo son PX píxeles de
+  // pantalla) y se amplía sin suavizar, con el mismo aspecto que los sprites.
+  // Los colores salen del tema activo; de noche cambia la paleta y salen la
+  // luna y las estrellas.
+  const PX = 3;
+  const scenery = { key: "", horizonPx: 0 };
+
+  function cssColor(name) {
+    const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    const c = document.createElement("canvas").getContext("2d");
+    c.fillStyle = v || "#000";
+    const hex = c.fillStyle; // normaliza a #rrggbb
+    return [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  }
+  const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
+  const shade = (c, t) => (t >= 0 ? mix(c, [255, 255, 255], t) : mix(c, [0, 0, 0], -t));
+  const rgb = (c) => `rgb(${c[0]},${c[1]},${c[2]})`;
+  const lum = (c) => (0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]) / 255;
+
+  function seeded(seed) {
+    let t = seed >>> 0;
+    return () => {
+      t = (t + 0x6d2b79f5) >>> 0;
+      let r = Math.imul(t ^ (t >>> 15), t | 1);
+      r ^= r + Math.imul(r ^ (r >>> 7), r | 61);
+      return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function paintScenery(force = false) {
+    const park = root?.querySelector(".pp-park");
+    const canvas = root?.querySelector(".pp-canvas");
+    if (!park || !canvas || !park.clientWidth) return;
+    const W = park.clientWidth;
+    const H = park.clientHeight;
+    const theme = document.documentElement.getAttribute("data-theme") || "uchiha";
+    const night = timeOfDay() === "night";
+    const key = `${W}x${H}|${theme}|${night}`;
+    if (!force && key === scenery.key) return;
+    scenery.key = key;
+
+    const aw = Math.ceil(W / PX);
+    const ah = Math.ceil(H / PX);
+    canvas.width = aw;
+    canvas.height = ah;
+    const g = canvas.getContext("2d");
+    g.imageSmoothingEnabled = false;
+    const rnd = seeded(1234);
+    const px = (x, y, c, w = 1, h = 1) => {
+      g.fillStyle = rgb(c);
+      g.fillRect(Math.round(x), Math.round(y), w, h);
+    };
+    const disc = (cx, cy, r, c) => {
+      g.fillStyle = rgb(c);
+      for (let y = -r; y <= r; y++) {
+        const half = Math.floor(Math.sqrt(r * r - y * y));
+        g.fillRect(Math.round(cx - half), Math.round(cy + y), half * 2 + 1, 1);
+      }
+    };
+
+    // Paleta
+    const accent = cssColor("--red-500");
+    const base = cssColor("--ink-950");
+    const card = cssColor("--ink-900");
+    const light = lum(base) > 0.55; // Reshiram y Mew
+    const nightTint = [16, 20, 52];
+    const n = (c) => (night ? mix(c, nightTint, light ? 0.55 : 0.45) : c);
+    const skyTop = n(mix(light ? shade(base, -0.05) : shade(base, 0.08), accent, light ? 0.18 : 0.28));
+    const skyBot = n(mix(light ? base : shade(card, 0.12), accent, light ? 0.06 : 0.12));
+    const hillFar = n(mix(mix(card, accent, 0.3), skyTop, 0.35));
+    const hillMid = n(mix(card, accent, light ? 0.32 : 0.38));
+    const treeDark = n(shade(mix(card, accent, 0.45), light ? -0.25 : -0.15));
+    const treeLight = n(shade(mix(card, accent, 0.45), 0.12));
+    const grass = n(mix(light ? shade(card, -0.05) : shade(card, 0.08), accent, light ? 0.24 : 0.3));
+    const grassDark = shade(grass, -0.14);
+    const grassLight = shade(grass, 0.12);
+    const path = n(mix(grass, [214, 182, 128], 0.45));
+    const water = n(mix([74, 150, 210], accent, 0.18));
+    const trunk = n([110, 76, 52]);
+
+    // Cielo en bandas con tramado entre una y otra
+    const horizon = Math.round(ah * 0.42);
+    const bands = 7;
+    for (let b = 0; b < bands; b++) {
+      const y0 = Math.floor((horizon * b) / bands);
+      const y1 = Math.floor((horizon * (b + 1)) / bands);
+      const c = mix(skyTop, skyBot, b / (bands - 1));
+      px(0, y0, c, aw, y1 - y0);
+      if (b < bands - 1) {
+        const next = mix(skyTop, skyBot, (b + 1) / (bands - 1));
+        for (let x = (y1 % 2); x < aw; x += 2) px(x, y1 - 1, next);
+      }
+    }
+
+    // Sol o luna, estrellas, nubes
+    const sx = Math.round(aw * 0.84);
+    const sy = Math.round(horizon * 0.32);
+    if (night) {
+      for (let i = 0; i < aw * 0.25; i++) {
+        const c = rnd() < 0.2 ? [255, 255, 255] : mix([255, 255, 255], skyTop, 0.45);
+        px(rnd() * aw, rnd() * horizon * 0.9, c);
+      }
+      disc(sx, sy, 8, [236, 238, 250]);
+      disc(sx + 3, sy - 2, 7, mix([236, 238, 250], skyTop, 0.25));
+      disc(sx - 3, sy + 2, 1, [200, 204, 222]);
+      disc(sx - 1, sy - 3, 1, [210, 214, 230]);
+    } else {
+      disc(sx, sy, 13, mix([255, 236, 170], skyTop, 0.55));
+      disc(sx, sy, 9, [255, 240, 186]);
+      disc(sx - 2, sy - 2, 4, [255, 250, 220]);
+    }
+    const cloud = night ? mix(skyTop, [255, 255, 255], 0.12) : mix(skyBot, [255, 255, 255], light ? 0.7 : 0.55);
+    const cloudShade = shade(cloud, -0.08);
+    for (let i = 0; i < Math.max(3, Math.round(aw / 90)); i++) {
+      const cx = rnd() * aw;
+      const cy = 6 + rnd() * horizon * 0.45;
+      const w = 18 + rnd() * 22;
+      g.fillStyle = rgb(cloudShade);
+      g.fillRect(Math.round(cx - w / 2), Math.round(cy + 2), Math.round(w), 3);
+      disc(cx - w / 4, cy, 4, cloud);
+      disc(cx + w / 5, cy - 1, 5, cloud);
+      disc(cx, cy - 3, 5, cloud);
+      g.fillStyle = rgb(cloud);
+      g.fillRect(Math.round(cx - w / 2), Math.round(cy), Math.round(w), 3);
+    }
+
+    // Colinas lejanas y hilera de árboles
+    const ridge = (yBase, amp, freq, phase, c, top) => {
+      for (let x = 0; x < aw; x++) {
+        const y = Math.round(yBase - amp * (Math.sin(x * freq + phase) * 0.6 + Math.sin(x * freq * 2.3 + phase * 1.7) * 0.4));
+        px(x, y, c, 1, ah - y);
+        if (top) px(x, y, top);
+      }
+    };
+    ridge(horizon - 10, 7, 0.03, 1.2, hillFar, shade(hillFar, 0.08));
+    ridge(horizon - 2, 5, 0.045, 3.1, hillMid, shade(hillMid, 0.1));
+    for (let x = -4; x < aw + 6; x += 7 + Math.floor(rnd() * 5)) {
+      const r = 4 + Math.floor(rnd() * 3);
+      const y = horizon - 3 - Math.round(rnd() * 2);
+      disc(x, y, r, treeDark);
+      disc(x - 1, y - 1, r - 2, mix(treeDark, treeLight, 0.4));
+    }
+
+    // Suelo con textura
+    px(0, horizon, grass, aw, ah - horizon);
+    for (let x = 0; x < aw; x += 2) px(x + ((x / 2) % 2), horizon, grassDark);
+    for (let i = 0; i < aw * ah * 0.012; i++) {
+      const x = rnd() * aw;
+      const y = horizon + 2 + rnd() * (ah - horizon);
+      px(x, y, rnd() < 0.5 ? grassDark : grassLight);
+    }
+
+    // Camino que sube desde abajo hacia el horizonte
+    for (let y = horizon + 1; y < ah; y++) {
+      const t = (y - horizon) / (ah - horizon);
+      const cx = aw * (0.58 + Math.sin(t * 3.2) * 0.07);
+      const half = 2 + t * aw * 0.055;
+      px(cx - half, y, path, Math.round(half * 2), 1);
+      if (y % 3 === 0) px(cx - half, y, shade(path, -0.1));
+      if (y % 4 === 1) px(cx + half * 0.3, y, shade(path, 0.08));
+    }
+
+    // Estanque
+    const pcx = Math.round(aw * 0.2);
+    const pcy = Math.round(horizon + (ah - horizon) * 0.62);
+    const prx = Math.max(16, Math.round(aw * 0.11));
+    const pry = Math.max(5, Math.round(prx * 0.3));
+    for (let y = -pry - 1; y <= pry + 1; y++) {
+      const half = Math.floor(prx * Math.sqrt(Math.max(0, 1 - (y / (pry + 1)) ** 2)));
+      px(pcx - half - 1, pcy + y, shade(grass, -0.22), half * 2 + 3, 1);
+    }
+    for (let y = -pry; y <= pry; y++) {
+      const half = Math.floor(prx * Math.sqrt(1 - (y / (pry + 0.5)) ** 2));
+      px(pcx - half, pcy + y, y < -pry / 2 ? shade(water, -0.12) : water, half * 2 + 1, 1);
+    }
+    for (let i = 0; i < 4; i++) px(pcx - prx * 0.5 + i * prx * 0.3, pcy - 1 + (i % 2) * 2, shade(water, 0.3), 3, 1);
+
+    // Árboles grandes en los laterales
+    const bigTree = (x, yBase, r) => {
+      px(x - 2, yBase - r - 2, trunk, 5, r + 2);
+      px(x - 2, yBase - r - 2, shade(trunk, -0.2), 1, r + 2);
+      g.fillStyle = "rgba(0,0,0,0.18)";
+      g.fillRect(x - r, yBase - 1, r * 2, 2);
+      disc(x, yBase - r * 2, r, treeDark);
+      disc(x - r * 0.55, yBase - r * 1.6, r * 0.7, treeDark);
+      disc(x + r * 0.6, yBase - r * 1.65, r * 0.65, treeDark);
+      disc(x - r * 0.25, yBase - r * 2.25, r * 0.6, treeLight);
+      disc(x - r * 0.4, yBase - r * 2.4, r * 0.25, shade(treeLight, 0.15));
+    };
+    bigTree(Math.round(aw * 0.05), horizon + 10, 12);
+    bigTree(Math.round(aw * 0.95), horizon + 14, 14);
+    bigTree(Math.round(aw * 0.78), horizon + 4, 8);
+
+    // Matas, flores y hierba alta
+    for (let i = 0; i < 5; i++) {
+      const x = rnd() * aw;
+      const y = horizon + 3 + rnd() * 10;
+      disc(x, y, 3, treeDark);
+      disc(x + 3, y, 3, treeDark);
+      disc(x + 1, y - 1, 2, treeLight);
+    }
+    const petal = night ? shade(accent, -0.2) : accent;
+    for (let i = 0; i < aw * 0.12; i++) {
+      const x = rnd() * aw;
+      const y = horizon + 6 + rnd() * (ah - horizon - 8);
+      if (Math.abs(x - pcx) < prx + 4 && Math.abs(y - pcy) < pry + 4) continue;
+      if (rnd() < 0.5) {
+        px(x, y, rnd() < 0.5 ? petal : [250, 245, 235]);
+        px(x, y + 1, grassDark);
+      } else {
+        px(x, y, grassDark);
+        px(x + 1, y - 1, grassDark);
+        px(x + 2, y, grassDark);
+      }
+    }
+
+    const scale = H / ah;
+    scenery.horizonPx = horizon * scale;
+  }
+
+  new MutationObserver(() => {
+    if (ready) {
+      paintScenery(true);
+      layoutGround();
+    }
+  }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
   function groundRect() {
     const g = root?.querySelector(".pp-ground");
     return g ? { w: g.clientWidth, h: g.clientHeight } : { w: 0, h: 0 };
@@ -719,6 +1066,7 @@
       if (a.sp !== mon.sp) {
         a.sp = mon.sp;
         a.el.innerHTML = `<span class="pp-mon-ring"></span><span class="pp-mon-shadow"></span>${spriteHtml(mon.sp, "pp-mon-img")}<span class="pp-mon-name"></span>`;
+        hydrate(a.el);
       }
       a.el.querySelector(".pp-mon-name").textContent = displayName(mon);
       a.el.classList.toggle("is-selected", mon.uid === selected()?.uid);
@@ -736,7 +1084,11 @@
       for (const [uid, a] of actors) {
         const mon = state.party.find((m) => m.uid === uid);
         if (!mon || !w) continue;
-        if (now() < a.idleUntil) {
+        // Muy de vez en cuando (de media, cada ~12 min por Pokémon) ataca.
+        if (!a.attackUntil || now() > a.attackUntil) {
+          if (Math.random() < dt / 720) attack(a, mon);
+        }
+        if (now() < (a.attackUntil || 0) || now() < a.idleUntil) {
           a.el.classList.remove("is-walking");
         } else {
           if (!a.tx && !a.ty) {
@@ -767,6 +1119,285 @@
       }
     }
     rafId = requestAnimationFrame(frame);
+  }
+
+  // ------------------------------------------------------------ Ataques
+  // Muy de vez en cuando un Pokémon se para y hace el ataque típico de su
+  // tipo. Los efectos son pixel art propio (16x16) al estilo de los combates
+  // de 5ª generación, generado aquí mismo y ampliado sin suavizar, con el
+  // mismo tamaño de píxel que el parque.
+  const ATTACKS = {
+    fire: { n: "Lanzallamas", fx: ["flame", "flameSmall"], kind: "stream" },
+    water: { n: "Pistola Agua", fx: ["drop"], kind: "stream" },
+    electric: { n: "Impactrueno", fx: ["bolt"], kind: "bolt" },
+    grass: { n: "Hoja Afilada", fx: ["leaf"], kind: "spray" },
+    ice: { n: "Rayo Hielo", fx: ["ice"], kind: "stream" },
+    psychic: { n: "Psíquico", fx: ["psy"], kind: "pulse" },
+    ghost: { n: "Bola Sombra", fx: ["shadow"], kind: "ball" },
+    dark: { n: "Mordisco", fx: ["fangTop", "fangBottom"], kind: "bite" },
+    fighting: { n: "Puño Dinámico", fx: ["impact", "star"], kind: "hit" },
+    rock: { n: "Lanzarrocas", fx: ["rock"], kind: "drop" },
+    ground: { n: "Bofetón Lodo", fx: ["mud"], kind: "stream" },
+    poison: { n: "Bomba Lodo", fx: ["poison"], kind: "ball" },
+    bug: { n: "Disparo Demora", fx: ["web"], kind: "ball" },
+    flying: { n: "Tornado", fx: ["gust"], kind: "spray" },
+    dragon: { n: "Pulso Dragón", fx: ["dragonFlame", "psyDragon"], kind: "pulse" },
+    steel: { n: "Garra Metal", fx: ["slash", "star"], kind: "hit" },
+    fairy: { n: "Brillo Mágico", fx: ["sparkle", "heart"], kind: "pulse" },
+    normal: { n: "Placaje", fx: ["impact"], kind: "tackle" },
+  };
+
+  const FX_ART = 16;
+  const fxCache = new Map();
+
+  function makeFx(draw) {
+    const c = document.createElement("canvas");
+    c.width = c.height = FX_ART;
+    const g = c.getContext("2d");
+    const p = (x, y, col, w = 1, h = 1) => {
+      g.fillStyle = col;
+      g.fillRect(Math.round(x), Math.round(y), w, h);
+    };
+    const ell = (cx, cy, rx, ry, col) => {
+      g.fillStyle = col;
+      for (let y = -ry; y <= ry; y++) {
+        const half = Math.round(rx * Math.sqrt(Math.max(0, 1 - (y / (ry + 0.35)) ** 2)));
+        g.fillRect(Math.round(cx - half), Math.round(cy + y), half * 2 + 1, 1);
+      }
+    };
+    const ring = (cx, cy, r, col) => {
+      for (let a = 0; a < 64; a++) p(cx + Math.cos((a / 64) * Math.PI * 2) * r, cy + Math.sin((a / 64) * Math.PI * 2) * r, col);
+    };
+    const line = (x0, y0, x1, y1, col, w = 1) => {
+      const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
+      for (let i = 0; i <= n; i++) p(x0 + ((x1 - x0) * i) / n, y0 + ((y1 - y0) * i) / n, col, w, w);
+    };
+    draw({ g, p, ell, ring, line });
+    return c.toDataURL();
+  }
+
+  // Llama: gota invertida con borde rojo, cuerpo naranja y núcleo amarillo.
+  const flameArt = (outer, mid, core, tip) => ({ p, ell }) => {
+    ell(8, 10, 5, 5, outer);
+    for (let y = 1; y < 7; y++) p(8 - Math.floor(y / 2), y, outer, Math.floor(y / 2) * 2 + 1, 1);
+    ell(8, 11, 3, 3, mid);
+    for (let y = 4; y < 9; y++) p(8 - Math.floor((y - 3) / 2), y, mid, Math.floor((y - 3) / 2) * 2 + 1, 1);
+    ell(8, 12, 1, 2, core);
+    p(8, 9, core);
+    p(8, 2, tip);
+  };
+
+  const FX_DRAW = {
+    flame: flameArt("#c8321a", "#f5871f", "#ffe14a", "#ff9a3c"),
+    flameSmall: ({ p, ell }) => {
+      ell(8, 10, 3, 3, "#e0501c");
+      for (let y = 5; y < 8; y++) p(8 - (y - 5), y, "#e0501c", (y - 5) * 2 + 1, 1);
+      ell(8, 11, 1, 1, "#ffd23a");
+    },
+    dragonFlame: flameArt("#4b2aa8", "#7d5cf0", "#d9ccff", "#9b85ff"),
+    drop: ({ p, ell }) => {
+      ell(8, 10, 4, 4, "#1d5fb8");
+      for (let y = 3; y < 7; y++) p(8 - Math.floor((y - 2) / 2), y, "#1d5fb8", Math.floor((y - 2) / 2) * 2 + 1, 1);
+      ell(8, 10, 3, 3, "#3d8ff0");
+      p(6, 8, "#cfeeff", 2, 1);
+      p(6, 9, "#cfeeff");
+      p(10, 12, "#7fc0ff");
+    },
+    bolt: ({ p, line }) => {
+      const pts = [[10, 0], [5, 7], [9, 7], [4, 15], [12, 6], [8, 6], [12, 0]];
+      for (let i = 0; i < pts.length - 1; i++) line(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], "#b07800", 2);
+      line(10, 1, 6, 7, "#ffd93b", 2);
+      line(8, 7, 5, 13, "#ffd93b", 2);
+      line(10, 2, 7, 7, "#fffbe0");
+    },
+    leaf: ({ p, line }) => {
+      for (let i = 0; i < 12; i++) {
+        const w = Math.round(Math.sin((i / 11) * Math.PI) * 3);
+        for (let k = -w; k <= w; k++) p(2 + i + k * 0.5, 13 - i + k, "#3f9e46");
+      }
+      line(3, 12, 13, 2, "#1f5e26");
+      p(6, 11, "#8fdc6a");
+      p(9, 8, "#8fdc6a");
+    },
+    ice: ({ p, line }) => {
+      for (let y = 0; y < 16; y++) {
+        const w = 7 - Math.abs(7.5 - y);
+        p(8 - w, y, "#3a8fd0", w * 2 + 1, 1);
+        if (w > 1) p(9 - w, y, "#9fe8ff", w * 2 - 1, 1);
+      }
+      line(8, 2, 8, 13, "#ffffff");
+      line(4, 8, 12, 8, "#e6fbff");
+    },
+    psy: ({ ring, ell }) => {
+      ring(8, 8, 7, "#c23d8a");
+      ring(8, 8, 6, "#ff6fb5");
+      ring(8, 8, 3.5, "#ffb3db");
+      ell(8, 8, 1, 1, "#ffe6f4");
+    },
+    psyDragon: ({ ring }) => {
+      ring(8, 8, 7, "#3b2d8f");
+      ring(8, 8, 6, "#6f5cf0");
+      ring(8, 8, 3, "#b4a8ff");
+    },
+    shadow: ({ p, ell, ring }) => {
+      ell(8, 8, 7, 7, "#2a1546");
+      ell(8, 8, 5, 5, "#5a2f8c");
+      ell(8, 8, 3, 3, "#170b26");
+      ring(8, 8, 7, "#8a5cc8");
+      p(5, 5, "#c9a8ff", 2, 1);
+      p(5, 6, "#c9a8ff");
+    },
+    fangTop: ({ p }) => {
+      for (let i = 0; i < 4; i++) {
+        for (let y = 0; y < 7; y++) {
+          const w = Math.max(0, 1.5 - y * 0.25);
+          p(2 + i * 4 - w + 1, 2 + y, y === 0 ? "#9aa0ad" : "#ffffff", Math.max(1, Math.round(w * 2)), 1);
+        }
+      }
+      p(1, 1, "#9aa0ad", 15, 1);
+    },
+    fangBottom: ({ p }) => {
+      for (let i = 0; i < 4; i++) {
+        for (let y = 0; y < 7; y++) {
+          const w = Math.max(0, 1.5 - y * 0.25);
+          p(2 + i * 4 - w + 1, 13 - y, y === 0 ? "#9aa0ad" : "#ffffff", Math.max(1, Math.round(w * 2)), 1);
+        }
+      }
+      p(1, 14, "#9aa0ad", 15, 1);
+    },
+    impact: ({ line, ell }) => {
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
+        const r = i % 2 ? 5 : 7;
+        line(8, 8, 8 + Math.cos(a) * r, 8 + Math.sin(a) * r, "#f2a51a", 2);
+      }
+      ell(8, 8, 3, 3, "#ffe25c");
+      ell(8, 8, 1, 1, "#ffffff");
+    },
+    star: ({ p, line }) => {
+      line(8, 1, 8, 15, "#ffffff");
+      line(1, 8, 15, 8, "#ffffff");
+      line(4, 4, 12, 12, "#d8e4ff");
+      line(12, 4, 4, 12, "#d8e4ff");
+      p(7, 7, "#ffffff", 3, 3);
+    },
+    rock: ({ p, ell }) => {
+      ell(8, 9, 6, 5, "#5e4b36");
+      ell(8, 8, 5, 4, "#8b7355");
+      ell(6, 6, 2, 2, "#b39b7a");
+      p(10, 11, "#4a3a28", 3, 1);
+      p(4, 9, "#4a3a28");
+    },
+    mud: ({ p, ell }) => {
+      ell(8, 9, 6, 5, "#5a3a1a");
+      ell(8, 9, 5, 4, "#8a5a2b");
+      ell(6, 7, 2, 1, "#b88a52");
+      p(12, 13, "#5a3a1a", 2, 2);
+    },
+    poison: ({ p, ell, ring }) => {
+      ell(8, 8, 6, 6, "#5e2178");
+      ell(8, 8, 5, 5, "#9b45c4");
+      ring(8, 8, 6, "#3c1150");
+      p(5, 5, "#e2b5f5", 2, 2);
+      p(11, 11, "#c27ae6");
+    },
+    web: ({ ring, line }) => {
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2;
+        line(8, 8, 8 + Math.cos(a) * 7, 8 + Math.sin(a) * 7, "#f2f2f2");
+      }
+      ring(8, 8, 3, "#dcdcdc");
+      ring(8, 8, 6, "#dcdcdc");
+    },
+    gust: ({ p }) => {
+      for (let a = 0; a < 30; a++) {
+        const t = a / 30;
+        const r = 2 + t * 5;
+        p(8 + Math.cos(t * 9) * r, 8 + Math.sin(t * 9) * r * 0.7, t > 0.5 ? "#ffffff" : "#cfe3f0");
+      }
+      p(2, 13, "#ffffff", 5, 1);
+    },
+    slash: ({ line }) => {
+      line(2, 14, 14, 2, "#8c95a6", 2);
+      line(3, 14, 14, 3, "#ffffff");
+      line(0, 10, 10, 0, "#c8d0dc");
+    },
+    sparkle: ({ p, line }) => {
+      line(8, 0, 8, 15, "#ff8fc4");
+      line(0, 8, 15, 8, "#ff8fc4");
+      line(8, 3, 8, 12, "#ffffff");
+      line(3, 8, 12, 8, "#ffffff");
+      p(7, 7, "#ffffff", 3, 3);
+    },
+    heart: ({ p, ell }) => {
+      ell(5, 6, 3, 3, "#e8467e");
+      ell(11, 6, 3, 3, "#e8467e");
+      for (let y = 7; y < 14; y++) p(2 + (y - 7), y, "#e8467e", 13 - (y - 7) * 2, 1);
+      p(4, 4, "#ffc2d8", 2, 1);
+    },
+  };
+
+  function fxSrc(name) {
+    if (!fxCache.has(name)) fxCache.set(name, FX_DRAW[name] ? makeFx(FX_DRAW[name]) : null);
+    return Promise.resolve(fxCache.get(name));
+  }
+
+  async function attack(a, mon) {
+    const layer = root.querySelector(".pp-mons");
+    const atk = ATTACKS[species(mon.sp).t[0]] || ATTACKS.normal;
+    const srcs = (await Promise.all(atk.fx.map(fxSrc))).filter(Boolean);
+    if (!srcs.length || !layer) return;
+    a.attackUntil = now() + 1800;
+    a.tx = a.ty = 0;
+    const dir = -a.facing; // los sprites miran a la izquierda: facing 1 = izquierda
+    const ox = a.x + dir * 26;
+    const oy = a.y - 34;
+    a.el.classList.remove("is-attacking");
+    void a.el.offsetWidth;
+    a.el.classList.add("is-attacking");
+    setTimeout(() => a.el.classList.remove("is-attacking"), 700);
+    floatText(mon, `¡${atk.n}!`, true);
+
+    const spawn = (src, size, frames, opts) => {
+      const img = document.createElement("img");
+      img.className = "pp-fx";
+      img.src = src;
+      img.style.width = `${size}px`;
+      img.style.zIndex = String(20 + Math.round(a.y));
+      layer.appendChild(img);
+      const anim = img.animate(frames, { easing: "ease-out", fill: "forwards", ...opts });
+      anim.onfinish = () => img.remove();
+    };
+    const at = (x, y, s = 1, r = 0, o = 1) => ({ transform: `translate(${x}px, ${y}px) translate(-50%, -50%) rotate(${r}deg) scale(${s})`, opacity: o });
+
+    if (atk.kind === "stream" || atk.kind === "spray") {
+      for (let i = 0; i < 7; i++) {
+        const spread = atk.kind === "spray" ? rand(-40, 40) : rand(-10, 10);
+        spawn(srcs[i % srcs.length], atk.kind === "spray" ? 32 : 48, [at(ox, oy, 0.4, 0, 0.9), at(ox + dir * rand(150, 220), oy + spread, 1.1, rand(-90, 90), 0)], { duration: 700, delay: i * 70 });
+      }
+    } else if (atk.kind === "ball" || atk.kind === "pulse") {
+      const big = atk.kind === "pulse";
+      spawn(srcs[0], big ? 96 : 48, [at(ox, oy, 0.2, 0, 1), at(ox + dir * (big ? 40 : 180), oy - (big ? 0 : 6), big ? 1.6 : 1, 0, big ? 0 : 0.9)], { duration: big ? 900 : 800 });
+      if (srcs[1]) spawn(srcs[1], 32, [at(ox, oy, 0.3, 0, 0.8), at(ox + dir * 60, oy - 20, 1.4, 180, 0)], { duration: 900, delay: 150 });
+    } else if (atk.kind === "bolt") {
+      for (let i = 0; i < 3; i++) {
+        const bx = a.x + dir * rand(40, 130);
+        spawn(srcs[0], 48, [at(bx, a.y - 150, 1, 0, 0), at(bx, a.y - 70, 1.2, 0, 1), at(bx, a.y - 40, 1.2, 0, 0)], { duration: 420, delay: i * 160 });
+      }
+    } else if (atk.kind === "bite") {
+      const bx = a.x + dir * 70;
+      spawn(srcs[0], 64, [at(bx, oy - 40, 1, 0, 0), at(bx, oy - 10, 1, 0, 1), at(bx, oy - 4, 1, 0, 0)], { duration: 520 });
+      if (srcs[1]) spawn(srcs[1], 64, [at(bx, oy + 30, 1, 0, 0), at(bx, oy, 1, 0, 1), at(bx, oy - 4, 1, 0, 0)], { duration: 520 });
+    } else if (atk.kind === "hit" || atk.kind === "tackle") {
+      const bx = a.x + dir * 70;
+      spawn(srcs[0], 48, [at(ox, oy, 0.4, 0, 0), at(bx, oy, 1.1, dir * 20, 1), at(bx, oy, 1.4, dir * 20, 0)], { duration: 600, delay: atk.kind === "tackle" ? 180 : 0 });
+      if (srcs[1]) spawn(srcs[1], 32, [at(bx, oy - 10, 0.3, 0, 0), at(bx, oy - 10, 1.4, 90, 1), at(bx, oy - 10, 1.8, 180, 0)], { duration: 600, delay: 200 });
+    } else if (atk.kind === "drop") {
+      for (let i = 0; i < 4; i++) {
+        const bx = a.x + dir * rand(50, 150);
+        spawn(srcs[i % srcs.length], 32, [at(bx, a.y - 170, 1, 0, 1), at(bx, a.y - 18, 1, rand(-60, 60), 1), at(bx, a.y - 18, 1.1, 0, 0)], { duration: 650, delay: i * 120, easing: "ease-in" });
+      }
+    }
   }
 
   function actorOf(mon) {
@@ -808,12 +1439,28 @@
   // ------------------------------------------------------------ Clicks
   function onRootClick(e) {
     const t = e.target.closest("[data-pp]");
-    if (!t) return;
+    if (!t) {
+      // Clic en el parque (no en un Pokémon/objeto/bolsa): sin selección.
+      if (e.target.closest(".pp-park") && !e.target.closest(".pp-bag-btn") && selectedUid) {
+        selectedUid = null;
+        render();
+      }
+      return;
+    }
     const act = t.dataset.pp;
     const mon = selected();
     if (act === "select") {
-      selectedUid = t.dataset.uid;
-      hop(selectedUid);
+      // Pulsar el que ya está seleccionado lo deselecciona.
+      selectedUid = selectedUid === t.dataset.uid ? null : t.dataset.uid;
+      if (selectedUid) hop(selectedUid);
+      render();
+    } else if (act === "fullscreen") {
+      const park = root.querySelector(".pp-park");
+      if (document.fullscreenElement) document.exitFullscreen();
+      else park?.requestFullscreen?.().catch(() => {});
+    } else if (act === "gender" && mon && canChooseGender(mon)) {
+      mon.g = mon.g === "m" ? "f" : "m";
+      save();
       render();
     } else if (act === "pick") openPicker();
     else if (act === "feed" && mon) openFeedMenu(mon, t);
@@ -1134,6 +1781,8 @@
   }
 
   // ------------------------------------------------------------ SVG
+  const FS_SVG =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>';
   const BAG_SVG =
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8h12l1 12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/><path d="M5 13h14"/><path d="M11 13v2h2v-2"/></svg>';
   const BERRY_SVG =
@@ -1142,30 +1791,6 @@
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
   const MOON_SVG =
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>';
-
-  // Paisaje del parque: colinas, árboles, estanque y flores. Los colores
-  // salen del tema activo (ver pokepark.css), así combina con cada uno.
-  const SCENERY_SVG = `
-    <svg class="pp-scenery" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
-      <path class="pp-hill-far" d="M0 250 C120 190 220 215 330 200 C450 182 520 228 640 205 C760 182 860 196 1000 215 L1000 600 L0 600Z"/>
-      <path class="pp-hill-mid" d="M0 290 C160 245 280 270 420 258 C560 246 650 285 800 268 C880 260 950 262 1000 270 L1000 600 L0 600Z"/>
-      <g class="pp-tree"><rect x="78" y="190" width="12" height="80" rx="4"/><circle cx="84" cy="180" r="42"/><circle cx="58" cy="205" r="28"/><circle cx="110" cy="203" r="30"/></g>
-      <g class="pp-tree pp-tree-b"><rect x="884" y="180" width="12" height="90" rx="4"/><circle cx="890" cy="168" r="48"/><circle cx="860" cy="196" r="30"/><circle cx="922" cy="194" r="32"/></g>
-      <g class="pp-tree pp-tree-c"><rect x="738" y="214" width="9" height="56" rx="3"/><circle cx="742" cy="206" r="30"/><circle cx="722" cy="222" r="20"/><circle cx="764" cy="222" r="21"/></g>
-      <path class="pp-ground-fill" d="M0 300 C200 285 380 295 520 290 C700 284 850 292 1000 288 L1000 600 L0 600Z"/>
-      <ellipse class="pp-pond" cx="210" cy="470" rx="120" ry="34"/>
-      <ellipse class="pp-pond-shine" cx="190" cy="462" rx="54" ry="8"/>
-      <g class="pp-bush"><circle cx="560" cy="300" r="22"/><circle cx="586" cy="296" r="26"/><circle cx="612" cy="302" r="20"/></g>
-      <g class="pp-bush"><circle cx="300" cy="306" r="18"/><circle cx="322" cy="300" r="22"/></g>
-      <g class="pp-flowers">
-        <circle cx="420" cy="520" r="5"/><circle cx="436" cy="530" r="4"/><circle cx="660" cy="430" r="5"/><circle cx="676" cy="438" r="4"/>
-        <circle cx="830" cy="520" r="5"/><circle cx="120" cy="360" r="4"/><circle cx="520" cy="380" r="4"/><circle cx="950" cy="400" r="5"/>
-      </g>
-      <g class="pp-grass">
-        <path d="M380 450 l4 -16 l4 16 M386 450 l6 -12"/><path d="M720 520 l4 -16 l4 16 M726 520 l6 -12"/>
-        <path d="M600 360 l4 -14 l4 14"/><path d="M90 520 l4 -16 l4 16 M96 520 l6 -12"/><path d="M900 480 l4 -16 l4 16"/>
-      </g>
-    </svg>`;
 
   // ------------------------------------------------------------ Init
   async function init() {
@@ -1201,12 +1826,28 @@
     setInterval(updateClock, 30 * 1000);
   }
 
+  let cursorTimer = null;
+  document.addEventListener("mousemove", () => {
+    const park = root?.querySelector(".pp-park");
+    if (!park) return;
+    park.classList.remove("hide-cursor");
+    clearTimeout(cursorTimer);
+    if (document.fullscreenElement === park) cursorTimer = setTimeout(() => park.classList.add("hide-cursor"), 3000);
+  });
+
   window.PokePark = {
     onShow() {
       if (!ready) return;
       render();
     },
     _spriteError: spriteError,
+    // Depuración: que todos ataquen a la vez.
+    _attackAll() {
+      for (const [uid, a] of actors) {
+        const mon = state.party.find((m) => m.uid === uid);
+        if (mon) attack(a, mon);
+      }
+    },
   };
 
   init();
