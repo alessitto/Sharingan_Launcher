@@ -250,7 +250,7 @@ body {
    Fondo por tema
    =============================== */
 /* Capa fija detrás de toda la app. Los temas con imagen propia
-   (assets/bg/<tema>.png, 2560x1440) la muestran tal cual, cubriendo la
+   (assets/bg/<tema>.png, 2560x1440) la muestran entera, ajustada a la
    ventana; el resto se quedan con su color de fondo liso. z-index negativo
    para quedar por detrás de .app y #intro-screen sin tocar su z-index. */
 .theme-bg {
@@ -258,7 +258,10 @@ body {
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background: var(--ink-950) var(--bg-image, none) center / cover no-repeat;
+  /* contain: la imagen entera, sin recortar ni ampliar de más; lo que
+     sobre por arriba/abajo o por los lados es el color de fondo del tema,
+     que es el mismo que el de la imagen. */
+  background: var(--ink-950) var(--bg-image, none) center / contain no-repeat;
 }
 
 :root[data-theme="rayquaza"] {
