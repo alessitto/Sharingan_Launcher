@@ -533,11 +533,11 @@ function upsertGameImported(gameObj) {
 // (el mismo que --ink-950 en style.css) lo evita sea cual sea el tema activo.
 const THEME_BG_COLORS = {
   uchiha: "#0a0809",
-  rayquaza: "#090c0a",
+  rayquaza: "#264737",
   reshiram: "#e9e7e7",
-  zekrom: "#0b0a0b",
-  blaziken: "#0c0909",
-  luxray: "#09090b",
+  zekrom: "#131013",
+  blaziken: "#522222",
+  luxray: "#101014",
 };
 
 function createWindow() {
