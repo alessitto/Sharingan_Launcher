@@ -111,6 +111,11 @@ h3 {
   color: var(--ink-300);
 }
 
+.settings-btn {
+  margin-left: 12px;
+  flex-shrink: 0;
+}
+
 .topnav-item svg {
   width: 16px;
   height: 16px;

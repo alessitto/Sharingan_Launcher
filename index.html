@@ -43,6 +43,9 @@
         </div>
 
         <span id="versionLink" class="version-link" onclick="openChangelogModal()" title="Historial de versiones"></span>
+        <button class="icon-btn settings-btn" onclick="openSettingsModal()" title="Ajustes" aria-label="Ajustes">
+          <svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
+        </button>
       </nav>
 
       <!-- Contenido principal -->
@@ -230,6 +233,7 @@
         }
 
         // carga datos
+        await loadAppSettings();
         loadGenreOptions();
         loadAppVersion();
         const loadPromises = Promise.all([loadLibrary(), loadDiscoverGames()]);
@@ -330,7 +334,7 @@
       // búsqueda, main.js trae de una vez el pool completo (hasta 500, el
       // máximo de IGDB) ya ordenado, y aquí se pagina en local sobre ese
       // array sin volver a llamar a la API - así ya no hay tope de 60.
-      const DISCOVER_PAGE_SIZE = 60;
+      let DISCOVER_PAGE_SIZE = 60;
       let discoverOffset = 0;
       let discoverHasMore = false;
       let discoverSearchPool = null;
@@ -359,7 +363,7 @@
         const bar = document.getElementById("discoverIndexBar");
         if (bar) bar.style.display = (sort === "az" || sort === "za") && !query ? "" : "none";
 
-        const res = await window.electronAPI.discoverGames({ query, genreId, sort, offset: 0 });
+        const res = await window.electronAPI.discoverGames({ query, genreId, sort, offset: 0, pageSize: DISCOVER_PAGE_SIZE });
         applyDiscoverPage(res, true);
         updateGamepadFocus(true);
       }
@@ -386,6 +390,7 @@
           sort,
           offset: discoverOffset,
           letterPrefix: discoverActiveLetter,
+          pageSize: DISCOVER_PAGE_SIZE,
         });
         applyDiscoverPage(res, false);
       }
@@ -1251,6 +1256,67 @@
       // ===============================
       // Historial de versiones
       // ===============================
+      // ===============================
+      // Ajustes de usuario
+      // ===============================
+      async function loadAppSettings() {
+        try {
+          const settings = (await window.electronAPI.getSettings()) || {};
+          if (settings.gamesPerPage) DISCOVER_PAGE_SIZE = settings.gamesPerPage;
+        } catch (err) {
+          console.error("No se pudieron cargar los ajustes", err);
+        }
+      }
+
+      async function openSettingsModal() {
+        const { value: formValues } = await Swal.fire({
+          background: "#100e10",
+          color: "#f3efe6",
+          title: "Ajustes",
+          showCancelButton: true,
+          confirmButtonText: "Guardar",
+          cancelButtonText: "Cancelar",
+          width: 420,
+          html: `
+            <div style="text-align:left; margin-top:4px;">
+              <label for="settingsGamesPerPage" style="display:block; font-size:13px; opacity:.8; margin-bottom:6px;">
+                Juegos por página en Descubrir
+              </label>
+              <input
+                id="settingsGamesPerPage"
+                type="number"
+                min="12"
+                max="200"
+                step="1"
+                value="${DISCOVER_PAGE_SIZE}"
+                class="swal2-input"
+                style="margin:0; width:100%;"
+              />
+              <p style="font-size:11px; opacity:.5; margin:8px 0 0;">Entre 12 y 200. Se aplica al volver a cargar Descubrir.</p>
+            </div>
+          `,
+          focusConfirm: false,
+          preConfirm: () => {
+            const input = document.getElementById("settingsGamesPerPage");
+            const n = Number(input?.value);
+            if (!Number.isFinite(n) || n < 12 || n > 200) {
+              Swal.showValidationMessage("Introduce un número entre 12 y 200");
+              return false;
+            }
+            return { gamesPerPage: Math.round(n) };
+          },
+        });
+
+        if (!formValues) return;
+
+        const saved = await window.electronAPI.setSettings(formValues);
+        DISCOVER_PAGE_SIZE = saved.gamesPerPage;
+
+        if (document.getElementById("popular")?.classList.contains("active")) {
+          await loadDiscoverGames();
+        }
+      }
+
       async function loadAppVersion() {
         try {
           const version = await window.electronAPI.getAppVersion();

@@ -38,6 +38,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAppVersion: () => ipcRenderer.invoke('app:getVersion'),
   getChangelog: () => ipcRenderer.invoke('changelog:get'),
 
+  // Ajustes de usuario
+  getSettings: () => ipcRenderer.invoke('settings:get'),
+  setSettings: (patch) => ipcRenderer.invoke('settings:set', patch),
+
   // Sagas / carpetas de juegos
   getSagas: () => ipcRenderer.invoke('sagas:get'),
   createSaga: (name) => ipcRenderer.invoke('sagas:create', name),

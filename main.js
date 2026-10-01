@@ -114,6 +114,53 @@ function saveData() {
   }
 }
 
+// === Ajustes de usuario (settings.json en userData) ===
+const settingsFilePath = path.join(app.getPath("userData"), "settings.json");
+const GAMES_PER_PAGE_MIN = 12;
+const GAMES_PER_PAGE_MAX = 200;
+let appSettings = { gamesPerPage: 60 };
+
+function clampGamesPerPage(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return appSettings.gamesPerPage;
+  return Math.min(GAMES_PER_PAGE_MAX, Math.max(GAMES_PER_PAGE_MIN, Math.round(n)));
+}
+
+function loadSettings() {
+  try {
+    if (fs.existsSync(settingsFilePath)) {
+      const parsed = JSON.parse(fs.readFileSync(settingsFilePath, "utf8"));
+      appSettings = {
+        ...appSettings,
+        ...parsed,
+        gamesPerPage: clampGamesPerPage(parsed.gamesPerPage),
+      };
+    }
+  } catch (err) {
+    console.error("Error loading settings.json", err);
+  }
+}
+
+function saveSettings() {
+  try {
+    fs.writeFileSync(settingsFilePath, JSON.stringify(appSettings, null, 2), "utf8");
+  } catch (err) {
+    console.error("Error saving settings.json", err);
+  }
+}
+
+loadSettings();
+
+ipcMain.handle("settings:get", () => appSettings);
+
+ipcMain.handle("settings:set", (_e, patch = {}) => {
+  if (patch.gamesPerPage !== undefined) {
+    appSettings.gamesPerPage = clampGamesPerPage(patch.gamesPerPage);
+  }
+  saveSettings();
+  return appSettings;
+});
+
 // -------------------- Helpers procesos --------------------
 function isProcessRunning(processName) {
   return new Promise((resolve) => {
@@ -571,7 +618,6 @@ function sortDiscoverResults(list, sort) {
   }
 }
 
-const DISCOVER_PAGE_SIZE = 60;
 // Tope real de IGDB por request (no es cosa nuestra, es la API). Para
 // navegar mas alla se pagina con "offset" en peticiones sucesivas.
 const IGDB_MAX_LIMIT = 500;
@@ -611,6 +657,7 @@ function letterPrefixClause(bucket) {
 
 ipcMain.handle("igdb:discover", async (_e, opts = {}) => {
   const { query = "", genreId = null, sort = "popular", offset = 0, letterPrefix = null } = opts;
+  const pageSize = clampGamesPerPage(opts.pageSize);
 
   const whereParts = [
     `game_type = ${IGDB_REAL_GAME_TYPES}`,
@@ -663,11 +710,11 @@ ipcMain.handle("igdb:discover", async (_e, opts = {}) => {
   // letterPrefix, esto pagina dentro de esa letra (por si hay mas de 60).
   const sortClause = discoverSortClause(sort);
   const safeOffset = Math.max(0, Number(offset) || 0);
-  const body = `${fields} ${whereClause} ${sortClause}; limit ${DISCOVER_PAGE_SIZE}; offset ${safeOffset};`;
+  const body = `${fields} ${whereClause} ${sortClause}; limit ${pageSize}; offset ${safeOffset};`;
   const results = await igdbGamesQuery(body);
   if (!Array.isArray(results)) return { items: [], hasMore: false };
 
-  return { items: results, hasMore: results.length === DISCOVER_PAGE_SIZE };
+  return { items: results, hasMore: results.length === pageSize };
 });
 
 ipcMain.handle("igdb:genres", async () => {
