@@ -370,12 +370,12 @@
   // ------------------------------------------------------------ Hora del día
   function timeOfDay(d = new Date()) {
     const h = d.getHours();
-    return h >= 6 && h < 18 ? "day" : "night";
+    return h >= 8 && h < 20 ? "day" : "night";
   }
   function matchesTime(t) {
     const h = new Date().getHours();
-    if (t === "day") return h >= 6 && h < 18;
-    if (t === "night" || t === "full-moon") return h >= 18 || h < 6;
+    if (t === "day") return h >= 8 && h < 20;
+    if (t === "night" || t === "full-moon") return h >= 20 || h < 8;
     if (t === "dusk") return h >= 17 && h < 20;
     return true;
   }
@@ -804,7 +804,7 @@
   }
 
   const HAND_HINTS = {
-    ball: "Apunta a un Pokémon salvaje y haz clic para lanzar · Esc para guardarla",
+    ball: "Arrastra la Poké Ball y suéltala con impulso hacia un Pokémon salvaje · Esc para guardarla",
     berry: "Haz clic en un Pokémon de tu equipo para darle la baya · Esc para guardarla",
     comb: "Mantén pulsado y frota sobre el Pokémon para cepillarlo · Esc para dejarlo",
   };
@@ -821,8 +821,33 @@
     hint.innerHTML = `<span>${HAND_HINTS[kind]}</span>${kind === "comb" ? `<i><em></em></i>` : ""}`;
     park.append(el, hint);
     park.classList.add("is-aiming", `aim-${kind}`);
-    hand = { kind, slug, target, el, hint, x: park.clientWidth / 2, y: park.clientHeight - 70, work: 0, down: false, last: null };
-    moveHand(hand.x, hand.y);
+    hand = { kind, slug, target, el, hint, x: park.clientWidth / 2, y: park.clientHeight - 70, work: 0, down: false, last: null, drag: false, samples: [] };
+    if (kind === "ball") restBall();
+    else moveHand(hand.x, hand.y);
+  }
+
+  // Botón de la Poké Ball: la saca (o la guarda si ya la tienes en la mano).
+  function toggleBall() {
+    if (hand?.kind === "ball") return cancelHand();
+    if (!(state.bag["poke-ball"] > 0)) return showNotification("No te quedan Poké Balls. Cómpralas en la tienda o búscalas por el parque.", "error");
+    if (state.party.length >= PARTY_MAX) return showNotification(`Tu equipo está lleno (${PARTY_MAX}). Libera a alguno para hacerle hueco.`, "error");
+    startHand("ball", "poke-ball");
+  }
+
+  // Tamaño de la Poké Ball según lo lejos que está: grande abajo (en tu
+  // mano) y a su tamaño real cerca del horizonte.
+  function ballScale(y) {
+    const h = parkEl()?.clientHeight || 1;
+    return Math.max(0.9, Math.min(2.2, 0.6 + 1.6 * (y / h)));
+  }
+
+  // Posición de reposo: abajo en el centro, como si la tuvieras en la mano.
+  function restBall() {
+    const park = parkEl();
+    hand.x = park.clientWidth / 2;
+    hand.y = park.clientHeight - 64;
+    hand.el.style.transform = `translate(${hand.x}px, ${hand.y}px)`;
+    hand.el.style.setProperty("--s", ballScale(hand.y));
   }
 
   function cancelHand() {
@@ -838,16 +863,11 @@
   function moveHand(x, y) {
     if (!hand) return;
     const park = parkEl();
-    if (hand.kind === "ball") {
-      hand.x = Math.max(40, Math.min(park.clientWidth - 40, x));
-      hand.y = park.clientHeight - 64;
-      hand.aimX = x;
-      hand.aimY = y;
-    } else {
-      hand.x = x;
-      hand.y = y;
-    }
+    if (hand.kind === "ball" && !hand.drag) return;
+    hand.x = Math.max(0, Math.min(park.clientWidth, x));
+    hand.y = Math.max(0, Math.min(park.clientHeight, y));
     hand.el.style.transform = `translate(${hand.x}px, ${hand.y}px)`;
+    if (hand.kind === "ball") hand.el.style.setProperty("--s", ballScale(hand.y));
   }
 
   function parkPoint(e) {
@@ -858,8 +878,12 @@
   }
 
   function onHandMove(e) {
-    if (!hand || hand.busy || !e.target.closest(".pp-park")) return;
+    if (!hand || hand.busy || (!hand.drag && !e.target.closest(".pp-park"))) return;
     const p = parkPoint(e);
+    if (hand.kind === "ball" && hand.drag) {
+      hand.samples.push({ x: p.x, y: p.y, t: performance.now() });
+      if (hand.samples.length > 12) hand.samples.shift();
+    }
     if (hand.kind === "comb" && hand.down) {
       if (hand.last) {
         const d = Math.hypot(p.x - hand.last.x, p.y - hand.last.y);
@@ -881,11 +905,10 @@
   }
 
   function onHandClick(e) {
-    if (!hand || !e.target.closest(".pp-park") || e.target.closest(".pp-hud, .pp-bag-btn")) return;
+    if (!hand || !e.target.closest(".pp-park") || e.target.closest(".pp-hud, .pp-bag-btn, .pp-ball-btn")) return;
     e.preventDefault();
     e.stopPropagation();
-    if (hand.busy) return;
-    if (hand.kind === "ball") return throwAt(parkPoint(e), e.clientX, e.clientY);
+    if (hand.kind === "ball") return; // se lanza arrastrando
     if (hand.kind === "berry") {
       const mon = monAtPoint(e.clientX, e.clientY, (m) => !m.wild);
       if (!mon) {
@@ -899,8 +922,33 @@
     }
   }
 
-  // Vuelo de la Poké Ball: curva desde la mano al punto, encogiéndose.
-  function throwAt(to, cx, cy) {
+  // Al soltar: la velocidad de los últimos ~90 ms decide hacia dónde y
+  // hasta dónde vuela. Si apenas se mueve, vuelve a la mano sin gastarse.
+  function releaseBall() {
+    const now2 = performance.now();
+    const pts = hand.samples.filter((s) => now2 - s.t < 90);
+    hand.drag = false;
+    hand.el.classList.remove("is-dragging");
+    const a = pts[0];
+    const b = pts[pts.length - 1];
+    const dt = a && b ? (b.t - a.t) / 1000 : 0;
+    const vx = dt > 0 ? (b.x - a.x) / dt : 0;
+    const vy = dt > 0 ? (b.y - a.y) / dt : 0;
+    if (Math.hypot(vx, vy) < 300) return restBall();
+    const park = parkEl();
+    const from = { x: hand.x, y: hand.y };
+    const to = {
+      x: Math.max(10, Math.min(park.clientWidth - 10, from.x + vx * 0.32)),
+      y: Math.max(10, Math.min(park.clientHeight - 10, from.y + vy * 0.32)),
+    };
+    const r = park.getBoundingClientRect();
+    const k = r.width / park.clientWidth || 1;
+    throwAt(from, to, r.left + to.x * k, r.top + to.y * k);
+  }
+
+  // Vuelo de la Poké Ball: curva desde donde se suelta hasta donde cae,
+  // haciéndose pequeña según se aleja.
+  function throwAt(from, to, cx, cy) {
     if (!(state.bag["poke-ball"] > 0)) {
       cancelHand();
       return showNotification("No te quedan Poké Balls. Cómpralas en la tienda o búscalas por el parque.", "error");
@@ -912,22 +960,24 @@
     takeFromBag("poke-ball");
     save();
     const park = parkEl();
-    const from = { x: hand.x, y: hand.y };
     hand.busy = true;
     hand.el.style.visibility = "hidden";
     const ball = document.createElement("img");
     ball.className = "pp-ball-fly";
     ball.src = ITEM_IMG("poke-ball");
     park.appendChild(ball);
-    const peak = { x: (from.x + to.x) / 2, y: Math.min(from.y, to.y) - 90 - Math.abs(from.x - to.x) * 0.1 };
+    const dist = Math.hypot(to.x - from.x, to.y - from.y);
+    const peak = { x: (from.x + to.x) / 2, y: Math.min(from.y, to.y) - 30 - dist * 0.18 };
+    const s0 = ballScale(from.y);
+    const s1 = ballScale(to.y) * 0.7;
     const frames = [];
     for (let i = 0; i <= 16; i++) {
       const t = i / 16;
       const x = (1 - t) ** 2 * from.x + 2 * (1 - t) * t * peak.x + t * t * to.x;
       const y = (1 - t) ** 2 * from.y + 2 * (1 - t) * t * peak.y + t * t * to.y;
-      frames.push({ transform: `translate(${x}px, ${y}px) translate(-50%, -50%) rotate(${t * 540}deg) scale(${2.2 - t * 1.2})` });
+      frames.push({ transform: `translate(${x}px, ${y}px) translate(-50%, -50%) rotate(${t * 540}deg) scale(${s0 + (s1 - s0) * t})` });
     }
-    const anim = ball.animate(frames, { duration: 620, easing: "linear", fill: "forwards" });
+    const anim = ball.animate(frames, { duration: Math.max(350, Math.min(750, dist * 0.9)), easing: "linear", fill: "forwards" });
     anim.onfinish = () => {
       const hit = monAtPoint(cx, cy, (m) => m.wild && !catching.has(m.uid));
       if (hit) {
@@ -940,9 +990,9 @@
       const end = `translate(${to.x}px, ${to.y}px) translate(-50%, -50%)`;
       ball.animate(
         [
-          { transform: `${end} scale(1)`, opacity: 1 },
-          { transform: `translate(${to.x + 14}px, ${to.y - 18}px) translate(-50%, -50%) rotate(90deg) scale(1)`, opacity: 1 },
-          { transform: `translate(${to.x + 24}px, ${to.y}px) translate(-50%, -50%) rotate(160deg) scale(1)`, opacity: 0 },
+          { transform: `${end} scale(${s1})`, opacity: 1 },
+          { transform: `translate(${to.x + 14}px, ${to.y - 18}px) translate(-50%, -50%) rotate(90deg) scale(${s1})`, opacity: 1 },
+          { transform: `translate(${to.x + 24}px, ${to.y}px) translate(-50%, -50%) rotate(160deg) scale(${s1})`, opacity: 0 },
         ],
         { duration: 500, easing: "ease-out", fill: "forwards" }
       ).onfinish = () => ball.remove();
@@ -952,6 +1002,7 @@
       if (!hand) return;
       hand.busy = false;
       hand.el.style.visibility = "";
+      restBall();
       if (!(state.bag["poke-ball"] > 0)) {
         cancelHand();
         showNotification("No te quedan Poké Balls.", "error");
@@ -1015,9 +1066,23 @@
         hand.down = true;
         hand.last = parkPoint(e);
         e.preventDefault();
+      } else if (hand.kind === "ball" && !hand.busy) {
+        // Hay que coger la Poké Ball (o pulsar muy cerca de ella).
+        const p = parkPoint(e);
+        if (Math.hypot(p.x - hand.x, p.y - hand.y) > 60) return;
+        e.preventDefault();
+        hand.drag = true;
+        hand.samples = [{ x: p.x, y: p.y, t: performance.now() }];
+        hand.el.classList.add("is-dragging");
+        moveHand(p.x, p.y);
       }
     });
-    window.addEventListener("mouseup", () => hand && (hand.down = false));
+    window.addEventListener("mousemove", (e) => hand?.drag && !e.target.closest?.(".pp-park") && onHandMove(e));
+    window.addEventListener("mouseup", () => {
+      if (!hand) return;
+      hand.down = false;
+      if (hand.kind === "ball" && hand.drag) releaseBall();
+    });
     root.addEventListener("contextmenu", (e) => {
       if (!hand) return;
       e.preventDefault();
@@ -1034,6 +1099,7 @@
   // ------------------------------------------------------------ Liberar
   const monthKey = () => new Date().toISOString().slice(0, 7);
   function releasesLeft() {
+    if (trades.admin) return Infinity; // los administradores, sin límite (para pruebas)
     const r = state.releases || {};
     return r.m === monthKey() ? Math.max(0, RELEASES_PER_MONTH - (r.n || 0)) : RELEASES_PER_MONTH;
   }
@@ -1045,7 +1111,7 @@
     if (!left) return showNotification(`Ya has liberado ${RELEASES_PER_MONTH} Pokémon este mes.`, "error");
     const ok = await confirmDialog({
       title: `¿Liberar a ${displayName(mon)}?`,
-      text: `Se irá del parque para siempre${mon.held ? ` (su ${itemName(mon.held)} vuelve a la bolsa)` : ""}. Los demás Pokémon de tu equipo lo echarán de menos y perderán un corazón de amistad. Este mes te ${left === 1 ? "queda 1 liberación" : `quedan ${left} liberaciones`}.`,
+      text: `Se irá del parque para siempre${mon.held ? ` (su ${itemName(mon.held)} vuelve a la bolsa)` : ""}. Los demás Pokémon de tu equipo lo echarán de menos y perderán un corazón de amistad. ${left === Infinity ? "" : `Este mes te ${left === 1 ? "queda 1 liberación" : `quedan ${left} liberaciones`}.`}`,
       confirmText: "Liberar",
       danger: true,
       iconName: "trash",
@@ -1055,7 +1121,7 @@
     state.party = state.party.filter((m) => m !== mon);
     for (const m of state.party) addFriendship(m, -RELEASE_PENALTY);
     const r = state.releases?.m === monthKey() ? state.releases : { m: monthKey(), n: 0 };
-    r.n++;
+    if (!trades.admin) r.n++;
     state.releases = r;
     if (selectedUid === mon.uid) selectedUid = null;
     showNotification(`Adiós, ${displayName(mon)}. ¡Cuídate!`);
@@ -1242,6 +1308,7 @@
           </span>
         </div>
         <div class="pp-empty"></div>
+        <button type="button" class="pp-ball-btn" data-pp="ball" title="Sacar una Poké Ball" aria-label="Sacar una Poké Ball">${POKEBALL_IMG}</button>
         <button type="button" class="pp-bag-btn" title="Bolsa" aria-label="Abrir la bolsa">
           ${BAG_SVG}
         </button>
@@ -1303,10 +1370,6 @@
       ${state.party.length || v ? visit : ""}`;
 
     const det = root.querySelector(".pp-detail");
-    if (sel?.wild) {
-      det.innerHTML = wildCardHtml(sel);
-      return;
-    }
     if (!sel && state.party.length) {
       det.innerHTML = `
         <div class="pp-overview">
@@ -1363,7 +1426,7 @@
             ${BERRY_SVG}<span>Dar de comer</span>
           </button>
           <button type="button" class="sl-btn sl-btn-ghost" data-pp="clean" ${cleanWait > 0 ? "disabled" : ""}>
-            <img class="pp-btn-comb" src="${combSrc()}" alt=""><span>Cepillar</span>
+            ${icon("sparkles")}<span>Cepillar</span>
           </button>
         </div>
         <p class="pp-cooldowns">
@@ -1444,41 +1507,10 @@
                  <div class="pp-more-btns">
                    <button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-pp="trade" ${sel.trade ? "disabled" : ""}>${TRADE_SVG}Intercambiar</button>
                    <button type="button" class="sl-btn sl-btn-danger-ghost sl-btn-sm" data-pp="release" ${sel.trade || state.party.length <= 1 || !releasesLeft() ? "disabled" : ""}
-                     title="${releasesLeft()} de ${RELEASES_PER_MONTH} liberaciones este mes">${icon("trash")}Liberar (${releasesLeft()}/${RELEASES_PER_MONTH})</button>
+                     title="${trades.admin ? "Sin límite (administrador)" : `${releasesLeft()} de ${RELEASES_PER_MONTH} liberaciones este mes`}">${icon("trash")}Liberar (${trades.admin ? "∞" : `${releasesLeft()}/${RELEASES_PER_MONTH}`})</button>
                  </div>
                </div>`
         }
-      </div>`;
-  }
-
-  // Ficha de un Pokémon salvaje: datos básicos y la Poké Ball.
-  function wildCardHtml(sel) {
-    const s = species(sel.sp);
-    const balls = state.bag["poke-ball"] || 0;
-    const full = state.party.length >= PARTY_MAX;
-    const busy = catching.has(sel.uid);
-    const gSym = sel.g === "m" ? "♂" : sel.g === "f" ? "♀" : "";
-    return `
-      <div class="pp-card is-wild">
-        <div class="pp-actions">
-          <button type="button" class="sl-btn sl-btn-primary" data-pp="catch" ${!balls || full || busy ? "disabled" : ""}>
-            ${POKEBALL_SVG}<span>${busy ? "Capturando…" : "Coger una Poké Ball"}</span>
-          </button>
-        </div>
-        <p class="pp-cooldowns">${
-          full
-            ? `Tu equipo está lleno (${PARTY_MAX}/${PARTY_MAX}): libera a alguno para hacer hueco.`
-            : balls
-              ? `Te quedan ${balls} Poké ${balls === 1 ? "Ball" : "Balls"}.`
-              : "No te quedan Poké Balls: cómpralas en la tienda o búscalas por el parque."
-        }</p>
-        <div class="pp-portrait ${sel.shiny ? "is-shiny" : ""}">${spriteHtml(sel.sp, "pp-portrait-img", sel.shiny)}</div>
-        <div class="pp-name-row"><h3 class="pp-visitor-name">${esc(s.n)}</h3>${gSym ? `<span class="pp-g is-${sel.g}">${gSym}</span>` : ""}</div>
-        <p class="pp-species"><span class="pp-wild-badge">Salvaje</span> ${sel.shiny ? `<span class="pp-shiny-badge">✦ Variocolor</span> ` : ""}Nº ${String(s.id).padStart(4, "0")}</p>
-        <div class="pp-types">${s.t.map((t) => `<span class="pp-type" style="--tc:${TYPE_COLORS[t] || "#888"}">${esc(dex.types[t] || t)}</span>`).join("")}</div>
-        <div class="pp-level"><span class="pp-lv">Nv. <b>${sel.lv}</b></span><span class="pp-exp-text">Se irá en ${fmtDuration(sel.leaves - now())}</span></div>
-        <div class="pp-exp pp-visit-bar"><span style="width:${Math.max(0, Math.min(100, ((sel.leaves - now()) / (WILD_STAY_MIN[1] * 60000)) * 100))}%"></span></div>
-        <p class="pp-visit-note">Coge una Poké Ball y lánzala haciendo clic donde esté: tiene que caerle encima, y se mueve. Todas las especies se capturan igual de fácil, pero puede escaparse (y a veces huir).</p>
       </div>`;
   }
 
@@ -1928,7 +1960,10 @@
     }
     const act = t.dataset.pp;
     const mon = selected();
-    if (act === "select") {
+    if (act === "select" && monByUid(t.dataset.uid)?.wild) {
+      // Los salvajes no abren ficha: su nombre sale al pasar el ratón.
+      return;
+    } else if (act === "select") {
       // Pulsar el que ya está seleccionado lo deselecciona.
       selectedUid = selectedUid === t.dataset.uid ? null : t.dataset.uid;
       if (selectedUid) hop(selectedUid);
@@ -1945,7 +1980,7 @@
       save();
       render();
     } else if (act === "pick") openPicker();
-    else if (act === "catch" && mon?.wild) startHand("ball", "poke-ball");
+    else if (act === "ball") toggleBall();
     else if (act === "release" && mon && !mon.wild && !mon.visitor) release(mon);
     else if (act === "trade" && mon && !mon.wild && !mon.visitor) openTrades(mon.uid);
     else if (act === "trades") openTrades();
@@ -2406,7 +2441,7 @@
   // da uno suyo a cambio. Mientras la oferta está pendiente el tuyo se queda
   // en el parque pero "reservado" (no se puede liberar ni ofrecer otra vez).
   // Al recibirlo se comprueban las evoluciones por intercambio.
-  const trades = { list: [], user: null, busy: false, rerender: null, loaded: false };
+  const trades = { list: [], user: null, admin: false, busy: false, rerender: null, loaded: false };
 
   const cloudApi = (action, ...args) =>
     window.electronAPI.cloud(action, ...args).catch(() => ({ ok: false, error: "No se puede conectar con el servidor." }));
@@ -2572,6 +2607,9 @@
     try {
       const st = await cloudApi("status");
       trades.user = st.ok ? st.user?.username || null : null;
+      const wasAdmin = trades.admin;
+      trades.admin = !!(st.ok && st.user?.admin);
+      if (wasAdmin !== trades.admin && root) render();
       if (!trades.user) {
         trades.list = [];
         return;
