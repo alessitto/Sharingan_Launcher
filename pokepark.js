@@ -32,6 +32,15 @@
   const MOVE_SUBST_LEVEL = 33; // "conoce el movimiento X" -> nivel aproximado
   const SPECIAL_SUBST_LEVEL = 36; // condiciones de combate/lugar -> nivel aproximado
 
+  // Visitas: legendarios, singulares y ultraentes llegan al azar, se quedan
+  // 24 h y su amistad se conserva entre visitas. Cuanta más amistad, más
+  // posibilidades de que sea ese el que vuelva.
+  const VISIT_MS = 24 * 60 * 60 * 1000;
+  const VISIT_CHANCE = 1 / 240; // por minuto con la app abierta (~4 h de media)
+  const VISIT_LEVEL = 100;
+  const VISIT_START_FRIENDSHIP = 0;
+  const visitWeight = (fr) => 1 + fr / 20; // amistad máxima ≈ x13
+
   const SPRITE_ANI = (id) => `https://play.pokemonshowdown.com/sprites/gen5ani/${id}.gif`;
   const SPRITE_PNG = (id) => `https://play.pokemonshowdown.com/sprites/gen5/${id}.png`;
   const ITEM_IMG = (slug) => `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/${slug}.png`;
@@ -100,8 +109,12 @@
   };
 
   function newState() {
-    return { v: 1, party: [], bag: { "oran-berry": 3, "pecha-berry": 2, "razz-berry": 1 }, ground: [] };
+    return { v: 1, party: [], bag: { "oran-berry": 3, "pecha-berry": 2, "razz-berry": 1 }, ground: [], visitor: null, legends: {} };
   }
+
+  // Equipo + visitante (si hay), para todo lo que recorre "Pokémon del parque".
+  const allMons = () => (state.visitor ? [...state.party, state.visitor] : state.party);
+  const monByUid = (uid) => allMons().find((m) => m.uid === uid) || null;
 
   function save() {
     clearTimeout(saveTimer);
@@ -118,6 +131,9 @@
   function isPickable(s) {
     return !s.from && !s.leg && !s.myth && !s.ub;
   }
+
+  const isLegendary = (s) => !!(s && (s.leg || s.myth || s.ub));
+  const legendKind = (s) => (s.ub ? "Ultraente" : s.myth ? "Singular" : "Legendario");
 
   // El sprite se pide a main.js (lo descarga y lo cachea en disco) y llega
   // como data URL, así se puede medir en un canvas cuánto hueco vacío trae
@@ -445,6 +461,8 @@
 
   function addFriendship(mon, n) {
     mon.fr = Math.max(0, Math.min(FRIENDSHIP_MAX, mon.fr + n));
+    // La amistad con un visitante se guarda por especie para la próxima visita.
+    if (mon.visitor) (state.legends[mon.sp] ||= { fr: 0, visits: 0 }).fr = mon.fr;
   }
 
   function feedInfo(mon) {
@@ -467,7 +485,8 @@
     mon.feedCount++;
     const exp = b.exp * (1 + mon.lv / 8);
     addFriendship(mon, b.fr);
-    floatText(mon, `+${Math.round(exp)} EXP`);
+    // Los visitantes ya están al nivel 100: comer solo les da amistad.
+    floatText(mon, mon.lv >= 100 ? `+${b.fr} amistad` : `+${Math.round(exp)} EXP`);
     showNotification(`${displayName(mon)} se ha comido una ${b.n}.`);
     gainExp(mon, exp);
     save();
@@ -512,19 +531,122 @@
     return pickWeighted(pool);
   }
 
+  // ------------------------------------------------------------ Visitas
+  function legendPool() {
+    return dex.species.filter(isLegendary);
+  }
+
+  function summonVisitor(sp) {
+    const pool = legendPool();
+    const s =
+      species(sp) && isLegendary(species(sp))
+        ? species(sp)
+        : species(pickWeighted(pool.map((x) => [x.id, visitWeight(state.legends[x.id]?.fr || 0)])));
+    const memo = (state.legends[s.id] ||= { fr: VISIT_START_FRIENDSHIP, visits: 0 });
+    memo.visits++;
+    state.visitor = {
+      uid: `v${now().toString(36)}`,
+      sp: s.id,
+      nick: "",
+      lv: VISIT_LEVEL,
+      exp: expForLevel(VISIT_LEVEL),
+      fr: memo.fr,
+      g: s.g === -1 ? null : Math.random() * 8 < s.g ? "f" : "m",
+      // Como en los juegos: al menos tres estadísticas perfectas.
+      iv: Array.from({ length: 6 }, (_, i) => (i < 3 ? 31 : Math.floor(Math.random() * 32))).sort(() => Math.random() - 0.5),
+      held: null,
+      visitor: true,
+      arrived: now(),
+      leaves: now() + VISIT_MS,
+      seen: false,
+    };
+    save();
+    render();
+    announceVisitor();
+  }
+
+  // Si ya pasaron sus 24 h (aunque la app estuviera cerrada), se marcha.
+  function checkVisitorLeave() {
+    const v = state.visitor;
+    if (!v || now() < v.leaves) return false;
+    (state.legends[v.sp] ||= { fr: 0, visits: 1 }).fr = v.fr;
+    state.visitor = null;
+    if (selectedUid === v.uid) selectedUid = null;
+    const hearts = Math.round((v.fr / FRIENDSHIP_MAX) * 5 * 10) / 10;
+    showNotification(`${speciesName(v.sp)} se ha marchado del parque. Recordará vuestra amistad (${String(hearts).replace(".", ",")} de 5 corazones).`);
+    save();
+    render();
+    return true;
+  }
+
+  // Presentación a pantalla: si el PokéPark no está a la vista se avisa con
+  // una notificación y la presentación sale al entrar.
+  async function announceVisitor() {
+    const v = state.visitor;
+    if (!v || v.seen) return;
+    const visible = document.getElementById("pokepark")?.classList.contains("active");
+    if (!visible || Swal.isVisible() || evoRunning) {
+      if (!v.notified) {
+        v.notified = true;
+        showNotification(`¡Un Pokémon ${legendKind(species(v.sp)).toLowerCase()} ha llegado al PokéPark!`);
+        save();
+      }
+      if (visible) setTimeout(announceVisitor, 1500);
+      return;
+    }
+    v.seen = true;
+    save();
+    const s = species(v.sp);
+    const memo = state.legends[v.sp] || { visits: 1 };
+    selectedUid = v.uid;
+    render();
+    await openModal({
+      width: 440,
+      html: `
+        <div class="pp-arrival">
+          <div class="pp-arrival-stage">
+            <div class="pp-arrival-glow"></div>
+            ${spriteHtml(v.sp, "pp-arrival-img")}
+          </div>
+          <span class="pp-legend-badge">${legendKind(s)}</span>
+          <h3 class="pp-evo-title">¡${esc(s.n)} ha venido de visita!</h3>
+          <p class="pp-evo-text">${
+            memo.visits > 1 ? `Es su visita número ${memo.visits}: parece que le gusta tu parque.` : "Es la primera vez que viene a tu parque."
+          } Se quedará 24 horas con tus Pokémon. Dale de comer y límpialo para ganarte su amistad: cuanta más tenga, más veces volverá.</p>
+          <button type="button" class="sl-btn sl-btn-primary" data-close>¡Bienvenido!</button>
+        </div>`,
+      showConfirmButton: false,
+      customClass: { popup: "sl-modal-sm pp-evo-popup pp-arrival-popup" },
+      didOpen: (popup) => {
+        hydrate(popup);
+        popup.querySelector("[data-close]").onclick = () => Swal.close();
+      },
+    });
+    hop(v.uid);
+  }
+
   // ------------------------------------------------------------ Latido
   function tick() {
-    if (!ready || !state.party.length) return;
+    if (!ready) return;
+    checkVisitorLeave();
+    if (!state.party.length) return;
     tickCount++;
     let dirty = false;
 
     if (tickCount % EXP_EVERY_TICKS === 0) {
-      for (const mon of state.party) {
+      for (const mon of allMons()) {
         gainExp(mon, 10 + mon.lv * 4);
         addFriendship(mon, 1);
       }
       dirty = true;
     }
+
+    // Visita al azar (solo una a la vez y con algún Pokémon en el parque)
+    if (!state.visitor && Math.random() < VISIT_CHANCE) {
+      summonVisitor();
+      return;
+    }
+    if (state.visitor) dirty = true; // cuenta atrás de la visita en el panel
 
     // Objetos que aparecen en el parque
     if (state.ground.length < GROUND_MAX && Math.random() < 0.18) {
@@ -545,14 +667,15 @@
 
     if (dirty) {
       save();
-      render();
+      // No se repinta mientras se escribe un mote (se perdería lo escrito).
+      if (!document.activeElement?.matches(".pp-nick-input")) render();
     }
     updateClock();
   }
 
   // ------------------------------------------------------------ Render
   function selected() {
-    return state.party.find((m) => m.uid === selectedUid) || null;
+    return selectedUid ? monByUid(selectedUid) : null;
   }
 
   function render() {
@@ -626,24 +749,38 @@
           : `<button type="button" class="pp-slot is-empty" data-pp="pick" title="Elegir Pokémon">${icon("plus")}</button>`
       );
     }
+    const v = state.visitor;
+    const visit = v
+      ? `<button type="button" class="pp-visit ${sel && v.uid === sel.uid ? "is-active" : ""}" data-pp="select" data-uid="${v.uid}" title="${esc(displayName(v))}">
+           <img src="${SPRITE_PNG(species(v.sp).sd)}" alt="" onerror="this.style.visibility='hidden'">
+           <span><small>De visita · ${legendKind(species(v.sp))}</small><b>${esc(displayName(v))}</b></span>
+           <em>${fmtDuration(v.leaves - now())}</em>
+         </button>`
+      : `<p class="pp-visit is-empty" title="Legendarios, singulares y ultraentes vienen de visita al azar y se quedan 24 horas.">Ningún legendario de visita</p>`;
     team.innerHTML = `
       <div class="pp-team-head"><span class="section-eyebrow">PokéPark</span><span class="pp-team-count">${state.party.length}/${PARTY_MAX}</span></div>
-      <div class="pp-slots">${slots.join("")}</div>`;
+      <div class="pp-slots">${slots.join("")}</div>
+      ${state.party.length || v ? visit : ""}`;
 
     const det = root.querySelector(".pp-detail");
     if (!sel && state.party.length) {
       det.innerHTML = `
         <div class="pp-overview">
           <p class="pp-overview-hint">Toca un Pokémon en el parque o en tu equipo para ver su ficha, darle de comer o limpiarlo.</p>
-          ${state.party
+          ${(v ? [v, ...state.party] : state.party)
             .map((m) => {
               const cur = expForLevel(m.lv);
-              const pct = m.lv >= 100 ? 100 : Math.max(0, Math.min(100, ((m.exp - cur) / (expForLevel(m.lv + 1) - cur)) * 100));
-              return `<button type="button" class="pp-ov-row" data-pp="select" data-uid="${m.uid}">
+              // Para el visitante la barra es el tiempo que le queda en el parque.
+              const pct = m.visitor
+                ? Math.max(0, Math.min(100, ((m.leaves - now()) / VISIT_MS) * 100))
+                : m.lv >= 100
+                  ? 100
+                  : Math.max(0, Math.min(100, ((m.exp - cur) / (expForLevel(m.lv + 1) - cur)) * 100));
+              return `<button type="button" class="pp-ov-row ${m.visitor ? "is-visitor" : ""}" data-pp="select" data-uid="${m.uid}">
                 <span class="pp-ov-avatar"><img src="${SPRITE_PNG(species(m.sp).sd)}" alt="" onerror="this.style.visibility='hidden'"></span>
                 <span class="pp-ov-text">
-                  <span class="pp-ov-top"><b>${esc(displayName(m))}</b><small>Nv. ${m.lv}</small></span>
-                  <i title="Experiencia"><em style="width:${pct}%"></em></i>
+                  <span class="pp-ov-top"><b>${esc(displayName(m))}</b><small>${m.visitor ? `De visita · ${fmtDuration(m.leaves - now())}` : `Nv. ${m.lv}`}</small></span>
+                  <i title="${m.visitor ? "Tiempo de visita" : "Experiencia"}"><em style="width:${pct}%"></em></i>
                   <span class="pp-ov-hearts" title="Amistad">${heartsHtml(m.fr)}</span>
                 </span>
               </button>`;
@@ -672,7 +809,7 @@
     const gSym = sel.g === "m" ? "♂" : sel.g === "f" ? "♀" : "";
     const gender = !gSym
       ? ""
-      : canChooseGender(sel)
+      : canChooseGender(sel) && !sel.visitor
         ? `<button type="button" class="pp-g is-${sel.g} is-toggle" data-pp="gender" title="Cambiar a ${sel.g === "m" ? "hembra" : "macho"}">${gSym}</button>`
         : `<span class="pp-g is-${sel.g}" title="Esta especie solo puede ser ${sel.g === "m" ? "macho" : "hembra"}">${gSym}</span>`;
 
@@ -690,16 +827,29 @@
           ${fi.left ? `Comidas con experiencia: ${fi.left}/${FEED_MAX}` : `Lleno · vuelve a tener hambre en ${fmtDuration(fi.resetIn)}`}
           ${cleanWait > 0 ? ` · Limpio (${fmtDuration(cleanWait)})` : ""}
         </p>
-        <div class="pp-portrait">${spriteHtml(sel.sp, "pp-portrait-img")}</div>
+        <div class="pp-portrait ${sel.visitor ? "is-visitor" : ""}">${spriteHtml(sel.sp, "pp-portrait-img")}</div>
         <div class="pp-name-row">
-          <label class="pp-nick" title="Pulsa para ponerle un mote">
+          ${
+            sel.visitor
+              ? `<h3 class="pp-visitor-name">${esc(s.n)}</h3>`
+              : `<label class="pp-nick" title="Pulsa para ponerle un mote">
             <input class="pp-nick-input" value="${esc(displayName(sel))}" maxlength="12" spellcheck="false" aria-label="Mote">
             ${icon("pencil", "pp-nick-icon")}
-          </label>
+          </label>`
+          }
           ${gender}
         </div>
-        <p class="pp-species">${sel.nick ? `${esc(s.n)} · ` : ""}Nº ${String(s.id).padStart(4, "0")}</p>
+        <p class="pp-species">${sel.visitor ? `<span class="pp-legend-badge">${legendKind(s)}</span> ` : ""}${sel.nick ? `${esc(s.n)} · ` : ""}Nº ${String(s.id).padStart(4, "0")}</p>
         <div class="pp-types">${s.t.map((t) => `<span class="pp-type" style="--tc:${TYPE_COLORS[t] || "#888"}">${esc(dex.types[t] || t)}</span>`).join("")}</div>
+        ${
+          sel.visitor
+            ? `<div class="pp-visit-info">
+                 <div class="pp-level"><span class="pp-lv">De visita</span><span class="pp-exp-text">Se marcha en ${fmtDuration(sel.leaves - now())}</span></div>
+                 <div class="pp-exp pp-visit-bar"><span style="width:${Math.max(0, Math.min(100, ((sel.leaves - now()) / VISIT_MS) * 100))}%"></span></div>
+                 <p class="pp-visit-note">Visita nº ${state.legends[sel.sp]?.visits || 1}. Su amistad se guarda para la próxima vez: cuanta más tenga, más fácil es que vuelva.</p>
+               </div>`
+            : ""
+        }
 
         <div class="pp-level">
           <span class="pp-lv">Nv. <b>${sel.lv}</b></span>
@@ -717,7 +867,10 @@
             .join("")}
         </div>
 
-        <div class="pp-held">
+        ${
+          sel.visitor
+            ? ""
+            : `<div class="pp-held">
           <span class="pp-held-label">Objeto</span>
           ${
             sel.held
@@ -725,10 +878,13 @@
                  <button type="button" class="pp-link" data-pp="unequip">Quitar</button>`
               : `<span class="pp-held-none">Ninguno</span>`
           }
-        </div>
+        </div>`
+        }
 
         ${
-          hints.length
+          sel.visitor
+            ? ""
+            : hints.length
             ? `<div class="pp-evo-hints"><span class="pp-held-label">Evolución</span>${hints
                 .map(
                   (h) => `<p class="${h.blocked ? "is-blocked" : ""}"><img src="${SPRITE_PNG(species(h.to).sd)}" alt="" onerror="this.style.display='none'"><span><b>${esc(speciesName(h.to))}</b>${esc(h.text)}</span></p>`
@@ -824,8 +980,12 @@
     const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
     const c = document.createElement("canvas").getContext("2d");
     c.fillStyle = v || "#000";
-    const hex = c.fillStyle; // normaliza a #rrggbb
-    return [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+    const out = c.fillStyle; // normaliza a #rrggbb, o rgba(...) si es translúcido
+    if (out.startsWith("#")) return [1, 3, 5].map((i) => parseInt(out.slice(i, i + 2), 16));
+    // Translúcido (tema Liquid Glass): se mezcla sobre el color de fondo.
+    const [r, g, b, a = 1] = out.match(/[\d.]+/g).map(Number);
+    const under = name === "--ink-950" ? [0, 0, 0] : cssColor("--ink-950");
+    return mix(under, [r, g, b], a);
   }
   const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
   const shade = (c, t) => (t >= 0 ? mix(c, [255, 255, 255], t) : mix(c, [0, 0, 0], -t));
@@ -874,9 +1034,13 @@
     };
 
     // Paleta
+    // Un tema puede dar colores propios al paisaje (Liquid Glass, cuyos
+    // fondos son translúcidos); si no, salen del fondo y las tarjetas.
+    const sceneVar = (name, fallback) =>
+      cssColor(getComputedStyle(document.documentElement).getPropertyValue(name).trim() ? name : fallback);
     const accent = cssColor("--red-500");
-    const base = cssColor("--ink-950");
-    const card = cssColor("--ink-900");
+    const base = sceneVar("--pp-scene-base", "--ink-950");
+    const card = sceneVar("--pp-scene-card", "--ink-900");
     const light = lum(base) > 0.55; // Reshiram y Mew
     const nightTint = [16, 20, 52];
     const n = (c) => (night ? mix(c, nightTint, light ? 0.55 : 0.45) : c);
@@ -1048,18 +1212,18 @@
   function syncActors() {
     const layer = root.querySelector(".pp-mons");
     const { w, h } = groundRect();
-    const alive = new Set(state.party.map((m) => m.uid));
+    const alive = new Set(allMons().map((m) => m.uid));
     for (const [uid, a] of actors) {
       if (!alive.has(uid)) {
         a.el.remove();
         actors.delete(uid);
       }
     }
-    for (const mon of state.party) {
+    for (const mon of allMons()) {
       let a = actors.get(mon.uid);
       if (!a) {
         const el = document.createElement("div");
-        el.className = "pp-mon";
+        el.className = `pp-mon${mon.visitor ? " is-visitor" : ""}`;
         el.dataset.uid = mon.uid;
         el.dataset.pp = "select";
         a = { el, x: rand(0.1, 0.9) * (w || 600), y: rand(0.2, 0.85) * (h || 300), tx: 0, ty: 0, idleUntil: now() + rand(300, 2500), facing: 1, sp: null };
@@ -1085,7 +1249,7 @@
     if (visible) {
       const { w, h } = groundRect();
       for (const [uid, a] of actors) {
-        const mon = state.party.find((m) => m.uid === uid);
+        const mon = monByUid(uid);
         if (!mon || !w) continue;
         // Muy de vez en cuando (de media, cada ~12 min por Pokémon) ataca.
         if (!a.attackUntil || now() > a.attackUntil) {
@@ -1822,8 +1986,11 @@
     state = saved && Array.isArray(saved.party) ? { ...newState(), ...saved } : newState();
     state.bag ||= {};
     state.ground ||= [];
+    state.legends ||= {};
+    state.visitor ||= null;
     ready = true;
     shell();
+    checkVisitorLeave();
     render();
     setInterval(tick, TICK_MS);
     setInterval(updateClock, 30 * 1000);
@@ -1842,14 +2009,27 @@
     onShow() {
       if (!ready) return;
       render();
+      if (state.visitor && !state.visitor.seen) setTimeout(announceVisitor, 400);
     },
     _spriteError: spriteError,
     // Depuración: que todos ataquen a la vez.
     _attackAll() {
       for (const [uid, a] of actors) {
-        const mon = state.party.find((m) => m.uid === uid);
+        const mon = monByUid(uid);
         if (mon) attack(a, mon);
       }
+    },
+    // Depuración: traer un visitante (id de especie opcional) o que se vaya ya.
+    _summon(sp) {
+      if (state.visitor) {
+        state.visitor.leaves = 0;
+        checkVisitorLeave();
+      }
+      summonVisitor(sp);
+    },
+    _leave() {
+      if (state.visitor) state.visitor.leaves = 0;
+      checkVisitorLeave();
     },
   };
 

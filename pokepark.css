@@ -1451,3 +1451,230 @@ body.in-pokepark .main-content {
 .pp-card > .pp-cooldowns {
   margin: 6px 0 12px;
 }
+
+/* ------------------------------------------------------------ Visitantes legendarios */
+.pp-root {
+  --pp-gold: #f4c542;
+  --pp-gold-rgb: 244, 197, 66;
+}
+
+.pp-visit {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin-top: 10px;
+  padding: 6px 12px 6px 6px;
+  border-radius: 12px;
+  border: 1px solid rgba(var(--pp-gold-rgb), 0.55);
+  background: linear-gradient(100deg, rgba(var(--pp-gold-rgb), 0.16), rgba(var(--pp-gold-rgb), 0.04));
+  font: inherit;
+  text-align: left;
+  color: var(--washi-100);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
+}
+
+.pp-visit:hover,
+.pp-visit.is-active {
+  border-color: var(--pp-gold);
+  background: linear-gradient(100deg, rgba(var(--pp-gold-rgb), 0.26), rgba(var(--pp-gold-rgb), 0.08));
+}
+
+.pp-visit img {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(var(--pp-gold-rgb), 0.35), transparent 70%);
+}
+
+.pp-visit span {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.pp-visit small {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--pp-gold);
+}
+
+.pp-visit b {
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pp-visit em {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--ink-300);
+  white-space: nowrap;
+}
+
+.pp-visit.is-empty {
+  justify-content: center;
+  padding: 9px 12px;
+  border-style: dashed;
+  border-color: var(--ink-700);
+  background: none;
+  font-size: 12px;
+  color: var(--ink-400);
+  cursor: default;
+}
+
+.pp-ov-row.is-visitor {
+  border-color: rgba(var(--pp-gold-rgb), 0.5);
+  background: rgba(var(--pp-gold-rgb), 0.06);
+}
+
+.pp-ov-row.is-visitor .pp-ov-avatar {
+  background: radial-gradient(circle, rgba(var(--pp-gold-rgb), 0.4), rgba(var(--pp-gold-rgb), 0.08) 70%);
+  box-shadow: inset 0 0 0 1px rgba(var(--pp-gold-rgb), 0.6);
+}
+
+.pp-ov-row.is-visitor .pp-ov-top small {
+  color: var(--pp-gold);
+}
+
+.pp-legend-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #2a1f00;
+  background: linear-gradient(135deg, #ffe082, var(--pp-gold, #f4c542) 55%, #d89b12);
+  box-shadow: 0 0 12px rgba(244, 197, 66, 0.45);
+  vertical-align: 1px;
+}
+
+.pp-visitor-name {
+  margin: 0;
+  font-size: 20px;
+}
+
+.pp-portrait.is-visitor {
+  background: radial-gradient(ellipse 60% 22% at 50% 88%, rgba(0, 0, 0, 0.28), transparent 70%),
+    radial-gradient(circle at 50% 60%, rgba(var(--pp-gold-rgb), 0.3), transparent 65%);
+}
+
+.pp-visit-info {
+  margin-top: 12px;
+}
+
+.pp-visit-bar span {
+  background: linear-gradient(90deg, #d89b12, var(--pp-gold), #ffe082) !important;
+}
+
+.pp-visit-note {
+  margin: 6px 0 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--ink-300);
+}
+
+/* En el parque: aura dorada que late bajo el visitante y nombre siempre visible */
+.pp-mon.is-visitor .pp-mon-shadow {
+  background: radial-gradient(ellipse, rgba(var(--pp-gold-rgb), 0.55), rgba(var(--pp-gold-rgb), 0.12) 55%, transparent 72%);
+  animation: ppAura 2.4s ease-in-out infinite;
+}
+
+.pp-mon.is-visitor .pp-mon-ring {
+  border-color: var(--pp-gold);
+  box-shadow: 0 0 14px rgba(var(--pp-gold-rgb), 0.7);
+}
+
+.pp-mon.is-visitor .pp-mon-img {
+  filter: drop-shadow(0 0 6px rgba(var(--pp-gold-rgb), 0.55));
+}
+
+.pp-mon.is-visitor .pp-mon-name {
+  opacity: 1;
+  color: #2a1f00;
+  background: linear-gradient(135deg, #ffe082, var(--pp-gold));
+}
+
+@keyframes ppAura {
+  50% {
+    transform: scale(1.25);
+    opacity: 0.7;
+  }
+}
+
+/* Presentación al llegar */
+.pp-arrival {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 6px 0 4px;
+}
+
+.pp-arrival-stage {
+  position: relative;
+  width: 220px;
+  height: 180px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+
+.pp-arrival-glow {
+  position: absolute;
+  inset: 0 10%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 244, 200, 0.85), rgba(244, 197, 66, 0.35) 45%, transparent 70%);
+  animation: ppArrivalGlow 2.6s ease-in-out infinite;
+}
+
+.pp-arrival-img {
+  position: relative;
+  height: 150px;
+  max-width: 100%;
+  margin-bottom: calc(var(--pad, 0) / var(--h, 96) * -150px);
+  object-fit: contain;
+  image-rendering: pixelated;
+  animation: ppArrivalIn 1.1s var(--ease-smooth) both;
+}
+
+.pp-arrival .pp-evo-text {
+  line-height: 1.55;
+}
+
+@keyframes ppArrivalGlow {
+  50% {
+    transform: scale(1.12);
+    opacity: 0.75;
+  }
+}
+
+@keyframes ppArrivalIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-40px) scale(0.6);
+    filter: brightness(0) invert(1);
+  }
+  60% {
+    opacity: 1;
+    filter: brightness(0) invert(1);
+  }
+  100% {
+    transform: none;
+    filter: none;
+  }
+}
+
+.pp-ov-row.is-visitor .pp-ov-text em {
+  background: linear-gradient(90deg, #d89b12, var(--pp-gold), #ffe082);
+}

@@ -6,7 +6,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=Inter:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="style.css" />
@@ -149,6 +149,7 @@
 
     <script src="node_modules/sweetalert2/dist/sweetalert2.all.min.js"></script>
     <script src="pokepark.js" defer></script>
+    <script src="liquid-glass.js" defer></script>
 
     <script>
       // ===============================
@@ -2269,6 +2270,12 @@
         { id: "luxray", name: "Luxray", bg: "#00003c", accent: "#faf000" },
         { id: "mewtwo", name: "Mewtwo", bg: "#967896", accent: "#aa8cb4" },
         { id: "mew", name: "Mew", bg: "#fbd9e3", accent: "#f4699b" },
+        {
+          id: "glass",
+          name: "Liquid Glass",
+          bg: "radial-gradient(circle at 25% 25%, #5e8bff, transparent 60%), radial-gradient(circle at 80% 80%, #ff6fae, transparent 55%), linear-gradient(135deg, #2a3cff, #8a4dff)",
+          accent: "#0a84ff",
+        },
       ];
 
       async function loadAppSettings() {

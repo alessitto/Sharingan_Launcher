@@ -123,7 +123,7 @@ const GAMES_PER_PAGE_MAX = 200;
 // 10 se vuelven ilegibles (miniaturas minúsculas) en una ventana normal.
 const GRID_COLUMNS_MIN = 3;
 const GRID_COLUMNS_MAX = 10;
-const VALID_THEMES = ["uchiha", "rayquaza", "reshiram", "zekrom", "blaziken", "luxray", "mewtwo", "mew"];
+const VALID_THEMES = ["uchiha", "rayquaza", "reshiram", "zekrom", "blaziken", "luxray", "mewtwo", "mew", "glass"];
 let appSettings = { gamesPerPage: 60, gridColumns: 5, theme: "uchiha" };
 
 function clampGamesPerPage(value) {
@@ -583,6 +583,7 @@ const THEME_BG_COLORS = {
   luxray: "#08081c",
   mewtwo: "#493b49",
   mew: "#ece4e6",
+  glass: "#0d1633",
 };
 
 function createWindow() {
