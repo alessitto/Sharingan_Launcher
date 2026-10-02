@@ -1202,3 +1202,10 @@ body.in-community .main-content {
   text-underline-offset: 2px;
   word-break: break-all;
 }
+
+/* Testers: dar o quitar logros a mano */
+.cm-ach-toggle {
+  align-self: center;
+  flex-shrink: 0;
+  margin-left: auto;
+}

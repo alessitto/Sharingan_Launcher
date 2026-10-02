@@ -592,18 +592,19 @@
   }
 
   function feedInfo(mon) {
+    if (unlimited()) return { left: Infinity, resetIn: 0 };
     if (!mon.feedStart || now() - mon.feedStart > FEED_WINDOW_MS) return { left: FEED_MAX, resetIn: 0 };
     return { left: Math.max(0, FEED_MAX - (mon.feedCount || 0)), resetIn: mon.feedStart + FEED_WINDOW_MS - now() };
   }
 
   function feed(mon, berry) {
     const b = BERRIES[berry];
-    if (!b || !(state.bag[berry] > 0)) return;
+    if (!b || !(have(berry) > 0)) return;
     if (!mon.feedStart || now() - mon.feedStart > FEED_WINDOW_MS) {
       mon.feedStart = now();
       mon.feedCount = 0;
     }
-    if (mon.feedCount >= FEED_MAX) {
+    if (mon.feedCount >= FEED_MAX && !unlimited()) {
       showNotification(`${displayName(mon)} está lleno. Podrá volver a comer en ${fmtDuration(feedInfo(mon).resetIn)}.`, "error");
       return;
     }
@@ -621,8 +622,12 @@
     render();
   }
 
+  function cleanWaitOf(mon) {
+    return unlimited() ? 0 : (mon.cleanedAt || 0) + CLEAN_COOLDOWN_MS - now();
+  }
+
   function clean(mon) {
-    const wait = (mon.cleanedAt || 0) + CLEAN_COOLDOWN_MS - now();
+    const wait = cleanWaitOf(mon);
     if (wait > 0) {
       showNotification(`${displayName(mon)} ya está cepillado. Vuelve en ${fmtDuration(wait)}.`, "error");
       return;
@@ -638,6 +643,7 @@
   }
 
   function takeFromBag(slug, n = 1) {
+    if (unlimited()) return;
     state.bag[slug] = Math.max(0, (state.bag[slug] || 0) - n);
     if (!state.bag[slug]) delete state.bag[slug];
   }
@@ -832,7 +838,7 @@
   // Botones del parque: sacan el objeto (o lo guardan si ya lo tienes).
   function toggleBall() {
     if (hand?.kind === "ball") return cancelHand();
-    if (!(state.bag["poke-ball"] > 0)) return showNotification("No te quedan Poké Balls. Cómpralas en la tienda o búscalas por el parque.", "error");
+    if (!(have("poke-ball") > 0)) return showNotification("No te quedan Poké Balls. Cómpralas en la tienda o búscalas por el parque.", "error");
     if (state.party.length >= PARTY_MAX) return showNotification(`Tu equipo está lleno (${PARTY_MAX}). Libera a alguno para hacerle hueco.`, "error");
     startHand("ball", "poke-ball");
   }
@@ -877,7 +883,7 @@
   function combRub(e, p) {
     const mon = monAtPoint(e.clientX, e.clientY, (m) => !m.wild);
     if (!mon || !hand.last) return;
-    const wait = (mon.cleanedAt || 0) + CLEAN_COOLDOWN_MS - now();
+    const wait = cleanWaitOf(mon);
     if (wait > 0) {
       if (hand.warned !== mon.uid) {
         hand.warned = mon.uid;
@@ -933,7 +939,7 @@
 
   // Vuelo de la Poké Ball: curva desde la mano al punto, encogiéndose.
   function throwAt(to, cx, cy) {
-    if (!(state.bag["poke-ball"] > 0)) {
+    if (!(have("poke-ball") > 0)) {
       cancelHand();
       return showNotification("No te quedan Poké Balls. Cómpralas en la tienda o búscalas por el parque.", "error");
     }
@@ -984,7 +990,7 @@
       if (!hand) return;
       hand.busy = false;
       hand.el.style.visibility = "";
-      if (!(state.bag["poke-ball"] > 0)) {
+      if (!(have("poke-ball") > 0)) {
         cancelHand();
         showNotification("No te quedan Poké Balls.", "error");
       }
@@ -1066,14 +1072,14 @@
   // ------------------------------------------------------------ Liberar
   const monthKey = () => new Date().toISOString().slice(0, 7);
   function releasesLeft() {
-    if (trades.admin) return Infinity; // los administradores, sin límite (para pruebas)
+    if (unlimited()) return Infinity;
     const r = state.releases || {};
     return r.m === monthKey() ? Math.max(0, RELEASES_PER_MONTH - (r.n || 0)) : RELEASES_PER_MONTH;
   }
 
   async function release(mon) {
     if (mon.trade) return showNotification(`${displayName(mon)} está en una oferta de intercambio.`, "error");
-    if (state.party.length <= 1) return showNotification("No puedes quedarte sin Pokémon.", "error");
+    if (state.party.length <= 1 && !unlimited()) return showNotification("No puedes quedarte sin Pokémon.", "error");
     const left = releasesLeft();
     if (!left) return showNotification(`Ya has liberado ${RELEASES_PER_MONTH} Pokémon este mes.`, "error");
     const ok = await confirmDialog({
@@ -1088,7 +1094,7 @@
     state.party = state.party.filter((m) => m !== mon);
     for (const m of state.party) addFriendship(m, -RELEASE_PENALTY);
     const r = state.releases?.m === monthKey() ? state.releases : { m: monthKey(), n: 0 };
-    if (!trades.admin) r.n++;
+    if (!unlimited()) r.n++;
     state.releases = r;
     if (selectedUid === mon.uid) selectedUid = null;
     showNotification(`Adiós, ${displayName(mon)}. ¡Cuídate!`);
@@ -1320,7 +1326,7 @@
                ${m.shiny ? SHINY_MARK : ""}
                <span class="pp-slot-lv">Nv.${m.lv}</span>
              </button>`
-          : state.starter
+          : state.starter && !unlimited()
             ? `<span class="pp-slot is-empty is-locked" title="Hueco libre: captura un Pokémon salvaje con una Poké Ball">${POKEBALL_SVG}</span>`
             : `<button type="button" class="pp-slot is-empty" data-pp="pick" title="Elegir tu Pokémon inicial">${icon("plus")}</button>`
       );
@@ -1368,7 +1374,7 @@
       det.innerHTML = `
         <div class="pp-welcome">
           <h3>Tu parque está vacío</h3>
-          <p>Elige a tu compañero. Ganará experiencia mientras tengas la app abierta, podrás darle de comer, limpiarlo y verlo evolucionar.</p>
+          <p>Elige a tu compañero. Ganará experiencia mientras tengas la app abierta, podrás darle bayas, cepillarlo y verlo evolucionar.</p>
           <button type="button" class="sl-btn sl-btn-primary" data-pp="pick">${icon("plus")}Elegir Pokémon</button>
         </div>`;
       return;
@@ -1379,7 +1385,7 @@
     const next = expForLevel(sel.lv + 1);
     const pct = sel.lv >= 100 ? 100 : Math.max(0, Math.min(100, ((sel.exp - cur) / (next - cur)) * 100));
     const fi = feedInfo(sel);
-    const cleanWait = (sel.cleanedAt || 0) + CLEAN_COOLDOWN_MS - now();
+    const cleanWait = cleanWaitOf(sel);
     const hints = evolutionHints(sel);
     const gSym = sel.g === "m" ? "♂" : sel.g === "f" ? "♀" : "";
     const gender = !gSym
@@ -1391,7 +1397,7 @@
     det.innerHTML = `
       <div class="pp-card">
         <p class="pp-cooldowns">
-          ${fi.left ? `Comidas con experiencia: ${fi.left}/${FEED_MAX}` : `Lleno · vuelve a tener hambre en ${fmtDuration(fi.resetIn)}`}
+          ${fi.left ? `Comidas con experiencia: ${fmtCount(fi.left)}/${FEED_MAX}` : `Lleno · vuelve a tener hambre en ${fmtDuration(fi.resetIn)}`}
           ${cleanWait > 0 ? ` · Cepillado (${fmtDuration(cleanWait)})` : ""}
         </p>
         <div class="pp-portrait ${sel.visitor ? "is-visitor" : ""} ${sel.shiny ? "is-shiny" : ""}">${spriteHtml(sel.sp, "pp-portrait-img", sel.shiny)}</div>
@@ -1467,8 +1473,8 @@
                  ${sel.trade ? `<p class="pp-trade-note">${TRADE_SVG}En una oferta de intercambio. Cancélala en «Intercambios» si quieres recuperarlo del todo.</p>` : ""}
                  <div class="pp-more-btns">
                    <button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-pp="trade" ${sel.trade ? "disabled" : ""}>${TRADE_SVG}Intercambiar</button>
-                   <button type="button" class="sl-btn sl-btn-danger-ghost sl-btn-sm" data-pp="release" ${sel.trade || state.party.length <= 1 || !releasesLeft() ? "disabled" : ""}
-                     title="${trades.admin ? "Sin límite (administrador)" : `${releasesLeft()} de ${RELEASES_PER_MONTH} liberaciones este mes`}">${icon("trash")}Liberar (${trades.admin ? "∞" : `${releasesLeft()}/${RELEASES_PER_MONTH}`})</button>
+                   <button type="button" class="sl-btn sl-btn-danger-ghost sl-btn-sm" data-pp="release" ${sel.trade || (state.party.length <= 1 && !unlimited()) || !releasesLeft() ? "disabled" : ""}
+                     title="${unlimited() ? "Sin límite (tester)" : `${releasesLeft()} de ${RELEASES_PER_MONTH} liberaciones este mes`}">${icon("trash")}Liberar (${unlimited() ? "∞" : `${releasesLeft()}/${RELEASES_PER_MONTH}`})</button>
                  </div>
                </div>`
         }
@@ -1988,7 +1994,7 @@
 
   function openFeedMenu(anchor) {
     closeFeedMenu();
-    const berries = Object.keys(BERRIES).filter((b) => state.bag[b] > 0);
+    const berries = Object.keys(BERRIES).filter((b) => have(b) > 0);
     const menu = document.createElement("div");
     menu.className = "pp-feed-menu";
     menu.innerHTML = berries.length
@@ -1996,7 +2002,7 @@
          ${berries
            .map(
              (b) => `<button type="button" class="pp-feed-opt" data-berry="${b}">
-               ${itemImg(b)}<span><b>${esc(BERRIES[b].n)}</b><small>${esc(BERRIES[b].desc)}</small></span><em>×${state.bag[b]}</em>
+               ${itemImg(b)}<span><b>${esc(BERRIES[b].n)}</b><small>${esc(BERRIES[b].desc)}</small></span><em>×${fmtCount(have(b))}</em>
              </button>`
            )
            .join("")}`
@@ -2016,7 +2022,9 @@
 
   // ------------------------------------------------------------ Elegir Pokémon
   async function openPicker() {
-    if (state.starter) {
+    // Los testers pueden elegir otro inicial siempre que haya hueco.
+    if (unlimited() && state.party.length >= PARTY_MAX) return showNotification(`Tu equipo está lleno (${PARTY_MAX}).`, "error");
+    if (state.starter && !unlimited()) {
       showNotification("Ya elegiste tu inicial. Los demás Pokémon se capturan en el parque.", "error");
       return;
     }
@@ -2123,7 +2131,7 @@
       shiny: rollShiny(s),
       at: now(),
     };
-    if (state.starter) return;
+    if ((state.starter && !unlimited()) || state.party.length >= PARTY_MAX) return;
     state.party.push(mon);
     state.starter = true;
     refreshWild();
@@ -2140,7 +2148,9 @@
     let action = null; // { slug, mode: 'use' | 'equip' }
 
     const groups = () => {
-      const entries = Object.entries(state.bag).filter(([, n]) => n > 0);
+      const entries = unlimited()
+        ? [...new Set([...Object.keys(BERRIES), ...shopStock()])].map((s) => [s, Infinity])
+        : Object.entries(state.bag).filter(([, n]) => n > 0);
       return {
         berries: entries.filter(([s]) => isBerry(s)),
         use: entries.filter(([s]) => !isBerry(s) && useItems.has(s)),
@@ -2154,7 +2164,7 @@
       const box = popup.querySelector(".pp-bag-body");
       popup.querySelectorAll(".pp-bag-tab").forEach((b) => {
         b.classList.toggle("is-active", b.dataset.tab === tab);
-        b.querySelector("em").textContent = g[b.dataset.tab].reduce((a, [, n]) => a + n, 0);
+        b.querySelector("em").textContent = fmtCount(g[b.dataset.tab].reduce((a, [, n]) => a + n, 0));
       });
 
       if (action) {
@@ -2197,7 +2207,7 @@
                 tab === "other"
                   ? `<span class="pp-bag-hint">${slug === "poke-ball" ? "Toca un salvaje" : "Objeto clave"}</span>`
                   : tab === "berries"
-                  ? `<span class="pp-bag-hint">Desde «Dar de comer»</span>`
+                  ? `<span class="pp-bag-hint">Con el botón de bayas del parque</span>`
                   : tab === "use"
                     ? `<button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-bag="use" data-slug="${slug}">Usar</button>`
                     : `<button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-bag="equip" data-slug="${slug}">Equipar</button>`;
@@ -2211,7 +2221,7 @@
                   : tab === "use"
                     ? "Se gasta al usarlo para evolucionar."
                     : heldNote(slug);
-              return `<div class="pp-bag-row">${itemImg(slug)}<span class="pp-bag-name"><b>${esc(itemName(slug))}</b><small>${esc(sub)}</small></span><em>×${n}</em>${btn}</div>`;
+              return `<div class="pp-bag-row">${itemImg(slug)}<span class="pp-bag-name"><b>${esc(itemName(slug))}</b><small>${esc(sub)}</small></span><em>×${fmtCount(n)}</em>${btn}</div>`;
             })
             .join("")}</div>`
         : `<p class="pp-bag-empty">${empty[tab]}</p>`;
@@ -2305,8 +2315,8 @@
 
   function buy(slug, n = 1) {
     const cost = buyPrice(slug) * n;
-    if (!cost || state.money < cost) return showNotification("No tienes Pokédólares suficientes.", "error");
-    state.money -= cost;
+    if (!cost || (state.money < cost && !unlimited())) return showNotification("No tienes Pokédólares suficientes.", "error");
+    if (!unlimited()) state.money -= cost;
     addToBag(slug, n);
     window.Achievements?.track("purchases");
     showNotification(`Has comprado ${n > 1 ? `${n} × ` : ""}${itemName(slug)} por ${fmtMoney(cost)}.`);
@@ -2329,18 +2339,18 @@
     let tab = "buy";
     function body(popup) {
       popup.querySelectorAll(".pp-bag-tab").forEach((b) => b.classList.toggle("is-active", b.dataset.tab === tab));
-      popup.querySelector(".pp-shop-money").textContent = fmtMoney(state.money);
+      popup.querySelector(".pp-shop-money").textContent = unlimited() ? "∞" : fmtMoney(state.money);
       const box = popup.querySelector(".pp-bag-body");
       if (tab === "buy") {
         box.innerHTML = `<div class="pp-bag-list">${shopStock()
           .map((slug) => {
             const p = buyPrice(slug);
-            const have = state.bag[slug] || 0;
-            return `<div class="pp-bag-row">${itemImg(slug)}<span class="pp-bag-name"><b>${esc(itemName(slug))}</b><small>${esc(itemNote(slug))}${have ? ` Tienes ${have}.` : ""}</small></span>
+            const owned = have(slug);
+            return `<div class="pp-bag-row">${itemImg(slug)}<span class="pp-bag-name"><b>${esc(itemName(slug))}</b><small>${esc(itemNote(slug))}${owned ? ` Tienes ${fmtCount(owned)}.` : ""}</small></span>
               <em class="pp-price">${fmtMoney(p)}</em>
               <span class="pp-shop-btns">
-                <button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-shop="buy" data-slug="${slug}" data-n="1" ${state.money < p ? "disabled" : ""}>Comprar</button>
-                ${slug === "poke-ball" ? `<button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-shop="buy" data-slug="${slug}" data-n="10" ${state.money < p * 10 ? "disabled" : ""}>×10</button>` : ""}
+                <button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-shop="buy" data-slug="${slug}" data-n="1" ${state.money < p && !unlimited() ? "disabled" : ""}>Comprar</button>
+                ${slug === "poke-ball" ? `<button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-shop="buy" data-slug="${slug}" data-n="10" ${state.money < p * 10 && !unlimited() ? "disabled" : ""}>×10</button>` : ""}
               </span></div>`;
           })
           .join("")}</div>`;
@@ -2402,7 +2412,14 @@
   // da uno suyo a cambio. Mientras la oferta está pendiente el tuyo se queda
   // en el parque pero "reservado" (no se puede liberar ni ofrecer otra vez).
   // Al recibirlo se comprueban las evoluciones por intercambio.
-  const trades = { list: [], user: null, admin: false, busy: false, rerender: null, loaded: false };
+  const trades = { list: [], user: null, tester: false, busy: false, rerender: null, loaded: false };
+
+  // Testers: todo ilimitado (Poké Balls, bayas, objetos, dinero, comidas,
+  // cepillado, liberaciones). Lo nuevo que tenga límite debe mirar
+  // unlimited() / have() / takeFromBag(), que ya lo respetan.
+  const unlimited = () => trades.tester;
+  const have = (slug) => (unlimited() ? Infinity : state.bag[slug] || 0);
+  const fmtCount = (n) => (Number.isFinite(n) ? String(n) : "∞");
 
   const cloudApi = (action, ...args) =>
     window.electronAPI.cloud(action, ...args).catch(() => ({ ok: false, error: "No se puede conectar con el servidor." }));
@@ -2568,9 +2585,9 @@
     try {
       const st = await cloudApi("status");
       trades.user = st.ok ? st.user?.username || null : null;
-      const wasAdmin = trades.admin;
-      trades.admin = !!(st.ok && st.user?.admin);
-      if (wasAdmin !== trades.admin && root) render();
+      const wasTester = trades.tester;
+      trades.tester = !!(st.ok && st.user?.tester);
+      if (wasTester !== trades.tester && root) render();
       if (!trades.user) {
         trades.list = [];
         return;

@@ -101,6 +101,27 @@
   const listeners = new Set();
 
   const loggedIn = () => !!user;
+  // Los testers se ponen y se quitan logros a mano. Los que se quitan se
+  // apuntan en stats.testerLocked para que no se vuelvan a desbloquear solos.
+  const isTester = () => !!user?.tester;
+  const testerLocked = () => new Set(isTester() ? stats.testerLocked || [] : []);
+
+  async function setUnlocked(id, on) {
+    if (!isTester() || !DEFS.some((d) => d.id === id)) return;
+    const locked = new Set(stats.testerLocked || []);
+    if (on) {
+      unlocked[id] = new Date().toISOString();
+      locked.delete(id);
+      window.electronAPI.cloud("unlock", [id]);
+    } else {
+      delete unlocked[id];
+      locked.add(id);
+      window.electronAPI.cloud("lock", [id]);
+    }
+    stats.testerLocked = [...locked];
+    save();
+    emit();
+  }
   const unlockedCount = (excludeSelf) => Object.keys(unlocked).filter((id) => !(excludeSelf && id === "completionist")).length;
 
   function progress(def) {
@@ -122,10 +143,11 @@
   async function check() {
     if (!user) return emit();
     const fresh = [];
+    const skip = testerLocked();
     // Dos pasadas: "Completista" depende de los demás.
     for (let pass = 0; pass < 2; pass++) {
       for (const def of DEFS) {
-        if (unlocked[def.id] || !progress(def).done) continue;
+        if (unlocked[def.id] || skip.has(def.id) || !progress(def).done) continue;
         unlocked[def.id] = new Date().toISOString();
         fresh.push(def);
       }
@@ -187,6 +209,11 @@
     await setUser(st?.user);
     window.electronAPI.onCloudStatus((s) => {
       if ((s.user?.id || null) !== (user?.id || null)) setUser(s.user);
+      else if (s.user && !!s.user.tester !== isTester()) {
+        // Mismo usuario con permisos nuevos (p. ej. lo acaban de hacer tester).
+        user = s.user;
+        emit();
+      }
     });
     window.electronAPI.onCloudData(async () => {
       stats = (await window.electronAPI.getStats().catch(() => stats)) || stats;
@@ -207,6 +234,8 @@
     DEFS,
     list: () => DEFS.map((d) => ({ ...d, ...progress(d), unlockedAt: unlocked[d.id] || null })),
     loggedIn,
+    isTester,
+    setUnlocked: whenReady(setUnlocked),
     track: whenReady((key, n = 1) => {
       stats[key] = (stats[key] || 0) + n;
       save();

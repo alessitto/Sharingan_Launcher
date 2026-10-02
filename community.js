@@ -630,7 +630,7 @@
         <div class="cm-ach-summary">
           <div>
             <b>${got} de ${list.length} logros</b>
-            <span>${me ? "Prueba todo lo que hace la app para conseguirlos." : "Tu progreso ya se está contando, pero los logros solo se desbloquean con cuenta."}</span>
+            <span>${A.isTester() ? "Modo tester: pulsa Dar o Quitar en cualquier logro." : me ? "Prueba todo lo que hace la app para conseguirlos." : "Tu progreso ya se está contando, pero los logros solo se desbloquean con cuenta."}</span>
           </div>
           ${me ? "" : `<button type="button" class="sl-btn sl-btn-primary sl-btn-sm" data-login>${icon("user")}Entrar o crear cuenta</button>`}
           <i class="cm-ach-bar"><em style="width:${(got / list.length) * 100}%"></em></i>
@@ -657,6 +657,7 @@
                           : `<em>${a.done && !me ? "Listo: entra para desbloquearlo" : "Pendiente"}</em>`
                     }
                   </span>
+                  ${A.isTester() ? `<button type="button" class="sl-btn sl-btn-ghost sl-btn-sm cm-ach-toggle" data-ach-toggle="${a.id}">${a.unlockedAt ? "Quitar" : "Dar"}</button>` : ""}
                 </div>`
                 )
                 .join("")}
@@ -665,6 +666,14 @@
         }).join("")}
       </div>`;
     body.querySelector("[data-login]")?.addEventListener("click", () => openAuth("register"));
+    body.querySelectorAll("[data-ach-toggle]").forEach((b) =>
+      b.addEventListener("click", async () => {
+        const a = A.list().find((x) => x.id === b.dataset.achToggle);
+        if (!a) return;
+        await A.setUnlocked(a.id, !a.unlockedAt);
+        renderAchievements(body);
+      })
+    );
   }
 
   // ------------------------------------------------------------ Puntuaciones

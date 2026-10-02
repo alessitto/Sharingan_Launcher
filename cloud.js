@@ -312,6 +312,7 @@ function createCloud(hooks) {
     deleteChat: async (id) => api("chat/delete", { body: { id } }),
     achievements: async () => api("achievements/list"),
     unlock: async (ids) => api("achievements/unlock", { body: { ids } }),
+    lock: async (ids) => api("achievements/lock", { body: { ids } }),
     profile: async (username) => api("users/profile", { query: { username }, auth: false }),
     trades: async () => api("trades/list"),
     tradeOffer: async (to, mon) => api("trades/offer", { body: { to, mon } }),
@@ -328,7 +329,20 @@ function createCloud(hooks) {
     markDirty,
     loggedIn: () => !!token(),
     // Al arrancar: bajar/combinar lo de la cuenta (sin bloquear la app).
-    start: () => token() && reconcile().catch((err) => console.error("sync inicial", err.code || err)),
+    start: () => {
+      if (!token()) return;
+      // El usuario guardado puede tener permisos viejos (admin/tester): se
+      // pide de nuevo al arrancar.
+      api("auth/me")
+        .then((res) => {
+          if (!res?.user) return;
+          settings.cloudUser = res.user;
+          saveSettings();
+          notify("cloud:status", status());
+        })
+        .catch(() => {});
+      reconcile().catch((err) => console.error("sync inicial", err.code || err));
+    },
     flush: () => push().catch(() => {}),
   };
 }
