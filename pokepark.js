@@ -435,6 +435,7 @@
     });
     mon.sp = job.to;
     if (job.held && mon.held === job.held) mon.held = null; // el objeto equipado se gasta
+    window.Achievements?.track("evolutions");
     save();
     render();
     evoRunning = false;
@@ -487,6 +488,7 @@
     addFriendship(mon, b.fr);
     // Los visitantes ya están al nivel 100: comer solo les da amistad.
     floatText(mon, mon.lv >= 100 ? `+${b.fr} amistad` : `+${Math.round(exp)} EXP`);
+    window.Achievements?.track("feeds");
     showNotification(`${displayName(mon)} se ha comido una ${b.n}.`);
     gainExp(mon, exp);
     save();
@@ -501,6 +503,7 @@
     }
     mon.cleanedAt = now();
     addFriendship(mon, 10);
+    window.Achievements?.track("cleans");
     floatText(mon, "¡Reluciente!", true);
     sparkle(mon);
     save();
@@ -544,6 +547,7 @@
         : species(pickWeighted(pool.map((x) => [x.id, visitWeight(state.legends[x.id]?.fr || 0)])));
     const memo = (state.legends[s.id] ||= { fr: VISIT_START_FRIENDSHIP, visits: 0 });
     memo.visits++;
+    window.Achievements?.track("legends");
     state.visitor = {
       uid: `v${now().toString(36)}`,
       sp: s.id,
@@ -1624,7 +1628,10 @@
     } else if (act === "fullscreen") {
       const park = root.querySelector(".pp-park");
       if (document.fullscreenElement) document.exitFullscreen();
-      else park?.requestFullscreen?.().catch(() => {});
+      else {
+        park?.requestFullscreen?.().catch(() => {});
+        window.Achievements?.track("fullscreen");
+      }
     } else if (act === "gender" && mon && canChooseGender(mon)) {
       mon.g = mon.g === "m" ? "f" : "m";
       save();
@@ -1926,6 +1933,7 @@
               const d = findEvolution(mon, "item", action.slug);
               if (!d) return;
               takeFromBag(action.slug);
+              window.Achievements?.track("itemEvos");
               save();
               Swal.close();
               selectedUid = mon.uid;
@@ -2012,6 +2020,24 @@
       if (state.visitor && !state.visitor.seen) setTimeout(announceVisitor, 400);
     },
     _spriteError: spriteError,
+    snapshot() {
+      return ready ? { party: state.party, legends: state.legends || {} } : null;
+    },
+    // La cuenta ha traído otro parque: se recarga desde disco.
+    async reload() {
+      if (!ready) return;
+      const saved = await window.electronAPI.pokeparkGet().catch(() => null);
+      if (!saved || !Array.isArray(saved.party)) return;
+      state = { ...newState(), ...saved };
+      state.bag ||= {};
+      state.ground ||= [];
+      state.legends ||= {};
+      state.visitor ||= null;
+      selectedUid = null;
+      for (const a of actors.values()) a.el.remove();
+      actors.clear();
+      render();
+    },
     // Depuración: que todos ataquen a la vez.
     _attackAll() {
       for (const [uid, a] of actors) {

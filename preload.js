@@ -88,12 +88,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   aiOrderSaga: (sagaId) => ipcRenderer.invoke('ai:orderSaga', sagaId),
   aiRecommend: (opts) => ipcRenderer.invoke('ai:recommend', opts),
 
-  // Música (Spotify vía controles multimedia de Windows) y letras
-  mediaStart: () => ipcRenderer.invoke('media:start'),
-  mediaStop: () => ipcRenderer.invoke('media:stop'),
-  mediaCommand: (cmd) => ipcRenderer.invoke('media:command', cmd),
-  mediaLyrics: (track) => ipcRenderer.invoke('media:lyrics', track),
+  // Cuenta, nube y comunidad (cloud.js en main)
+  cloud: (action, ...args) => ipcRenderer.invoke('cloud:' + action, ...args),
+  onCloudStatus: (cb) => ipcRenderer.on('cloud:status', (_e, s) => cb(s)),
+  onCloudData: (cb) => ipcRenderer.on('cloud:dataChanged', (_e, d) => cb(d)),
+  getStats: () => ipcRenderer.invoke('stats:get'),
+  saveStats: (stats) => ipcRenderer.invoke('stats:save', stats),
+
   openExternal: (url) => ipcRenderer.invoke('app:openExternal', url),
-  mediaOpenSpotify: () => ipcRenderer.invoke('media:openSpotify'),
-  onMediaState: (cb) => ipcRenderer.on('media:state', (_e, s) => cb(s)),
 });

@@ -4,6 +4,8 @@ const path = require("path");
 const { execFile, spawn } = require("child_process");
 const saves = require("./saves");
 const ai = require("./ai");
+const { createCloud } = require("./cloud");
+let cloud = null; // se crea al arrancar (setupCloud)
 const fs = require("fs");
 const fetch = require("node-fetch"); // npm install node-fetch@2
 const ps = require("ps-node"); // npm install ps-node
@@ -107,13 +109,18 @@ function loadData() {
   }
 }
 
-function saveData() {
+function writeLibraryFile() {
   try {
     const payload = JSON.stringify({ games, completedGames, sagas }, null, 2);
     fs.writeFileSync(dataFilePath, payload, "utf8");
   } catch (err) {
     console.error("Error saving library.json", err);
   }
+}
+
+function saveData() {
+  writeLibraryFile();
+  cloud?.markDirty("library");
 }
 
 // === Ajustes de usuario (settings.json en userData) ===
@@ -170,8 +177,15 @@ function saveSettings() {
 
 loadSettings();
 
-// La clave de la IA (cifrada) no se le pasa nunca a la ventana.
-const publicSettings = () => ({ ...appSettings, aiKey: undefined });
+// La clave de la IA y el token de la cuenta (cifrados) no se le pasan
+// nunca a la ventana.
+const publicSettings = () => ({
+  ...appSettings,
+  aiKey: undefined,
+  cloudToken: undefined,
+  cloudDirty: undefined,
+  cloudLinkedUser: undefined,
+});
 
 ipcMain.handle("settings:get", () => publicSettings());
 
@@ -685,9 +699,12 @@ ipcMain.handle("update:install", async () => {
 });
 
 app.whenReady().then(() => {
+  setupCloud();
   loadData();
   createWindow();
   setupAutoUpdates();
+  // Con sesión iniciada, se trae lo de la cuenta en cuanto la ventana está lista.
+  win.webContents.once("did-finish-load", () => cloud.start());
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -1116,16 +1133,81 @@ ipcMain.handle("pokepark:get", () => {
   }
 });
 
+function writeJsonAtomic(file, data) {
+  const tmp = file + ".tmp";
+  fs.writeFileSync(tmp, JSON.stringify(data), "utf8");
+  fs.renameSync(tmp, file);
+}
+
+function readJson(file) {
+  try {
+    return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : null;
+  } catch {
+    return null;
+  }
+}
+
 ipcMain.handle("pokepark:save", (_e, state) => {
   try {
-    const tmp = pokeparkFilePath + ".tmp";
-    fs.writeFileSync(tmp, JSON.stringify(state), "utf8");
-    fs.renameSync(tmp, pokeparkFilePath);
+    writeJsonAtomic(pokeparkFilePath, state);
+    cloud?.markDirty("pokepark");
     return true;
   } catch (err) {
     console.error("Error guardando pokepark.json", err);
     return false;
   }
+});
+
+// -------------------- Logros: contadores de uso --------------------
+// Los logros se calculan en la ventana (achievements.js); aquí solo se
+// guardan sus contadores, que también viajan a la cuenta.
+const statsFilePath = path.join(app.getPath("userData"), "stats.json");
+ipcMain.handle("stats:get", () => readJson(statsFilePath) || {});
+ipcMain.handle("stats:save", (_e, stats) => {
+  try {
+    writeJsonAtomic(statsFilePath, stats && typeof stats === "object" ? stats : {});
+    cloud?.markDirty("stats");
+    return true;
+  } catch (err) {
+    console.error("Error guardando stats.json", err);
+    return false;
+  }
+});
+
+// -------------------- Cuenta y nube --------------------
+function setupCloud() {
+  cloud = createCloud({
+    safeStorage,
+    settings: appSettings,
+    saveSettings,
+    notify: (channel, data) => win && !win.isDestroyed() && win.webContents.send(channel, data),
+    getLibrary: () => ({ games, completedGames, sagas }),
+    setLibrary: (lib) => {
+      games = (lib.games || []).map((g) => ({ ...g, id: Number(g.id), sortKey: g.sortKey || g.name || "" }));
+      completedGames = (lib.completedGames || []).map((g, i) => ({
+        ...g,
+        id: Number(g.id),
+        sortKey: g.sortKey || g.name || "",
+        completedAt: g.completedAt || i,
+      }));
+      sagas = (lib.sagas || []).map((x) => ({ id: x.id, name: x.name || "", gameIds: (x.gameIds || []).map(Number) }));
+      writeLibraryFile();
+    },
+    getPokepark: () => readJson(pokeparkFilePath),
+    setPokepark: (state) => state && writeJsonAtomic(pokeparkFilePath, state),
+    getStats: () => readJson(statsFilePath) || {},
+    setStats: (stats) => writeJsonAtomic(statsFilePath, stats || {}),
+  });
+  for (const [name, fn] of Object.entries(cloud.ipc)) ipcMain.handle(`cloud:${name}`, (_e, ...args) => fn(...args));
+}
+
+// Antes de cerrar se suben los cambios pendientes (máximo 4 s).
+let quitFlushed = false;
+app.on("before-quit", (e) => {
+  if (quitFlushed || !cloud?.loggedIn()) return;
+  e.preventDefault();
+  quitFlushed = true;
+  Promise.race([cloud.flush(), new Promise((r) => setTimeout(r, 4000))]).finally(() => app.quit());
 });
 
 // -------------------- Copias de partidas --------------------
@@ -2054,117 +2136,10 @@ ipcMain.handle("ai:recommend", (_e, opts = {}) =>
   })
 );
 
-// -------------------- Música (controles multimedia de Windows) --------------------
-// media-bridge.ps1 habla con los controles multimedia de Windows (los del
-// panel de volumen): Spotify de escritorio sale ahí sin iniciar sesión ni
-// API de desarrollador. Escribe una línea JSON por segundo; las órdenes se
-// le mandan por stdin. Solo corre mientras la sección Música está abierta.
-let mediaProc = null;
-let mediaState = { active: false };
-let mediaCover = null;
-let mediaStopTimer = null;
-
-function startMediaBridge() {
-  clearTimeout(mediaStopTimer);
-  if (mediaProc) return;
-  // PowerShell no puede leer dentro del .asar: se copia el script a userData.
-  const script = path.join(app.getPath("userData"), "media-bridge.ps1");
-  try {
-    fs.writeFileSync(script, fs.readFileSync(path.join(__dirname, "media-bridge.ps1")));
-  } catch (err) {
-    console.error("media-bridge", err);
-    return;
-  }
-  const proc = spawn("powershell.exe", ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", script], {
-    windowsHide: true,
-  });
-  mediaProc = proc;
-  mediaState = { active: false, pending: true }; // hasta que llegue la primera lectura
-  let buf = "";
-  proc.stdout.setEncoding("utf8");
-  proc.stdout.on("data", (chunk) => {
-    buf += chunk;
-    let nl;
-    while ((nl = buf.indexOf("\n")) >= 0) {
-      const raw = buf.slice(0, nl).trim();
-      buf = buf.slice(nl + 1);
-      if (!raw.startsWith("{")) continue;
-      try {
-        const s = JSON.parse(raw);
-        // La carátula solo llega al cambiar de canción ("" = no tiene).
-        if (typeof s.cover === "string") mediaCover = s.cover || null;
-        if (!s.active) mediaCover = null;
-        mediaState = { ...s, cover: mediaCover };
-        if (win && !win.isDestroyed()) win.webContents.send("media:state", mediaState);
-      } catch {}
-    }
-  });
-  proc.on("exit", () => {
-    if (mediaProc === proc) mediaProc = null;
-  });
-}
-
-ipcMain.handle("media:start", () => {
-  startMediaBridge();
-  return mediaState;
-});
-
-// Al salir de la sección se para a los pocos segundos (por si se vuelve).
-ipcMain.handle("media:stop", () => {
-  clearTimeout(mediaStopTimer);
-  mediaStopTimer = setTimeout(() => {
-    mediaProc?.kill();
-    mediaProc = null;
-  }, 15000);
-});
-
-ipcMain.handle("media:command", (_e, cmd) => {
-  const c = String(cmd || "");
-  if (!/^(toggle|next|prev|seek \d+(\.\d+)?)$/.test(c)) return false;
-  mediaProc?.stdin.write(`${c}\n`);
-  return true;
-});
-
-ipcMain.handle("media:openSpotify", () => shell.openExternal("spotify:"));
-
 // Enlaces externos desde la ventana: solo https.
 ipcMain.handle("app:openExternal", (_e, url) => {
   if (String(url).startsWith("https://")) shell.openExternal(String(url));
 });
-
-// Letras: LRCLIB (gratis, sin clave). Sincronizadas si las tiene.
-const lyricsCache = new Map();
-ipcMain.handle("media:lyrics", async (_e, { artist, title, album, duration } = {}) => {
-  const key = `${artist}|${title}`.toLowerCase();
-  if (lyricsCache.has(key)) return lyricsCache.get(key);
-  const headers = { "User-Agent": `SharinganLauncher/${app.getVersion()} (https://github.com/alessitto/Sharingan_Launcher)` };
-  const pick = (d) => (d && (d.syncedLyrics || d.plainLyrics) ? { synced: d.syncedLyrics || null, plain: d.plainLyrics || null, instrumental: !!d.instrumental } : null);
-  let result = null;
-  try {
-    const q = new URLSearchParams({ artist_name: artist || "", track_name: title || "" });
-    if (album) q.set("album_name", album);
-    if (duration) q.set("duration", String(Math.round(duration)));
-    const res = await fetch(`https://lrclib.net/api/get?${q}`, { headers, timeout: 10000 });
-    if (res.ok) result = pick(await res.json());
-    if (!result) {
-      const s = new URLSearchParams({ artist_name: artist || "", track_name: title || "" });
-      const r2 = await fetch(`https://lrclib.net/api/search?${s}`, { headers, timeout: 10000 });
-      const list = r2.ok ? await r2.json() : [];
-      const best =
-        (Array.isArray(list) ? list : []).find((x) => x.syncedLyrics && (!duration || Math.abs((x.duration || 0) - duration) < 4)) ||
-        (Array.isArray(list) ? list : []).find((x) => x.syncedLyrics || x.plainLyrics);
-      result = pick(best);
-    }
-  } catch (err) {
-    console.error("LRCLIB", err.message);
-    return { error: true };
-  }
-  const out = result || { none: true };
-  lyricsCache.set(key, out);
-  return out;
-});
-
-app.on("before-quit", () => mediaProc?.kill());
 
 // -------------------- System Specs IPC --------------------
 ipcMain.handle("system:getSpecs", async () => {
