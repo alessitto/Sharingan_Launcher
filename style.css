@@ -39,201 +39,8 @@
   --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* ===============================
-   Temas
-   =============================== */
-:root[data-theme="rayquaza"] {
-  --washi-50: #f9f9f5;
-  --washi-100: #f2f0e8;
-  --washi-200: #e5e2d1;
-  --washi-300: #d1cbad;
-  --washi-400: #b4aa79;
-
-  --ink-100: #e6eae8;
-  --ink-200: #c0cec7;
-  --ink-300: #8daf9f;
-  --ink-400: #a2cdb8;
-  --ink-500: #7ab89a;
-  --ink-600: #539a78;
-  --ink-700: #468366;
-  --ink-800: #3c6f56;
-  --ink-900: #315b47;
-  --ink-950: #40865f;
-  --ink-900-rgb: 49, 91, 71;
-
-  --red-100: #f8f2d3;
-  --red-400: #f8e16f;
-  --red-500: #f8e16f;
-  --red-600: #fadb3f;
-  --red-500-rgb: 248, 225, 111;
-  --on-accent: #171516;
-}
-
-:root[data-theme="reshiram"] {
-  color-scheme: light;
-
-  --washi-50: #221c1c;
-  --washi-100: #382e2e;
-  --washi-200: #5a4949;
-  --washi-300: #7b6565;
-  --washi-400: #9a8484;
-
-  --ink-100: #0b0a0a;
-  --ink-200: #100f0f;
-  --ink-300: #181616;
-  --ink-400: #201e1e;
-  --ink-500: #2f2d2d;
-  --ink-600: #444040;
-  --ink-700: #696363;
-  --ink-800: #9a9393;
-  --ink-900: #c9c5c5;
-  --ink-950: #ffffff;
-  --ink-900-rgb: 201, 197, 197;
-
-  --red-100: #f9e2d2;
-  --red-400: #fa8230;
-  --red-500: #fa8230;
-  --red-600: #fc6600;
-  --red-500-rgb: 250, 130, 48;
-  --on-accent: #171516;
-}
-
-:root[data-theme="zekrom"] {
-  --washi-50: #f5f9f9;
-  --washi-100: #e8f2f2;
-  --washi-200: #d1e5e5;
-  --washi-300: #add1d1;
-  --washi-400: #79b3b4;
-
-  --ink-100: #e9e7e9;
-  --ink-200: #c9c5c9;
-  --ink-300: #a39aa3;
-  --ink-400: #7f6d7f;
-  --ink-500: #504550;
-  --ink-600: #2a242a;
-  --ink-700: #1e1a1e;
-  --ink-800: #1b181b;
-  --ink-900: #191519;
-  --ink-950: #464646;
-  --ink-900-rgb: 25, 21, 25;
-
-  --red-100: #d2f9f9;
-  --red-400: #54fcfd;
-  --red-500: #54fcfd;
-  --red-600: #24feff;
-  --red-500-rgb: 84, 252, 253;
-  --on-accent: #171516;
-}
-
-:root[data-theme="blaziken"] {
-  --washi-50: #f9f9f5;
-  --washi-100: #f2f0e8;
-  --washi-200: #e5e1d1;
-  --washi-300: #d1c9ad;
-  --washi-400: #b4a779;
-
-  --ink-100: #fbefeb;
-  --ink-200: #f6dbd3;
-  --ink-300: #f2cabe;
-  --ink-400: #e8a999;
-  --ink-500: #dc8a77;
-  --ink-600: #cc6f5a;
-  --ink-700: #bd604c;
-  --ink-800: #b05543;
-  --ink-900: #a24838;
-  --ink-950: #bc5642;
-  --ink-900-rgb: 162, 72, 56;
-
-  --red-100: #faf1d1;
-  --red-400: #ffedab;
-  --red-500: #ffedab;
-  --red-600: #ffe37d;
-  --red-500-rgb: 255, 237, 171;
-  --on-accent: #171516;
-}
-
-:root[data-theme="luxray"] {
-  --washi-50: #f9f9f5;
-  --washi-100: #f2f2e8;
-  --washi-200: #e5e4d1;
-  --washi-300: #d1d0ad;
-  --washi-400: #b4b179;
-
-  --ink-100: #e5e5eb;
-  --ink-200: #bdbdd1;
-  --ink-300: #8383b9;
-  --ink-400: #6a6aaf;
-  --ink-500: #1b1b5e;
-  --ink-600: #0e0e2f;
-  --ink-700: #0d0d2b;
-  --ink-800: #0b0b28;
-  --ink-900: #0a0a24;
-  --ink-950: #08081c;
-  --ink-900-rgb: 10, 10, 36;
-
-  --red-100: #faf8d1;
-  --red-400: #faf000;
-  --red-500: #faf000;
-  --red-600: #ccc400;
-  --red-500-rgb: 250, 240, 0;
-  --on-accent: #171516;
-}
-
-:root[data-theme="mewtwo"] {
-  --washi-50: #f8f6f9;
-  --washi-100: #efe9f1;
-  --washi-200: #dfd3e3;
-  --washi-300: #c6b1cd;
-  --washi-400: #a27fad;
-
-  --ink-100: #e9e7e9;
-  --ink-200: #c9c4c9;
-  --ink-300: #aea3ae;
-  --ink-400: #bfb0bf;
-  --ink-500: #a48ea4;
-  --ink-600: #8f758f;
-  --ink-700: #7c647c;
-  --ink-800: #6b566b;
-  --ink-900: #5a495a;
-  --ink-950: #493b49;
-  --ink-900-rgb: 90, 73, 90;
-
-  --red-100: #ecd9f2;
-  --red-400: #aa8cb4;
-  --red-500: #aa8cb4;
-  --red-600: #966fa3;
-  --red-500-rgb: 170, 140, 180;
-  --on-accent: #171516;
-}
-
-:root[data-theme="mew"] {
-  color-scheme: light;
-
-  --washi-50: #231a1d;
-  --washi-100: #3a2c30;
-  --washi-200: #5d464d;
-  --washi-300: #80606a;
-  --washi-400: #9f7f88;
-
-  --ink-100: #0c0809;
-  --ink-200: #120d0e;
-  --ink-300: #1b1315;
-  --ink-400: #28151b;
-  --ink-500: #3c2028;
-  --ink-600: #562e3a;
-  --ink-700: #854759;
-  --ink-800: #b6778a;
-  --ink-900: #d8b6c0;
-  --ink-950: #ece4e6;
-  --ink-900-rgb: 216, 182, 192;
-
-  --red-100: #f7d4e1;
-  --red-400: #f4699b;
-  --red-500: #f4699b;
-  --red-600: #f53a7d;
-  --red-500-rgb: 244, 105, 155;
-  --on-accent: #171516;
-}
+/* Los colores de cada tema (dos colores: fondo y acento) los calcula
+   themes.js y los pone sobre :root; lo de arriba es solo el de partida. */
 
 * {
   box-sizing: border-box;
@@ -247,33 +54,17 @@ body {
 }
 
 /* ===============================
-   Fondo por tema
+   Fondo
    =============================== */
-/* Capa fija detrás de toda la app. Los temas con imagen propia
-   (assets/bg/<tema>.png, 2560x1440) la muestran entera, ajustada a la
-   ventana; el resto se quedan con su color de fondo liso. z-index negativo
+/* Capa fija detrás de toda la app con el color de fondo del tema (los
+   estilos, como Liquid Glass, le ponen su propio fondo). z-index negativo
    para quedar por detrás de .app y #intro-screen sin tocar su z-index. */
 .theme-bg {
   position: fixed;
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  /* contain: la imagen entera, sin recortar ni ampliar de más; lo que
-     sobre por arriba/abajo o por los lados es el color de fondo del tema,
-     que es el mismo que el de la imagen. */
-  background: var(--ink-950) var(--bg-image, none) center / contain no-repeat;
-}
-
-:root[data-theme="rayquaza"] {
-  --bg-image: url("assets/bg/rayquaza.png");
-}
-
-:root[data-theme="reshiram"] {
-  --bg-image: url("assets/bg/reshiram.png");
-}
-
-:root[data-theme="zekrom"] {
-  --bg-image: url("assets/bg/zekrom.png");
+  background: var(--ink-950);
 }
 
 h1,
@@ -1275,17 +1066,13 @@ button:disabled:active {
 }
 
 /* Temas claros: verde y rojo más oscuros para que se lean sobre fondo claro */
-:root[data-theme="reshiram"] .req-pass .req-key,
-:root[data-theme="reshiram"] .req-pass .req-val,
-:root[data-theme="mew"] .req-pass .req-key,
-:root[data-theme="mew"] .req-pass .req-val {
+:root[data-tone="light"] .req-pass .req-key,
+:root[data-tone="light"] .req-pass .req-val {
   color: #2f6a1c;
 }
 
-:root[data-theme="reshiram"] .req-fail .req-key,
-:root[data-theme="reshiram"] .req-fail .req-val,
-:root[data-theme="mew"] .req-fail .req-key,
-:root[data-theme="mew"] .req-fail .req-val {
+:root[data-tone="light"] .req-fail .req-key,
+:root[data-tone="light"] .req-fail .req-val {
   color: #b0213c;
 }
 
@@ -1685,8 +1472,7 @@ button:disabled:active {
   backdrop-filter: blur(6px);
 }
 
-:root[data-theme="reshiram"] .swal2-container.swal2-backdrop-show,
-:root[data-theme="mew"] .swal2-container.swal2-backdrop-show {
+:root[data-tone="light"] .swal2-container.swal2-backdrop-show {
   background: rgba(30, 15, 20, 0.35) !important;
 }
 
@@ -3492,97 +3278,76 @@ body:has(.update-toast.show) .scroll-top-btn {
 }
 
 /* =====================================================================
-   Tema Liquid Glass (iOS 26/27)
+   Estilo Liquid Glass (iOS 26/27)
    =====================================================================
-   Variables translúcidas (las superficies dejan ver el fondo), fondo de
-   pantalla tipo iOS, barra superior flotante en cápsula y cristal con
+   Va encima de cualquier color: themes.js hace translúcidas las
+   superficies (dejan ver el fondo) y pinta el fondo de pantalla con el
+   acento del tema. Barra superior flotante en cápsula y cristal con
    doble borde de luz. La refracción real del borde la pone liquid-glass.js
    (filtro SVG como backdrop-filter); aquí queda el desenfoque de respaldo.
    Siguiendo a Apple, el cristal "de verdad" es para la capa de navegación
    (barra, menús, avisos, modales); el contenido va en placas tintadas. */
-:root[data-theme="glass"] {
-  color-scheme: dark;
-
-  --washi-50: #ffffff;
-  --washi-100: rgba(255, 255, 255, 0.96);
-  --washi-200: rgba(255, 255, 255, 0.86);
-  --washi-300: rgba(235, 235, 245, 0.7);
-  --washi-400: rgba(235, 235, 245, 0.55);
-
-  --ink-100: rgba(255, 255, 255, 0.92);
-  --ink-200: rgba(235, 235, 245, 0.8);
-  --ink-300: rgba(235, 235, 245, 0.62);
-  --ink-400: rgba(235, 235, 245, 0.44);
-  --ink-500: rgba(255, 255, 255, 0.3);
-  --ink-600: rgba(255, 255, 255, 0.22);
-  --ink-700: rgba(255, 255, 255, 0.16);
-  --ink-800: rgba(255, 255, 255, 0.11);
-  --ink-900: rgba(255, 255, 255, 0.07);
-  --ink-950: #0d1633;
-  --ink-900-rgb: 22, 28, 56;
-
-  --red-100: #d6e9ff;
-  --red-400: #409cff;
-  --red-500: #0a84ff;
-  --red-600: #0071e3;
-  --red-500-rgb: 10, 132, 255;
-  --on-accent: #ffffff;
-  --gold-400: #ffd60a;
-  --green-500: #30d158;
-
+:root[data-effect="glass"] {
   --ease-smooth: cubic-bezier(0.32, 0.72, 0, 1);
   --lg-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --lg-font: "SF Pro Display", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI Variable Display", system-ui, sans-serif;
-  --lg-fill: rgba(255, 255, 255, 0.075);
-  --lg-fill-hover: rgba(255, 255, 255, 0.12);
+  --lg-fill: rgba(var(--fg-rgb), 0.06);
+  --lg-fill-hover: rgba(var(--fg-rgb), 0.1);
   /* Doble borde de luz: brillante arriba, tenue abajo y en los lados */
-  --lg-rim: inset 0 1px 0.5px rgba(255, 255, 255, 0.5), inset 0 -1px 0.5px rgba(255, 255, 255, 0.12),
-    inset 1px 0 0.5px rgba(255, 255, 255, 0.16), inset -1px 0 0.5px rgba(255, 255, 255, 0.1);
-  --lg-shadow: 0 12px 40px rgba(0, 0, 0, 0.28), 0 2px 8px rgba(0, 0, 0, 0.12);
-  --lg-chrome: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.03)), rgba(20, 26, 52, 0.16);
+  --lg-rim: inset 0 1px 0.5px rgba(255, 255, 255, 0.55), inset 0 -1px 0.5px rgba(255, 255, 255, 0.14),
+    inset 1px 0 0.5px rgba(255, 255, 255, 0.18), inset -1px 0 0.5px rgba(255, 255, 255, 0.1);
+  --lg-shadow: 0 12px 40px rgba(0, 0, 0, 0.26), 0 2px 8px rgba(0, 0, 0, 0.1);
+  --lg-chrome: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.03)), rgba(var(--bg-rgb), 0.14);
+  --lg-sheet: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04)), rgba(var(--bg-rgb), 0.55);
+  --lg-text-shadow: 0 1px 6px rgba(0, 0, 0, 0.3);
 }
 
-/* Fondo de pantalla: degradado vivo al estilo de los de iOS 26 */
-:root[data-theme="glass"] .theme-bg {
-  background:
-    radial-gradient(ellipse 55% 45% at 12% 8%, rgba(64, 140, 255, 0.95), transparent 70%),
-    radial-gradient(ellipse 45% 40% at 88% 12%, rgba(52, 214, 230, 0.7), transparent 70%),
-    radial-gradient(ellipse 50% 50% at 70% 55%, rgba(140, 82, 255, 0.85), transparent 70%),
-    radial-gradient(ellipse 45% 45% at 18% 78%, rgba(36, 92, 255, 0.85), transparent 70%),
-    radial-gradient(ellipse 40% 35% at 92% 92%, rgba(255, 94, 160, 0.75), transparent 70%),
-    radial-gradient(ellipse 30% 25% at 50% 100%, rgba(255, 170, 90, 0.55), transparent 70%),
-    linear-gradient(160deg, #0f2a78 0%, #1a1660 45%, #2a0f5c 100%);
+/* Sobre fondo claro el cristal es escarcha blanca con un filo oscuro */
+:root[data-effect="glass"][data-tone="light"] {
+  --lg-fill: rgba(255, 255, 255, 0.38);
+  --lg-fill-hover: rgba(255, 255, 255, 0.55);
+  --lg-rim: inset 0 1px 0.5px rgba(255, 255, 255, 0.95), inset 0 -1px 0.5px rgba(255, 255, 255, 0.4),
+    0 0 0 0.5px rgba(0, 0, 0, 0.08);
+  --lg-shadow: 0 12px 36px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
+  --lg-chrome: linear-gradient(180deg, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.3)), rgba(var(--bg-rgb), 0.12);
+  --lg-sheet: linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.45)), rgba(var(--bg-rgb), 0.3);
+  --lg-text-shadow: none;
 }
 
-:root[data-theme="glass"] .theme-bg::after {
-  /* Un velo suave para que el texto blanco se lea sobre cualquier zona */
+/* Fondo de pantalla: degradado vivo con el acento, al estilo de iOS 26 */
+:root[data-effect="glass"] .theme-bg {
+  background: var(--lg-wall, var(--ink-950));
+}
+
+:root[data-effect="glass"] .theme-bg::after {
+  /* Un velo suave para que el texto se lea sobre cualquier zona */
   content: "";
   position: absolute;
   inset: 0;
-  background: rgba(6, 10, 30, 0.22);
+  background: rgba(var(--bg-rgb), 0.2);
 }
 
 /* Tipografía tipo SF Pro */
-:root[data-theme="glass"] body,
-:root[data-theme="glass"] body *,
-:root[data-theme="glass"] .swal2-popup.sl-modal,
-:root[data-theme="glass"] .sl-modal .sl-modal-title {
+:root[data-effect="glass"] body,
+:root[data-effect="glass"] body *,
+:root[data-effect="glass"] .swal2-popup.sl-modal,
+:root[data-effect="glass"] .sl-modal .sl-modal-title {
   font-family: var(--lg-font) !important;
 }
 
-:root[data-theme="glass"] h1,
-:root[data-theme="glass"] h2,
-:root[data-theme="glass"] h3 {
+:root[data-effect="glass"] h1,
+:root[data-effect="glass"] h2,
+:root[data-effect="glass"] h3 {
   font-weight: 700;
   letter-spacing: -0.02em;
 }
 
-:root[data-theme="glass"] .section-title {
+:root[data-effect="glass"] .section-title {
   font-size: 34px;
   letter-spacing: -0.025em;
 }
 
-:root[data-theme="glass"] .section-eyebrow {
+:root[data-effect="glass"] .section-eyebrow {
   color: var(--ink-300);
   letter-spacing: 0.04em;
   font-size: 12px;
@@ -3590,11 +3355,11 @@ body:has(.update-toast.show) .scroll-top-btn {
 }
 
 /* ---------- Barra superior flotante (tab bar de iOS 26) ---------- */
-:root[data-theme="glass"] .app {
+:root[data-effect="glass"] .app {
   position: relative;
 }
 
-:root[data-theme="glass"] .topnav {
+:root[data-effect="glass"] .topnav {
   position: absolute;
   top: 12px;
   left: 16px;
@@ -3608,15 +3373,15 @@ body:has(.update-toast.show) .scroll-top-btn {
   backdrop-filter: blur(14px) saturate(180%);
 }
 
-:root[data-theme="glass"] .topnav-title {
+:root[data-effect="glass"] .topnav-title {
   font-size: 17px;
   font-weight: 700;
   letter-spacing: -0.02em;
   margin-right: 18px;
 }
 
-:root[data-theme="glass"] .topnav-item {
-  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.3);
+:root[data-effect="glass"] .topnav-item {
+  text-shadow: var(--lg-text-shadow);
   position: relative;
   z-index: 1;
   border: none;
@@ -3627,24 +3392,24 @@ body:has(.update-toast.show) .scroll-top-btn {
   transition: color 0.3s var(--ease-smooth), transform 0.45s var(--lg-spring);
 }
 
-:root[data-theme="glass"] .topnav-item:hover {
+:root[data-effect="glass"] .topnav-item:hover {
   background: transparent;
-  color: #fff;
+  color: var(--washi-50);
 }
 
-:root[data-theme="glass"] .topnav-item:active {
+:root[data-effect="glass"] .topnav-item:active {
   transform: scale(1.06);
 }
 
-:root[data-theme="glass"] .topnav-item.active {
-  color: #5ab0ff;
+:root[data-effect="glass"] .topnav-item.active {
+  color: var(--washi-50);
   font-weight: 700;
-  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
-  background: rgba(255, 255, 255, 0.16);
+  text-shadow: var(--lg-text-shadow);
+  background: rgba(var(--red-500-rgb), 0.3);
 }
 
 /* Con la cápsula deslizante de liquid-glass.js el fondo lo pone ella */
-:root[data-theme="glass"] .topnav.lg-has-indicator .topnav-item.active {
+:root[data-effect="glass"] .topnav.lg-has-indicator .topnav-item.active {
   background: transparent;
 }
 
@@ -3655,8 +3420,9 @@ body:has(.update-toast.show) .scroll-top-btn {
   z-index: 0;
   border-radius: 999px;
   pointer-events: none;
-  background: rgba(255, 255, 255, 0.17);
-  box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.45), inset 0 -1px 0.5px rgba(255, 255, 255, 0.1), 0 2px 10px rgba(0, 0, 0, 0.18);
+  /* Cápsula tintada con el acento del tema */
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.04)), rgba(var(--red-500-rgb), 0.32);
+  box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.5), inset 0 -1px 0.5px rgba(255, 255, 255, 0.12), 0 2px 10px rgba(0, 0, 0, 0.18);
   transition: transform 0.6s var(--lg-spring), width 0.6s var(--lg-spring), height 0.3s, opacity 0.2s;
 }
 
@@ -3673,135 +3439,131 @@ body:has(.update-toast.show) .scroll-top-btn {
   }
 }
 
-:root[data-theme="glass"] .version-link {
+:root[data-effect="glass"] .version-link {
   color: var(--ink-400);
 }
 
-:root[data-theme="glass"] .main-content {
+:root[data-effect="glass"] .main-content {
   padding-top: 84px;
 }
 
-:root[data-theme="glass"] .index-bar {
+:root[data-effect="glass"] .index-bar {
   top: 72px;
 }
 
-:root[data-theme="glass"] #notification-container {
+:root[data-effect="glass"] #notification-container {
   top: 80px;
 }
 
 /* ---------- Controles ---------- */
-:where(:root[data-theme="glass"]) button {
-  background: rgba(255, 255, 255, 0.1);
+:where(:root[data-effect="glass"]) button {
+  background: var(--lg-fill-hover);
   box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.3), inset 0 -1px 0.5px rgba(255, 255, 255, 0.06);
   transition: background 0.25s var(--ease-smooth), transform 0.45s var(--lg-spring), box-shadow 0.25s var(--ease-smooth);
 }
 
-:where(:root[data-theme="glass"]) button:hover {
-  background: rgba(255, 255, 255, 0.16);
+:where(:root[data-effect="glass"]) button:hover {
+  background: rgba(var(--fg-rgb), 0.16);
   transform: none;
 }
 
-:root[data-theme="glass"] button:active,
-:root[data-theme="glass"] .sl-btn:active {
+:root[data-effect="glass"] button:active,
+:root[data-effect="glass"] .sl-btn:active {
   transform: scale(1.05);
 }
 
-:root[data-theme="glass"] button.primary,
-:root[data-theme="glass"] .sl-btn-primary,
-:root[data-theme="glass"] .scroll-top-btn,
-:root[data-theme="glass"] .pp-bag-btn {
-  color: #fff;
-  background: linear-gradient(180deg, rgba(72, 160, 255, 0.92), rgba(10, 118, 245, 0.88));
-  box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.55), inset 0 -1px 0.5px rgba(0, 0, 0, 0.15), 0 8px 24px rgba(10, 132, 255, 0.35);
+:root[data-effect="glass"] button.primary,
+:root[data-effect="glass"] .sl-btn-primary,
+:root[data-effect="glass"] .scroll-top-btn,
+:root[data-effect="glass"] .pp-bag-btn {
+  /* Cristal tintado con el acento (deja pasar un poco el fondo) */
+  color: var(--on-accent);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0) 60%), rgba(var(--red-500-rgb), 0.84);
+  box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.6), inset 0 -1px 0.5px rgba(0, 0, 0, 0.15), 0 8px 24px rgba(var(--red-500-rgb), 0.32);
 }
 
-:root[data-theme="glass"] button.primary:hover,
-:root[data-theme="glass"] .sl-btn-primary:hover {
-  background: linear-gradient(180deg, rgba(96, 174, 255, 0.95), rgba(26, 132, 255, 0.92));
-  box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.6), inset 0 -1px 0.5px rgba(0, 0, 0, 0.15), 0 10px 28px rgba(10, 132, 255, 0.45);
+:root[data-effect="glass"] button.primary:hover,
+:root[data-effect="glass"] .sl-btn-primary:hover {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.36), rgba(255, 255, 255, 0.04) 60%), rgba(var(--red-500-rgb), 0.92);
+  box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.7), inset 0 -1px 0.5px rgba(0, 0, 0, 0.15), 0 10px 28px rgba(var(--red-500-rgb), 0.42);
 }
 
-:root[data-theme="glass"] .sl-btn-ghost,
-:root[data-theme="glass"] .icon-btn,
-:root[data-theme="glass"] .filter-btn {
+:root[data-effect="glass"] .sl-btn-ghost,
+:root[data-effect="glass"] .icon-btn,
+:root[data-effect="glass"] .filter-btn {
   border-color: transparent;
-  background: rgba(255, 255, 255, 0.1);
-  box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.3), inset 0 -1px 0.5px rgba(255, 255, 255, 0.06);
+  background: var(--lg-fill-hover);
+  box-shadow: var(--lg-rim);
 }
 
-:root[data-theme="glass"] .sl-btn-ghost:hover,
-:root[data-theme="glass"] .icon-btn:hover,
-:root[data-theme="glass"] .filter-btn:hover {
+:root[data-effect="glass"] .sl-btn-ghost:hover,
+:root[data-effect="glass"] .icon-btn:hover,
+:root[data-effect="glass"] .filter-btn:hover {
   border-color: transparent;
-  background: rgba(255, 255, 255, 0.17);
+  background: rgba(var(--fg-rgb), 0.16);
 }
 
-:root[data-theme="glass"] .sl-btn.sl-btn-danger {
+:root[data-effect="glass"] .sl-btn.sl-btn-danger {
   background: linear-gradient(180deg, rgba(255, 99, 88, 0.95), rgba(255, 59, 48, 0.9));
   box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.5), 0 8px 22px rgba(255, 59, 48, 0.3);
 }
 
 /* Luz que sigue al ratón (la pone liquid-glass.js en --lg-x / --lg-y) */
-:root[data-theme="glass"] .sl-btn:hover,
-:root[data-theme="glass"] button:hover,
-:root[data-theme="glass"] .game-card:hover,
-:root[data-theme="glass"] .theme-swatch:hover {
-  background-image: radial-gradient(circle 90px at var(--lg-x, 50%) var(--lg-y, 50%), rgba(255, 255, 255, 0.16), transparent 70%);
+:root[data-effect="glass"] .sl-btn:hover,
+:root[data-effect="glass"] button:hover,
+:root[data-effect="glass"] .game-card:hover,
+:root[data-effect="glass"] .theme-swatch:hover {
+  background-image: radial-gradient(circle 90px at var(--lg-x, 50%) var(--lg-y, 50%), rgba(255, 255, 255, 0.2), transparent 70%);
 }
 
-:root[data-theme="glass"] input[type="text"],
-:root[data-theme="glass"] .discover-toolbar select,
-:root[data-theme="glass"] .swal2-input.sl-input {
+:root[data-effect="glass"] input[type="text"],
+:root[data-effect="glass"] .discover-toolbar select,
+:root[data-effect="glass"] .swal2-input.sl-input {
   border: none;
   background: rgba(118, 118, 128, 0.26) !important;
   box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.12), inset 0 -1px 0.5px rgba(255, 255, 255, 0.04);
-  color: #fff;
+  color: var(--washi-50);
 }
 
-:root[data-theme="glass"] input[type="text"]:focus,
-:root[data-theme="glass"] .discover-toolbar select:focus,
-:root[data-theme="glass"] .swal2-input.sl-input:focus {
-  box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.5);
+:root[data-effect="glass"] input[type="text"]:focus,
+:root[data-effect="glass"] .discover-toolbar select:focus,
+:root[data-effect="glass"] .swal2-input.sl-input:focus {
+  box-shadow: 0 0 0 3px rgba(var(--red-500-rgb), 0.5);
 }
 
-:root[data-theme="glass"] select option {
-  background: #1d2346;
-  color: #fff;
+:root[data-effect="glass"] select option {
+  background: rgb(var(--ink-900-rgb));
+  color: var(--washi-50);
 }
 
 /* ---------- Contenido: placas tintadas con borde de luz ---------- */
-:root[data-theme="glass"] .game-card {
+:root[data-effect="glass"] .game-card {
   border: none;
   border-radius: 24px;
   background-color: var(--lg-fill);
   box-shadow: var(--lg-rim), 0 8px 26px rgba(0, 0, 0, 0.16);
 }
 
-:root[data-theme="glass"] .game-card:hover {
+:root[data-effect="glass"] .game-card:hover {
   border-color: transparent;
   background-color: var(--lg-fill-hover);
   box-shadow: var(--lg-rim), 0 18px 44px rgba(0, 0, 0, 0.3);
 }
 
-:root[data-theme="glass"] .game-card .card-cover,
-:root[data-theme="glass"] .game-card img {
+:root[data-effect="glass"] .game-card .card-cover,
+:root[data-effect="glass"] .game-card img {
   border-radius: 16px;
 }
 
-:root[data-theme="glass"] .empty-state,
-:root[data-theme="glass"] .theme-swatch {
+:root[data-effect="glass"] .empty-state,
+:root[data-effect="glass"] .theme-swatch {
   border-color: transparent;
   background-color: var(--lg-fill);
   box-shadow: var(--lg-rim);
 }
 
-:root[data-theme="glass"] .linked {
-  color: #30d158;
-  background: rgba(48, 209, 88, 0.16);
-}
-
 /* ---------- Capa de navegación: cristal ---------- */
-:root[data-theme="glass"] .index-bar {
+:root[data-effect="glass"] .index-bar {
   border: none;
   border-radius: 999px;
   background: var(--lg-chrome);
@@ -3809,129 +3571,126 @@ body:has(.update-toast.show) .scroll-top-btn {
   backdrop-filter: blur(14px) saturate(180%);
 }
 
-:root[data-theme="glass"] .index-btn {
+:root[data-effect="glass"] .index-btn {
   background: transparent;
   box-shadow: none;
 }
 
-:root[data-theme="glass"] .index-btn:hover {
-  background: rgba(255, 255, 255, 0.14);
+:root[data-effect="glass"] .index-btn:hover {
+  background: rgba(var(--fg-rgb), 0.14);
 }
 
-:root[data-theme="glass"] .notification {
+:root[data-effect="glass"] .notification {
   border: none;
   border-radius: 999px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.05)), rgba(24, 30, 60, 0.45);
+  background: var(--lg-sheet);
   box-shadow: var(--lg-rim), var(--lg-shadow);
   backdrop-filter: blur(24px) saturate(180%);
 }
 
-:root[data-theme="glass"] .update-toast {
+:root[data-effect="glass"] .update-toast {
   border: none;
   border-radius: 26px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.05)), rgba(24, 30, 60, 0.5);
+  background: var(--lg-sheet);
   box-shadow: var(--lg-rim), var(--lg-shadow);
   backdrop-filter: blur(28px) saturate(180%);
 }
 
-:root[data-theme="glass"] .dropdown-content {
+:root[data-effect="glass"] .dropdown-content {
   border: none;
   border-radius: 18px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.05)), rgba(30, 36, 70, 0.55) !important;
+  background: var(--lg-sheet) !important;
   box-shadow: var(--lg-rim), 0 20px 50px rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(30px) saturate(180%);
 }
 
-:root[data-theme="glass"] .dropdown-item:hover {
-  background-color: rgba(255, 255, 255, 0.12);
+:root[data-effect="glass"] .dropdown-item:hover {
+  background-color: rgba(var(--fg-rgb), 0.1);
 }
 
 /* Modales: hoja de cristal grande. El fondo de detrás no se desenfoca
    (si no, el modal no tendría nada que refractar: un backdrop-filter en un
    padre corta el del hijo). */
-:root[data-theme="glass"] .swal2-container.swal2-backdrop-show {
-  background: rgba(4, 8, 24, 0.32) !important;
+:root[data-effect="glass"] .swal2-container.swal2-backdrop-show {
+  background: rgba(0, 0, 0, 0.26) !important;
   backdrop-filter: none;
 }
 
-:root[data-theme="glass"] .swal2-popup.sl-modal {
+:root[data-effect="glass"] .swal2-popup.sl-modal {
   border: none;
   border-radius: 34px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04)), rgba(26, 32, 64, 0.58) !important;
+  background: var(--lg-sheet) !important;
   box-shadow: var(--lg-rim), 0 30px 90px rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(30px) saturate(180%);
 }
 
-:root[data-theme="glass"] .swal2-popup.sl-modal::before {
+:root[data-effect="glass"] .swal2-popup.sl-modal::before {
   display: none;
 }
 
-:root[data-theme="glass"] .sl-modal .sl-modal-title {
+:root[data-effect="glass"] .sl-modal .sl-modal-title {
   font-size: 26px !important;
   letter-spacing: -0.02em;
 }
 
-:root[data-theme="glass"] .sl-modal .sl-modal-close {
+:root[data-effect="glass"] .sl-modal .sl-modal-close {
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.12) !important;
+  background: var(--lg-fill-hover) !important;
+  box-shadow: var(--lg-rim);
 }
 
 /* Paneles internos que usaban el color de fondo opaco */
-:root[data-theme="glass"] .sg-side,
-:root[data-theme="glass"] .sg-search,
-:root[data-theme="glass"] .imp-row,
-:root[data-theme="glass"] .sg-root input.sg-name:focus {
-  background: rgba(255, 255, 255, 0.06);
+:root[data-effect="glass"] .sg-side,
+:root[data-effect="glass"] .sg-search,
+:root[data-effect="glass"] .imp-row,
+:root[data-effect="glass"] .sg-root input.sg-name:focus {
+  background: var(--lg-fill);
 }
 
-:root[data-theme="glass"] .settings-slider {
-  background: rgba(255, 255, 255, 0.18);
+:root[data-effect="glass"] .settings-slider {
+  background: rgba(var(--fg-rgb), 0.18);
 }
 
 /* ---------- PokéPark ---------- */
-/* El paisaje (pokepark.js) usa estos colores en vez del fondo translúcido */
-:root[data-theme="glass"] {
-  --pp-scene-base: #4f86e0;
-  --pp-scene-card: #3d8a63;
-}
-
-:root[data-theme="glass"] .pp-team,
-:root[data-theme="glass"] .pp-detail {
+/* El paisaje (pokepark.js) usa --pp-scene-base/--pp-scene-card, que pone
+   themes.js, en vez del fondo translúcido. */
+:root[data-effect="glass"] .pp-team,
+:root[data-effect="glass"] .pp-detail {
   border: none;
   border-radius: 28px;
   background: var(--lg-fill);
   box-shadow: var(--lg-rim), 0 10px 30px rgba(0, 0, 0, 0.18);
 }
 
-:root[data-theme="glass"] .pp-park {
+:root[data-effect="glass"] .pp-park {
   border: none;
   border-radius: 30px;
   box-shadow: var(--lg-rim), 0 14px 40px rgba(0, 0, 0, 0.3);
 }
 
-:root[data-theme="glass"] .pp-chip {
+:root[data-effect="glass"] .pp-chip {
   border: none;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.06)), rgba(20, 26, 52, 0.22);
+  background: var(--lg-chrome);
   box-shadow: var(--lg-rim), 0 4px 14px rgba(0, 0, 0, 0.18);
 }
 
-:root[data-theme="glass"] .pp-slot,
-:root[data-theme="glass"] .pp-ov-row {
+:root[data-effect="glass"] .pp-slot,
+:root[data-effect="glass"] .pp-ov-row {
   border-color: transparent;
-  background-color: rgba(255, 255, 255, 0.06);
-  box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.25), inset 0 -1px 0.5px rgba(255, 255, 255, 0.05);
+  background-color: var(--lg-fill);
+  box-shadow: var(--lg-rim);
 }
 
-:root[data-theme="glass"] .pp-slot.is-active,
-:root[data-theme="glass"] .pp-ov-row:hover {
-  background-color: rgba(10, 132, 255, 0.22);
-  box-shadow: inset 0 0 0 1.5px rgba(64, 156, 255, 0.9), inset 0 1px 0.5px rgba(255, 255, 255, 0.35);
+:root[data-effect="glass"] .pp-slot.is-active,
+:root[data-effect="glass"] .pp-ov-row:hover {
+  background-color: rgba(var(--red-500-rgb), 0.22);
+  box-shadow: inset 0 0 0 1.5px rgba(var(--red-500-rgb), 0.9), inset 0 1px 0.5px rgba(255, 255, 255, 0.35);
 }
 
-:root[data-theme="glass"] .pp-feed-menu {
+:root[data-effect="glass"] .pp-feed-menu {
   border: none;
   border-radius: 22px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.05)), rgba(30, 36, 70, 0.55);
+  background: var(--lg-sheet);
   box-shadow: var(--lg-rim), 0 20px 50px rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(30px) saturate(180%);
 }
@@ -4207,19 +3966,20 @@ body:has(.update-toast.show) .scroll-top-btn {
 }
 
 /* Liquid Glass */
-:root[data-theme="glass"] .jarvis-btn,
-:root[data-theme="glass"] .jarvis-bar {
+:root[data-effect="glass"] .jarvis-btn,
+:root[data-effect="glass"] .jarvis-bar {
   border: none;
   box-shadow: var(--lg-rim);
 }
 
-:root[data-theme="glass"] .jarvis-bar {
+:root[data-effect="glass"] .jarvis-bar {
   border-radius: 22px;
 }
 
-:root[data-theme="glass"] .settings-ai-input {
+:root[data-effect="glass"] .settings-ai-input {
   border: none;
   background: rgba(118, 118, 128, 0.26);
+  color: var(--washi-50);
 }
 
 /* ===============================
@@ -4382,7 +4142,7 @@ body:has(.update-toast.show) .scroll-top-btn {
 
 /* El índice A-Z fijo se pega al borde de arriba del todo: con top:0 se
    quedaba a la altura del padding y las carátulas asomaban por encima. */
-:root:not([data-theme="glass"]) .index-bar {
+:root:not([data-effect="glass"]) .index-bar {
   top: -20px;
   background: rgba(var(--ink-900-rgb), 0.95);
   backdrop-filter: blur(16px);
@@ -4481,5 +4241,352 @@ body.pad-in-use {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* =====================================================================
+   Estilo Retro
+   =====================================================================
+   Va encima de cualquier color: letra pixelada, esquinas cuadradas, bordes
+   gruesos con sombra dura (como las ventanas de los juegos de 8/16 bits) y
+   unas líneas de escaneo muy suaves por encima. */
+:root[data-effect="retro"] {
+  --retro-font: "Pixelify Sans", "Zen Kaku Gothic New", monospace;
+  --retro-title: "Press Start 2P", "Pixelify Sans", monospace;
+  --retro-line: rgba(var(--fg-rgb), 0.85);
+  --retro-drop: rgba(0, 0, 0, 0.55);
+  --ease-smooth: steps(4, end);
+}
+
+:root[data-effect="retro"][data-tone="light"] {
+  --retro-drop: rgba(0, 0, 0, 0.35);
+}
+
+:root[data-effect="retro"] body,
+:root[data-effect="retro"] body *,
+:root[data-effect="retro"] .swal2-popup.sl-modal {
+  font-family: var(--retro-font) !important;
+  text-shadow: none !important;
+}
+
+:root[data-effect="retro"] h1,
+:root[data-effect="retro"] h2,
+:root[data-effect="retro"] h3,
+:root[data-effect="retro"] .topnav-title,
+:root[data-effect="retro"] .section-title,
+:root[data-effect="retro"] .sl-modal .sl-modal-title {
+  font-family: var(--retro-title) !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  line-height: 1.5;
+}
+
+:root[data-effect="retro"] .section-title {
+  font-size: 22px;
+}
+
+:root[data-effect="retro"] .topnav-title {
+  font-size: 13px;
+}
+
+:root[data-effect="retro"] .sl-modal .sl-modal-title {
+  font-size: 17px !important;
+}
+
+/* Nada redondeado (salvo las imágenes, que se quedan como están) */
+:root[data-effect="retro"] *:not(img),
+:root[data-effect="retro"] *::before,
+:root[data-effect="retro"] *::after {
+  border-radius: 0 !important;
+}
+
+/* Ventanas y tarjetas: borde de 2 px y sombra dura */
+:root[data-effect="retro"] .topnav {
+  border-bottom: 3px solid var(--retro-line);
+  box-shadow: 0 4px 0 var(--retro-drop);
+}
+
+:root[data-effect="retro"] .game-card,
+:root[data-effect="retro"] .swal2-popup.sl-modal,
+:root[data-effect="retro"] .notification,
+:root[data-effect="retro"] .update-toast,
+:root[data-effect="retro"] .dropdown-content,
+:root[data-effect="retro"] .empty-state,
+:root[data-effect="retro"] .pp-park,
+:root[data-effect="retro"] .pp-team,
+:root[data-effect="retro"] .pp-detail,
+:root[data-effect="retro"] .pp-feed-menu {
+  border: 2px solid var(--retro-line) !important;
+  box-shadow: 5px 5px 0 var(--retro-drop) !important;
+}
+
+:root[data-effect="retro"] .game-card:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 7px 7px 0 var(--retro-drop) !important;
+}
+
+/* Botones: bloque con sombra que se "hunde" al pulsarlo */
+:root[data-effect="retro"] .sl-btn,
+:root[data-effect="retro"] button.primary,
+:root[data-effect="retro"] .icon-btn,
+:root[data-effect="retro"] .filter-btn,
+:root[data-effect="retro"] .scroll-top-btn {
+  border: 2px solid var(--retro-line) !important;
+  box-shadow: 3px 3px 0 var(--retro-drop) !important;
+  transition: none !important;
+}
+
+:root[data-effect="retro"] .sl-btn:active,
+:root[data-effect="retro"] button.primary:active,
+:root[data-effect="retro"] .icon-btn:active,
+:root[data-effect="retro"] .filter-btn:active {
+  transform: translate(3px, 3px) !important;
+  box-shadow: none !important;
+}
+
+:root[data-effect="retro"] .topnav-item {
+  border: 2px solid transparent;
+  transition: none;
+}
+
+:root[data-effect="retro"] .topnav-item.active {
+  background: var(--red-500);
+  color: var(--on-accent);
+  border-color: var(--retro-line);
+}
+
+:root[data-effect="retro"] input[type="text"],
+:root[data-effect="retro"] select,
+:root[data-effect="retro"] textarea,
+:root[data-effect="retro"] .swal2-input.sl-input {
+  border: 2px solid var(--retro-line) !important;
+  box-shadow: inset 3px 3px 0 var(--retro-drop) !important;
+}
+
+:root[data-effect="retro"] .settings-slider::-webkit-slider-thumb {
+  border: 2px solid var(--retro-line);
+}
+
+/* Líneas de escaneo de pantalla antigua */
+:root[data-effect="retro"] body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  pointer-events: none;
+  background: repeating-linear-gradient(180deg, rgba(0, 0, 0, 0.07) 0 1px, transparent 1px 3px);
+}
+
+/* =====================================================================
+   Selector de tema (Ajustes > Cambiar tema)
+   ===================================================================== */
+.theme-current .theme-swatch-preview {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+}
+
+.theme-picker .tp-cat + .tp-cat {
+  margin-top: 16px;
+}
+
+.tp-cat-title {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--washi-50);
+}
+
+.tp-sub {
+  margin: 12px 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-300);
+}
+
+.theme-picker .theme-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.theme-picker .theme-swatch {
+  gap: 7px;
+  padding: 7px 8px;
+}
+
+.theme-picker .theme-swatch-preview {
+  width: 20px;
+  height: 20px;
+}
+
+.tp-effects {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.tp-effect {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px solid var(--ink-700);
+  background: var(--ink-800);
+  cursor: pointer;
+  transition: border-color 0.15s var(--ease-smooth), transform 0.15s var(--ease-smooth);
+}
+
+.tp-effect:hover {
+  transform: translateY(-2px);
+}
+
+.tp-effect.is-selected {
+  border-color: var(--red-500);
+  box-shadow: 0 0 0 1px var(--red-500);
+}
+
+.tp-effect-name {
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--washi-50);
+}
+
+.tp-effect-desc {
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--ink-300);
+}
+
+/* Miniaturas de cada estilo con los colores del tema activo */
+.theme-picker .tp-fx {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 54px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: rgb(var(--bg-rgb));
+}
+
+.tp-fx-text {
+  position: relative;
+  font-size: 22px;
+  font-weight: 700;
+  color: rgb(var(--fg-rgb));
+}
+
+.tp-fx-pill {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 9px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--red-500);
+}
+
+/* (con !important para que no les cambie la letra el estilo activo) */
+.theme-picker .tp-fx-default .tp-fx-text {
+  font-family: "Shippori Mincho", serif !important;
+}
+
+.theme-picker .tp-fx-retro {
+  border-radius: 0 !important;
+  box-shadow: inset 0 0 0 2px rgba(var(--fg-rgb), 0.85);
+  background: repeating-linear-gradient(180deg, rgba(0, 0, 0, 0.1) 0 1px, transparent 1px 3px), rgb(var(--bg-rgb));
+}
+
+.theme-picker .tp-fx-retro .tp-fx-text {
+  font-family: "Press Start 2P", monospace !important;
+  font-size: 16px;
+  font-weight: 400;
+}
+
+.tp-fx-retro .tp-fx-pill {
+  border-radius: 0 !important;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.5);
+}
+
+.tp-fx-glass {
+  background:
+    radial-gradient(circle at 18% 20%, rgba(var(--red-500-rgb), 0.9), transparent 55%),
+    radial-gradient(circle at 85% 85%, rgba(var(--red-500-rgb), 0.6), transparent 50%),
+    rgb(var(--bg-rgb));
+}
+
+.tp-fx-glass .tp-fx-pill {
+  top: 12px;
+  bottom: 12px;
+  height: auto;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.06));
+  box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.7), inset 0 -1px 0.5px rgba(255, 255, 255, 0.2), 0 4px 12px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(4px) saturate(160%);
+}
+
+.theme-picker .tp-fx-glass .tp-fx-text {
+  font-family: "SF Pro Display", -apple-system, "Inter", system-ui, sans-serif !important;
+  letter-spacing: -0.02em;
+}
+
+/* Las miniaturas de Predeterminado y Liquid Glass siguen redondeadas en Retro */
+.theme-picker .tp-fx.tp-fx-default,
+.theme-picker .tp-fx.tp-fx-glass {
+  border-radius: 10px !important;
+}
+
+.theme-picker .tp-fx-default .tp-fx-pill,
+.theme-picker .tp-fx-glass .tp-fx-pill {
+  border-radius: 999px !important;
+}
+
+.tp-soon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 6px 0 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px dashed var(--ink-600);
+  font-size: 12px;
+  color: var(--ink-300);
+}
+
+.tp-soon .i {
+  width: 14px;
+  height: 14px;
+  color: var(--red-500);
+}
+
+:root[data-effect="glass"] .tp-effect {
+  border-color: transparent;
+  background-color: var(--lg-fill);
+  box-shadow: var(--lg-rim);
+}
+
+:root[data-effect="glass"] .tp-effect.is-selected,
+:root[data-effect="glass"] .theme-swatch.is-selected {
+  box-shadow: var(--lg-rim), inset 0 0 0 1.5px var(--red-500);
+}
+
+:root[data-effect="retro"] .tp-effect,
+:root[data-effect="retro"] .theme-swatch {
+  border: 2px solid var(--ink-600);
+}
+
+:root[data-effect="retro"] .tp-effect.is-selected,
+:root[data-effect="retro"] .theme-swatch.is-selected {
+  border-color: var(--red-500);
+  box-shadow: 3px 3px 0 var(--retro-drop);
+}
+
+@media (max-width: 560px) {
+  .tp-effects,
+  .theme-picker .theme-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

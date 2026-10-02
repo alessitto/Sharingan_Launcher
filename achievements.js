@@ -14,7 +14,9 @@
 (() => {
   "use strict";
 
-  const THEMES_TOTAL = 9;
+  // Colores probados (los estilos se guardan como "fx:<id>").
+  const THEMES_TOTAL = window.SLThemes?.PALETTES.length || 15;
+  const colorsTried = (st) => (st.themes || []).filter((id) => window.SLThemes?.paletteById(id)).length;
   const FRIENDSHIP_MAX = 255;
 
   const libraryCounts = () => {
@@ -55,9 +57,9 @@
     { id: "jarvis_add", cat: "discover", icon: "sparkles", name: "Buen consejo", desc: "Añade a tu biblioteca un juego que te recomendó Jarvis.", goal: (st) => [s("jarvisAdds")(st), 1] },
     { id: "ai_saga", cat: "discover", icon: "calendar", name: "Historiador", desc: "Aplica el orden cronológico de la IA a una saga.", goal: (st) => [s("aiSagas")(st), 1] },
     // Personalización
-    { id: "theme_change", cat: "style", icon: "palette", name: "Nuevo look", desc: "Cambia el tema de la app.", goal: (st) => [Math.min(2, (st.themes || []).length), 2] },
-    { id: "theme_glass", cat: "style", icon: "sparkles", name: "Cristal líquido", desc: "Usa el tema Liquid Glass.", goal: (st) => [(st.themes || []).includes("glass") ? 1 : 0, 1] },
-    { id: "theme_all", cat: "style", icon: "palette", name: "Coleccionista de estilos", desc: `Prueba los ${THEMES_TOTAL} temas.`, goal: (st) => [(st.themes || []).length, THEMES_TOTAL] },
+    { id: "theme_change", cat: "style", icon: "palette", name: "Nuevo look", desc: "Cambia el color de la app.", goal: (st) => [Math.min(2, colorsTried(st)), 2] },
+    { id: "theme_glass", cat: "style", icon: "sparkles", name: "Cristal líquido", desc: "Usa el estilo Liquid Glass.", goal: (st) => [(st.themes || []).some((id) => id === "glass" || id === "fx:glass") ? 1 : 0, 1] },
+    { id: "theme_all", cat: "style", icon: "palette", name: "Coleccionista de estilos", desc: `Prueba los ${THEMES_TOTAL} colores.`, goal: (st) => [colorsTried(st), THEMES_TOTAL] },
     // PokéPark
     { id: "pp_first", cat: "pokepark", icon: "pokeball", name: "¡Te elijo a ti!", desc: "Elige tu primer Pokémon.", goal: () => [park().party.length, 1] },
     { id: "pp_full", cat: "pokepark", icon: "pokeball", name: "Equipo completo", desc: "Ten 6 Pokémon en el parque.", goal: () => [park().party.length, 6] },

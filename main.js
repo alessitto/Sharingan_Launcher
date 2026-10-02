@@ -5,6 +5,7 @@ const { execFile, spawn } = require("child_process");
 const saves = require("./saves");
 const ai = require("./ai");
 const { createCloud } = require("./cloud");
+const themes = require("./themes");
 let cloud = null; // se crea al arrancar (setupCloud)
 const fs = require("fs");
 const fetch = require("node-fetch"); // npm install node-fetch@2
@@ -159,8 +160,7 @@ const GAMES_PER_PAGE_MAX = 200;
 // 10 se vuelven ilegibles (miniaturas minúsculas) en una ventana normal.
 const GRID_COLUMNS_MIN = 3;
 const GRID_COLUMNS_MAX = 10;
-const VALID_THEMES = ["uchiha", "rayquaza", "reshiram", "zekrom", "blaziken", "luxray", "mewtwo", "mew", "glass"];
-let appSettings = { gamesPerPage: 60, gridColumns: 5, theme: "uchiha" };
+let appSettings = { gamesPerPage: 60, gridColumns: 5, theme: "itachi", themeEffect: "default" };
 
 function clampGamesPerPage(value) {
   const n = Number(value);
@@ -174,8 +174,10 @@ function clampGridColumns(value) {
   return Math.min(GRID_COLUMNS_MAX, Math.max(GRID_COLUMNS_MIN, Math.round(n)));
 }
 
-function clampTheme(value) {
-  return VALID_THEMES.includes(value) ? value : "uchiha";
+// Color y estilo del tema (también pasa los temas antiguos a los nuevos).
+function clampTheme(theme, effect) {
+  const r = themes.resolve({ theme, themeEffect: effect });
+  return { theme: r.palette, themeEffect: r.effect };
 }
 
 function loadSettings() {
@@ -187,7 +189,7 @@ function loadSettings() {
         ...parsed,
         gamesPerPage: clampGamesPerPage(parsed.gamesPerPage),
         gridColumns: clampGridColumns(parsed.gridColumns),
-        theme: clampTheme(parsed.theme),
+        ...clampTheme(parsed.theme, parsed.themeEffect),
       };
     }
   } catch (err) {
@@ -224,8 +226,8 @@ ipcMain.handle("settings:set", (_e, patch = {}) => {
   if (patch.gridColumns !== undefined) {
     appSettings.gridColumns = clampGridColumns(patch.gridColumns);
   }
-  if (patch.theme !== undefined) {
-    appSettings.theme = clampTheme(patch.theme);
+  if (patch.theme !== undefined || patch.themeEffect !== undefined) {
+    Object.assign(appSettings, clampTheme(patch.theme ?? appSettings.theme, patch.themeEffect ?? appSettings.themeEffect));
   }
   saveSettings();
   return publicSettings();
@@ -619,25 +621,14 @@ function upsertGameImported(gameObj) {
 // Electron pinta la ventana en blanco por defecto hasta que carga el primer
 // frame si no se le da un backgroundColor - con la app en modo oscuro eso se
 // nota como un parpadeo blanco feo al abrir/redimensionar. Un color por tema
-// (el mismo que --ink-950 en style.css) lo evita sea cual sea el tema activo.
-const THEME_BG_COLORS = {
-  uchiha: "#0a0809",
-  rayquaza: "#40865f",
-  reshiram: "#ffffff",
-  zekrom: "#464646",
-  blaziken: "#bc5642",
-  luxray: "#08081c",
-  mewtwo: "#493b49",
-  mew: "#ece4e6",
-  glass: "#0d1633",
-};
+// (el fondo de la paleta del tema) lo evita sea cual sea el tema activo.
 
 function createWindow() {
   win = new BrowserWindow({
     width: 1280,
     height: 720,
     autoHideMenuBar: true,
-    backgroundColor: THEME_BG_COLORS[appSettings.theme] || THEME_BG_COLORS.uchiha,
+    backgroundColor: themes.windowBg(appSettings),
     icon: path.join(__dirname, "assets/icon.png"),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),

@@ -6,7 +6,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=Inter:wght@400;500;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=Inter:wght@400;500;600;700;800&family=Pixelify+Sans:wght@400;500;600;700&family=Press+Start+2P&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="style.css" />
@@ -174,6 +174,7 @@
     </div>
 
     <script src="node_modules/sweetalert2/dist/sweetalert2.all.min.js"></script>
+    <script src="themes.js"></script>
     <script src="pokepark.js" defer></script>
     <script src="liquid-glass.js" defer></script>
     <script src="achievements.js" defer></script>
@@ -2572,29 +2573,16 @@
       // ===============================
       // Ajustes de usuario
       // ===============================
-      const THEMES = [
-        { id: "uchiha", name: "Uchiha", bg: "#0a0809", accent: "#bc002d" },
-        { id: "rayquaza", name: "Rayquaza", bg: "#40865f", accent: "#f8e16f" },
-        { id: "reshiram", name: "Reshiram", bg: "#ffffff", accent: "#fa8230" },
-        { id: "zekrom", name: "Zekrom", bg: "#464646", accent: "#54fcfd" },
-        { id: "blaziken", name: "Blaziken", bg: "#bc5642", accent: "#ffedab" },
-        { id: "luxray", name: "Luxray", bg: "#00003c", accent: "#faf000" },
-        { id: "mewtwo", name: "Mewtwo", bg: "#967896", accent: "#aa8cb4" },
-        { id: "mew", name: "Mew", bg: "#fbd9e3", accent: "#f4699b" },
-        {
-          id: "glass",
-          name: "Liquid Glass",
-          bg: "radial-gradient(circle at 25% 25%, #5e8bff, transparent 60%), radial-gradient(circle at 80% 80%, #ff6fae, transparent 55%), linear-gradient(135deg, #2a3cff, #8a4dff)",
-          accent: "#0a84ff",
-        },
-      ];
+      // Tema activo: color (paleta de dos colores) + estilo. Todo lo
+      // calcula themes.js; aquí solo se guarda y se pinta el selector.
+      let themeState = { palette: "itachi", effect: "default" };
 
       async function loadAppSettings() {
         try {
           const settings = (await window.electronAPI.getSettings()) || {};
           if (settings.gamesPerPage) DISCOVER_PAGE_SIZE = settings.gamesPerPage;
           applyGridColumns(settings.gridColumns);
-          applyTheme(settings.theme);
+          applyTheme(settings);
         } catch (err) {
           console.error("No se pudieron cargar los ajustes", err);
         }
@@ -2610,13 +2598,93 @@
         }
       }
 
-      function applyTheme(themeId) {
-        window.Achievements?.trackTheme(themeId || "uchiha");
-        if (!themeId || themeId === "uchiha") {
-          document.documentElement.removeAttribute("data-theme");
-        } else {
-          document.documentElement.setAttribute("data-theme", themeId);
-        }
+      function applyTheme(settings) {
+        themeState = window.SLThemes.apply(settings || {});
+        window.Achievements?.trackTheme(themeState.palette);
+        window.Achievements?.trackTheme(`fx:${themeState.effect}`);
+      }
+
+      function themeSwatchHtml(p, selected) {
+        return `
+          <div class="theme-swatch${selected ? " is-selected" : ""}" data-theme-id="${p.id}" title="${p.name}">
+            <span class="theme-swatch-preview" style="background:${p.bg};">
+              <span class="theme-swatch-accent" style="background:${p.accent};"></span>
+            </span>
+            <span class="theme-swatch-name">${p.name}</span>
+          </div>`;
+      }
+
+      // Selector de tema: arriba el color (por categorías), abajo el estilo.
+      // Se aplica al momento, igual que el resto de ajustes.
+      async function openThemeModal() {
+        const T = window.SLThemes;
+        const colors = T.CATEGORIES.map(
+          (cat) => `
+            <div class="tp-cat">
+              <p class="tp-cat-title">${cat.name}</p>
+              ${cat.groups
+                .map(
+                  (g) => `
+                    ${g.name ? `<p class="tp-sub">${g.name}</p>` : ""}
+                    <div class="theme-grid">${g.items.map((p) => themeSwatchHtml(p, p.id === themeState.palette)).join("")}</div>`
+                )
+                .join("")}
+            </div>`
+        ).join("");
+        const effects = T.EFFECTS.map(
+          (e) => `
+            <div class="tp-effect${e.id === themeState.effect ? " is-selected" : ""}" data-effect-id="${e.id}">
+              <span class="tp-fx tp-fx-${e.id}" aria-hidden="true"><span class="tp-fx-pill"></span><span class="tp-fx-text">Aa</span></span>
+              <span class="tp-effect-name">${e.name}</span>
+              <span class="tp-effect-desc">${e.desc}</span>
+            </div>`
+        ).join("");
+
+        await openModal({
+          eyebrow: "Ajustes",
+          title: "Tema",
+          showConfirmButton: false,
+          showCloseButton: true,
+          allowEscapeKey: true,
+          allowOutsideClick: true,
+          width: 680,
+          html: `
+            <div class="settings-panel theme-picker">
+              <div class="settings-section">
+                <span class="section-eyebrow">Color</span>
+                <div id="themeColors">${colors}</div>
+              </div>
+              <div class="settings-divider"></div>
+              <div class="settings-section">
+                <span class="section-eyebrow">Estilo</span>
+                <div class="tp-effects" id="themeEffects">${effects}</div>
+              </div>
+              <p class="tp-soon">${icon("sparkles")}Más colores y estilos llegarán en próximas actualizaciones.</p>
+            </div>
+          `,
+          didOpen: () => {
+            const colorsEl = document.getElementById("themeColors");
+            const effectsEl = document.getElementById("themeEffects");
+            colorsEl?.addEventListener("click", (e) => {
+              const sw = e.target.closest(".theme-swatch");
+              if (!sw) return;
+              const theme = sw.dataset.themeId;
+              colorsEl.querySelectorAll(".theme-swatch").forEach((el) => el.classList.toggle("is-selected", el === sw));
+              applyTheme({ theme, themeEffect: themeState.effect });
+              persistSetting({ theme });
+            });
+            effectsEl?.addEventListener("click", (e) => {
+              const card = e.target.closest(".tp-effect");
+              if (!card) return;
+              const themeEffect = card.dataset.effectId;
+              effectsEl.querySelectorAll(".tp-effect").forEach((el) => el.classList.toggle("is-selected", el === card));
+              applyTheme({ theme: themeState.palette, themeEffect });
+              persistSetting({ themeEffect });
+            });
+          },
+        });
+        // Al cerrar se vuelve a los ajustes, que es de donde se ha venido.
+        openSettingsModal();
       }
 
       // Cada ajuste se aplica y se guarda al momento (como un panel de
@@ -2637,18 +2705,8 @@
           Number(getComputedStyle(document.documentElement).getPropertyValue("--grid-cols")) ||
           settings.gridColumns ||
           5;
-        const currentTheme = document.documentElement.getAttribute("data-theme") || "uchiha";
-
-        const themeSwatches = THEMES.map(
-          (t) => `
-            <div class="theme-swatch${t.id === currentTheme ? " is-selected" : ""}" data-theme-id="${t.id}" title="${t.name}">
-              <span class="theme-swatch-preview" style="background:${t.bg};">
-                <span class="theme-swatch-accent" style="background:${t.accent};"></span>
-              </span>
-              <span class="theme-swatch-name">${t.name}</span>
-            </div>
-          `
-        ).join("");
+        const curPalette = window.SLThemes.paletteById(themeState.palette);
+        const curEffect = window.SLThemes.EFFECTS.find((e) => e.id === themeState.effect);
 
         await openModal({
           eyebrow: "Sharingan Launcher",
@@ -2662,7 +2720,16 @@
             <div class="settings-panel">
               <div class="settings-section">
                 <span class="section-eyebrow">Tema</span>
-                <div class="theme-grid" id="themeGrid">${themeSwatches}</div>
+                <div class="settings-data-row theme-current">
+                  <span class="theme-swatch-preview" style="background:${curPalette.bg};">
+                    <span class="theme-swatch-accent" style="background:${curPalette.accent};"></span>
+                  </span>
+                  <div>
+                    <p class="settings-data-title">${escapeHtml(curPalette.name)}</p>
+                    <p class="settings-update-text">Estilo ${escapeHtml(curEffect?.name || "")}</p>
+                  </div>
+                  <button type="button" id="settingsThemeBtn" class="sl-btn sl-btn-ghost">${icon("palette")}Cambiar tema</button>
+                </div>
               </div>
 
               <div class="settings-divider"></div>
@@ -2787,17 +2854,7 @@
             document.getElementById("settingsBackupBtn")?.addEventListener("click", () => openBackupModal());
             document.getElementById("settingsWipeBtn")?.addEventListener("click", () => wipeAllData());
 
-            const themeGrid = document.getElementById("themeGrid");
-            themeGrid?.addEventListener("click", (e) => {
-              const swatch = e.target.closest(".theme-swatch");
-              if (!swatch) return;
-              const themeId = swatch.dataset.themeId;
-              themeGrid.querySelectorAll(".theme-swatch").forEach((el) => {
-                el.classList.toggle("is-selected", el.dataset.themeId === themeId);
-              });
-              applyTheme(themeId);
-              persistSetting({ theme: themeId });
-            });
+            document.getElementById("settingsThemeBtn")?.addEventListener("click", () => openThemeModal());
           },
         });
       }

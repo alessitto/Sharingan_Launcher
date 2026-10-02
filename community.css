@@ -1167,29 +1167,29 @@ body.in-community .main-content {
 }
 
 /* ------------------------------------------------------------ Liquid Glass */
-:root[data-theme="glass"] .account-btn,
-:root[data-theme="glass"] .cm-tabs,
-:root[data-theme="glass"] .cm-channels,
-:root[data-theme="glass"] .cm-room,
-:root[data-theme="glass"] .cm-rep,
-:root[data-theme="glass"] .cm-detail-card,
-:root[data-theme="glass"] .cm-reply:not(.is-admin),
-:root[data-theme="glass"] .cm-ach-summary,
-:root[data-theme="glass"] .cm-ach-card:not(.is-done) {
+:root[data-effect="glass"] .account-btn,
+:root[data-effect="glass"] .cm-tabs,
+:root[data-effect="glass"] .cm-channels,
+:root[data-effect="glass"] .cm-room,
+:root[data-effect="glass"] .cm-rep,
+:root[data-effect="glass"] .cm-detail-card,
+:root[data-effect="glass"] .cm-reply:not(.is-admin),
+:root[data-effect="glass"] .cm-ach-summary,
+:root[data-effect="glass"] .cm-ach-card:not(.is-done) {
   border-color: transparent;
   background: var(--lg-fill);
   box-shadow: var(--lg-rim);
 }
 
-:root[data-theme="glass"] .cm-room,
-:root[data-theme="glass"] .cm-channels {
+:root[data-effect="glass"] .cm-room,
+:root[data-effect="glass"] .cm-channels {
   border-radius: 26px;
 }
 
-:root[data-theme="glass"] .cm-field input,
-:root[data-theme="glass"] .cm-field textarea,
-:root[data-theme="glass"] .cm-reply-input,
-:root[data-theme="glass"] .cm-input {
+:root[data-effect="glass"] .cm-field input,
+:root[data-effect="glass"] .cm-field textarea,
+:root[data-effect="glass"] .cm-reply-input,
+:root[data-effect="glass"] .cm-input {
   border: none;
   background: rgba(118, 118, 128, 0.26);
 }
@@ -1201,9 +1201,4 @@ body.in-community .main-content {
   text-decoration: underline;
   text-underline-offset: 2px;
   word-break: break-all;
-}
-
-:root[data-theme="glass"] .cm-msg-body a,
-:root[data-theme="glass"] .cm-detail-body a {
-  color: #64b5ff;
 }

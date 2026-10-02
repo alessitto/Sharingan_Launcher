@@ -1603,7 +1603,6 @@
   const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
   const shade = (c, t) => (t >= 0 ? mix(c, [255, 255, 255], t) : mix(c, [0, 0, 0], -t));
   const rgb = (c) => `rgb(${c[0]},${c[1]},${c[2]})`;
-  const lum = (c) => (0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]) / 255;
 
   function seeded(seed) {
     let t = seed >>> 0;
@@ -1621,7 +1620,7 @@
     if (!park || !canvas || !park.clientWidth) return;
     const W = park.clientWidth;
     const H = park.clientHeight;
-    const theme = document.documentElement.getAttribute("data-theme") || "uchiha";
+    const theme = `${document.documentElement.getAttribute("data-theme")}|${document.documentElement.getAttribute("data-effect")}`;
     const night = timeOfDay() === "night";
     const key = `${W}x${H}|${theme}|${night}`;
     if (!force && key === scenery.key) return;
@@ -1647,14 +1646,14 @@
     };
 
     // Paleta
-    // Un tema puede dar colores propios al paisaje (Liquid Glass, cuyos
+    // Un estilo puede dar colores propios al paisaje (Liquid Glass, cuyos
     // fondos son translúcidos); si no, salen del fondo y las tarjetas.
     const sceneVar = (name, fallback) =>
       cssColor(getComputedStyle(document.documentElement).getPropertyValue(name).trim() ? name : fallback);
     const accent = cssColor("--red-500");
     const base = sceneVar("--pp-scene-base", "--ink-950");
     const card = sceneVar("--pp-scene-card", "--ink-900");
-    const light = lum(base) > 0.55; // Reshiram y Mew
+    const light = document.documentElement.getAttribute("data-tone") === "light";
     const nightTint = [16, 20, 52];
     const n = (c) => (night ? mix(c, nightTint, light ? 0.55 : 0.45) : c);
     const skyTop = n(mix(light ? shade(base, -0.05) : shade(base, 0.08), accent, light ? 0.18 : 0.28));
@@ -1815,7 +1814,7 @@
       paintScenery(true);
       layoutGround();
     }
-  }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "data-effect"] });
 
   function groundRect() {
     const g = root?.querySelector(".pp-ground");

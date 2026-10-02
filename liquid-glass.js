@@ -1,5 +1,5 @@
 // =====================================================================
-// Liquid Glass (tema "glass")
+// Liquid Glass (estilo "glass", va encima de cualquier color)
 // =====================================================================
 // Recreación del material Liquid Glass de iOS 26/27 sobre la ventana.
 // Lo que hace Apple (y lo que se imita aquí) es una lente: el centro del
@@ -363,8 +363,8 @@
     }
   }
 
-  const sync = () => setActive(document.documentElement.getAttribute("data-theme") === THEME);
-  new MutationObserver(sync).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  const sync = () => setActive(document.documentElement.getAttribute("data-effect") === THEME);
+  new MutationObserver(sync).observe(document.documentElement, { attributes: true, attributeFilter: ["data-effect"] });
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", sync);
   else sync();
 })();
