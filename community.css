@@ -382,7 +382,7 @@ body.in-community .main-content {
 }
 
 .cm-channel.is-active .i {
-  color: var(--red-500);
+  color: var(--accent-text);
 }
 
 .cm-room {
@@ -407,7 +407,7 @@ body.in-community .main-content {
 .cm-room-head .i {
   width: 16px;
   height: 16px;
-  color: var(--red-500);
+  color: var(--accent-text);
 }
 
 .cm-room-head span {
@@ -482,7 +482,7 @@ body.in-community .main-content {
 }
 
 .cm-msg.is-admin .cm-msg-head b {
-  color: var(--red-400);
+  color: var(--accent-text);
 }
 
 .cm-msg-body {
@@ -704,7 +704,7 @@ body.in-community .main-content {
   gap: 4px;
   font-size: 11px;
   font-weight: 700;
-  color: var(--red-400);
+  color: var(--accent-text);
 }
 
 .cm-rep-adminreply .i {
@@ -823,7 +823,7 @@ body.in-community .main-content {
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--red-400);
+  color: var(--accent-text);
 }
 
 .cm-reply-flag .i {
@@ -992,7 +992,7 @@ body.in-community .main-content {
 }
 
 .cm-ach-card.is-done .cm-ach-text em {
-  color: var(--red-400);
+  color: var(--accent-text);
 }
 
 /* Aviso de logro desbloqueado: abajo a la izquierda */
@@ -1051,7 +1051,7 @@ body.in-community .main-content {
   font-weight: 800;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--red-400);
+  color: var(--accent-text);
 }
 
 .ach-toast-text b {
@@ -1197,7 +1197,7 @@ body.in-community .main-content {
 /* Enlaces en mensajes y reportes (se abren en el navegador) */
 .cm-msg-body a,
 .cm-detail-body a {
-  color: var(--red-400);
+  color: var(--accent-text);
   text-decoration: underline;
   text-underline-offset: 2px;
   word-break: break-all;

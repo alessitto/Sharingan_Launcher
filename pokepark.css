@@ -401,7 +401,7 @@ body.in-pokepark .main-content {
   font: inherit;
   font-size: 12px;
   font-weight: 600;
-  color: var(--red-500);
+  color: var(--accent-text);
   cursor: pointer;
 }
 

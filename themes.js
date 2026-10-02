@@ -5,7 +5,8 @@
 //   - Color: solo dos colores (fondo y acento). El resto de la paleta sale
 //     de mezclarlos con blanco (fondo oscuro) o negro (fondo claro).
 //   - Estilo: un efecto que va por encima del color (Predeterminado,
-//     Retro, Liquid Glass, Y2K).
+//     Minimalista, Paper, Terminal, Retro, Y2K, Frutiger Aero, Cyberpunk,
+//     Liquid Glass).
 // Lo usan la ventana (window.SLThemes) y main.js (require) para el color
 // de fondo de la ventana antes de cargar.
 (function (global) {
@@ -60,9 +61,14 @@
 
   const EFFECTS = [
     { id: "default", name: "Predeterminado", desc: "Limpio, sin filtros." },
+    { id: "minimal", name: "Minimalista", desc: "Mucho aire, letra limpia y lo justo." },
+    { id: "paper", name: "Paper", desc: "Papel con grano, tinta y tarjetas de verdad." },
+    { id: "terminal", name: "Terminal", desc: "Letra monoespaciada, prompt y cursor." },
     { id: "retro", name: "Retro", desc: "Letra pixelada y aire de consola antigua." },
-    { id: "glass", name: "Liquid Glass", desc: "Cristal líquido, como en iOS 26." },
     { id: "y2k", name: "Y2K", desc: "Cromados y botones de gominola, como en el 2000." },
+    { id: "aero", name: "Frutiger Aero", desc: "Agua, burbujas y brillos de los 2000." },
+    { id: "cyber", name: "Cyberpunk", desc: "Neones, líneas técnicas y HUD." },
+    { id: "glass", name: "Liquid Glass", desc: "Cristal líquido, como en iOS 26." },
   ];
 
   const PALETTES = CATEGORIES.flatMap((c) => c.groups.flatMap((g) => g.items));
@@ -116,6 +122,41 @@
     return 1.05 / (L + 0.05) >= (L + 0.05) / 0.05;
   }
 
+  function contrast(a, b) {
+    const x = luminance(a);
+    const y = luminance(b);
+    return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+  }
+
+  // Legibilidad: lleva un color hacia el blanco o el negro (to) lo justo
+  // para que se lea con el contraste pedido sobre ref. El tono no cambia;
+  // si ya se lee bien, se queda tal cual.
+  function readable(color, to, ref, target) {
+    for (let t = 0; t <= 1.0001; t += 0.02) {
+      const c = mix(color, to, Math.min(1, t));
+      if (contrast(c, ref) >= target) return c;
+    }
+    return to;
+  }
+
+  // Igual, pero probando hacia el blanco y hacia el negro: se prefiere el
+  // color del texto del tema (prefer) salvo que el otro lado cambie el
+  // color bastante menos (así el acento conserva su tono).
+  function readableEither(color, ref, target, prefer) {
+    const reach = (to) => {
+      for (let t = 0; t <= 1.0001; t += 0.02) {
+        const c = mix(color, to, Math.min(1, t));
+        if (contrast(c, ref) >= target) return { t, c };
+      }
+      return null;
+    };
+    const a = reach(prefer);
+    const b = reach(prefer === WHITE ? BLACK : WHITE);
+    if (a && (!b || a.t <= b.t + 0.3)) return a.c;
+    if (b) return b.c;
+    return prefer;
+  }
+
   // Variables CSS del tema. Los nombres (--ink-*, --washi-*, --red-*) son
   // los de siempre: --ink-* son superficies (del fondo hacia el blanco o el
   // negro), --washi-* el texto y --red-* el acento.
@@ -135,14 +176,24 @@
     const glassAlpha = dark
       ? { 900: 0.07, 800: 0.11, 700: 0.16, 600: 0.22, 500: 0.3, 400: 0.46, 300: 0.64, 200: 0.82, 100: 0.92 }
       : { 900: 0.06, 800: 0.1, 700: 0.15, 600: 0.22, 500: 0.3, 400: 0.46, 300: 0.62, 200: 0.8, 100: 0.9 };
+    // --ink-500..900 son superficies y bordes; --ink-100..400 y --washi-*
+    // son texto. El texto se mide contra una tarjeta (lo menos contrastado
+    // en el que se escribe) y se acerca al blanco o al negro hasta llegar al
+    // mínimo: así los fondos de tono medio (Naruto, Gengar, Kyogre...) se
+    // leen igual de cómodos que los oscuros.
+    const card = mix(bg, fg, inkSteps[800]);
+    const TEXT_TARGET = { 100: 10, 200: 7.5, 300: 4.8, 400: 3.4 };
     for (const k of Object.keys(inkSteps)) {
-      out[`--ink-${k}`] = glass ? rgba(fg, glassAlpha[k]) : css(mix(bg, fg, inkSteps[k]));
+      if (TEXT_TARGET[k]) {
+        const base = mix(bg, fg, inkSteps[k]);
+        out[`--ink-${k}`] = css(readable(base, fg, card, TEXT_TARGET[k]));
+      } else out[`--ink-${k}`] = glass ? rgba(fg, glassAlpha[k]) : css(mix(bg, fg, inkSteps[k]));
     }
     out["--ink-950"] = css(bg);
     out["--ink-900-rgb"] = triplet(mix(bg, fg, inkSteps[900]));
 
-    const washi = { 50: 0.02, 100: 0.05, 200: 0.1, 300: 0.22, 400: 0.38 };
-    for (const [k, t] of Object.entries(washi)) out[`--washi-${k}`] = css(mix(fg, bg, t));
+    const washi = { 50: [0.02, 13], 100: [0.05, 11], 200: [0.1, 8.5], 300: [0.22, 6.5], 400: [0.38, 5] };
+    for (const [k, [t, target]] of Object.entries(washi)) out[`--washi-${k}`] = css(readable(mix(fg, bg, t), fg, card, target));
 
     out["--red-100"] = css(mix(accent, WHITE, 0.7));
     out["--red-400"] = css(accent);
@@ -150,6 +201,19 @@
     out["--red-600"] = css(mix(accent, BLACK, 0.15));
     out["--red-500-rgb"] = triplet(accent);
     out["--on-accent"] = isDark(accent) ? "#fff" : "#000";
+    // El acento cuando es TEXTO (etiquetas, enlaces, valores): mismo tono,
+    // aclarado u oscurecido lo justo para leerse sobre el fondo. Los rellenos
+    // (botones, barras) siguen usando el acento tal cual.
+    const accentText = readableEither(accent, card, 3.8, fg);
+    out["--accent-text"] = css(accentText);
+    out["--accent-text-rgb"] = triplet(accentText);
+    // Colores de estado (peligro, oro, verde): igual, legibles sobre el fondo.
+    const danger = readableEither([224, 86, 107], card, 3.8, fg);
+    out["--danger"] = css(danger);
+    out["--danger-rgb"] = triplet(danger);
+    out["--gold-400"] = css(readableEither([201, 164, 76], card, 3.2, fg));
+    out["--gold-500"] = css(readableEither([171, 134, 50], card, 3.2, fg));
+    out["--green-500"] = css(readableEither([95, 127, 71], card, 3.2, fg));
     out["--bg-rgb"] = triplet(bg);
     out["--fg-rgb"] = triplet(fg);
 
@@ -195,7 +259,7 @@
     return { palette, effect };
   }
 
-  const api = { CATEGORIES, EFFECTS, PALETTES, paletteById, resolve, vars, apply, windowBg, isDark: (hex) => isDark(hexRgb(hex)) };
+  const api = { contrast, CATEGORIES, EFFECTS, PALETTES, paletteById, resolve, vars, apply, windowBg, isDark: (hex) => isDark(hexRgb(hex)) };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else global.SLThemes = api;
 })(typeof window !== "undefined" ? window : globalThis);

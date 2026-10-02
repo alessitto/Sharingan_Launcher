@@ -28,6 +28,12 @@
      acento claro/pastel lo cambian a oscuro para que no desaparezca. */
   --on-accent: #fff;
   --ink-900-rgb: 16, 14, 16;
+  /* Acento y rojo de "peligro" cuando son TEXTO: themes.js los ajusta por
+     tema para que se lean (estos son los de partida, antes de cargar). */
+  --accent-text: rgb(193, 91, 91);
+  --accent-text-rgb: 193, 91, 91;
+  --danger: #e0566b;
+  --danger-rgb: 224, 86, 107;
 
   --gold-400: #c9a44c;
   --gold-500: #ab8632;
@@ -178,7 +184,7 @@ h3 {
   font-weight: 700;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: var(--red-500);
+  color: var(--accent-text);
 }
 
 .section-title {
@@ -664,7 +670,7 @@ button:disabled:active {
 .linked-btn:hover {
   background: rgba(var(--red-500-rgb), 0.15);
   border-color: var(--red-500);
-  color: var(--red-400);
+  color: var(--accent-text);
 }
 
 /* SortKey */
@@ -855,7 +861,7 @@ button:disabled:active {
   height: 44px;
   border-radius: 12px;
   background: rgba(var(--red-500-rgb), 0.14);
-  color: var(--red-500);
+  color: var(--accent-text);
   font-family: "Shippori Mincho", serif;
   font-size: 19px;
 }
@@ -875,7 +881,7 @@ button:disabled:active {
   padding: 3px 10px;
   border-radius: 999px;
   background: rgba(var(--red-500-rgb), 0.14);
-  color: var(--red-500);
+  color: var(--accent-text);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.14em;
@@ -950,7 +956,7 @@ button:disabled:active {
   font-weight: 700;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--red-500);
+  color: var(--accent-text);
 }
 
 /* Requisitos */
@@ -1036,7 +1042,7 @@ button:disabled:active {
 }
 
 .req-fail {
-  background: rgba(224, 86, 107, 0.12);
+  background: rgba(var(--danger-rgb), 0.12);
 }
 
 .req-fail .req-key,
@@ -1151,7 +1157,7 @@ button:disabled:active {
 .settings-value {
   font-family: "Shippori Mincho", serif;
   font-size: 15px;
-  color: var(--red-100);
+  color: var(--accent-text);
   min-width: 2ch;
   text-align: right;
 }
@@ -1416,7 +1422,7 @@ button:disabled:active {
   align-items: center;
   justify-content: center;
   background: rgba(var(--red-500-rgb), 0.15);
-  color: var(--red-500);
+  color: var(--accent-text);
 }
 
 .saga-group-name {
@@ -1515,7 +1521,7 @@ button:disabled:active {
   font-weight: 700;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: var(--red-500);
+  color: var(--accent-text);
 }
 
 .sl-modal .sl-modal-body {
@@ -1692,7 +1698,7 @@ button:disabled:active {
   align-items: center;
   justify-content: center;
   background: rgba(var(--red-500-rgb), 0.12);
-  color: var(--red-500);
+  color: var(--accent-text);
 }
 
 .sl-confirm-icon .i {
@@ -2033,7 +2039,7 @@ button:disabled:active {
   justify-content: center;
   flex-shrink: 0;
   background: rgba(var(--red-500-rgb), 0.14);
-  color: var(--red-500);
+  color: var(--accent-text);
   font-size: 12px;
   font-weight: 700;
 }
@@ -2091,7 +2097,7 @@ button:disabled:active {
 .sg-games-empty .i {
   width: 20px;
   height: 20px;
-  color: var(--red-500);
+  color: var(--accent-text);
 }
 
 .sg-add {
@@ -2210,7 +2216,7 @@ button:disabled:active {
   justify-content: center;
   flex-shrink: 0;
   background: rgba(var(--red-500-rgb), 0.15);
-  color: var(--red-500);
+  color: var(--accent-text);
   transition: background 0.15s, color 0.15s;
 }
 
@@ -2252,7 +2258,7 @@ button:disabled:active {
   align-items: center;
   justify-content: center;
   background: rgba(var(--red-500-rgb), 0.12);
-  color: var(--red-500);
+  color: var(--accent-text);
 }
 
 .sg-blank-icon .i {
@@ -2300,7 +2306,7 @@ button:disabled:active {
 }
 
 .sg-pick-item .i {
-  color: var(--red-500);
+  color: var(--accent-text);
 }
 
 .sg-pick-name {
@@ -2368,7 +2374,7 @@ button:disabled:active {
   font-size: 40px;
   font-weight: 800;
   line-height: 1;
-  color: var(--red-500);
+  color: var(--accent-text);
 }
 
 .imp-summary-title {
@@ -2477,7 +2483,7 @@ button:disabled:active {
 .imp-added summary {
   margin-top: 4px;
   font-size: 11.5px;
-  color: var(--red-500);
+  color: var(--accent-text);
   cursor: pointer;
 }
 
@@ -2551,7 +2557,7 @@ button:disabled:active {
 .imp-add-none .i {
   width: 22px;
   height: 22px;
-  color: var(--red-500);
+  color: var(--accent-text);
 }
 
 .imp-add-none b {
@@ -2600,7 +2606,7 @@ button:disabled:active {
   padding: 2px 8px;
   border-radius: 999px;
   background: rgba(var(--red-500-rgb), 0.15);
-  color: var(--red-500);
+  color: var(--accent-text);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -2724,7 +2730,7 @@ body:has(.update-toast.show) .scroll-top-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--red-500);
+  color: var(--accent-text);
   background: rgba(var(--red-500-rgb), 0.14);
   border: 1px solid rgba(var(--red-500-rgb), 0.28);
 }
@@ -2735,9 +2741,9 @@ body:has(.update-toast.show) .scroll-top-btn {
 }
 
 .update-toast.is-error .upd-icon {
-  color: #e0566b;
-  background: rgba(224, 86, 107, 0.12);
-  border-color: rgba(224, 86, 107, 0.3);
+  color: var(--danger);
+  background: rgba(var(--danger-rgb), 0.12);
+  border-color: rgba(var(--danger-rgb), 0.3);
 }
 
 .update-toast.is-downloading .upd-icon .i {
@@ -2808,7 +2814,7 @@ body:has(.update-toast.show) .scroll-top-btn {
   font: inherit;
   font-size: 12px;
   font-weight: 600;
-  color: var(--red-500);
+  color: var(--accent-text);
   cursor: pointer;
 }
 
@@ -2903,7 +2909,7 @@ body:has(.update-toast.show) .scroll-top-btn {
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--red-500);
+  color: var(--accent-text);
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2948,7 +2954,7 @@ body:has(.update-toast.show) .scroll-top-btn {
 }
 
 .sl-launch[data-state="error"] .sl-launch-status {
-  color: #e0566b;
+  color: var(--danger);
 }
 
 /* Ajustes > Datos */
@@ -2982,13 +2988,13 @@ body:has(.update-toast.show) .scroll-top-btn {
 
 .sl-btn-danger-ghost {
   background: transparent;
-  color: #e0566b;
-  border-color: rgba(224, 86, 107, 0.4);
+  color: var(--danger);
+  border-color: rgba(var(--danger-rgb), 0.4);
 }
 
 .sl-btn-danger-ghost:hover {
-  background: rgba(224, 86, 107, 0.12);
-  border-color: rgba(224, 86, 107, 0.6);
+  background: rgba(var(--danger-rgb), 0.12);
+  border-color: rgba(var(--danger-rgb), 0.6);
 }
 
 /* Copia de partidas */
@@ -3152,7 +3158,7 @@ body:has(.update-toast.show) .scroll-top-btn {
 }
 
 .bk-result-title.is-ko {
-  color: #e0566b;
+  color: var(--danger);
 }
 
 .bk-result-list {
@@ -3199,7 +3205,7 @@ body:has(.update-toast.show) .scroll-top-btn {
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--red-500);
+  color: var(--accent-text);
 }
 
 .sg-sugs-title .i {
@@ -3274,7 +3280,7 @@ body:has(.update-toast.show) .scroll-top-btn {
 }
 
 .sg-sug-no:hover {
-  color: #e0566b;
+  color: var(--danger);
 }
 
 /* =====================================================================
@@ -3877,7 +3883,7 @@ body:has(.update-toast.show) .scroll-top-btn {
 .sg-ai-head .i {
   width: 16px;
   height: 16px;
-  color: var(--red-500);
+  color: var(--accent-text);
 }
 
 .sg-ai-summary {
@@ -3904,7 +3910,7 @@ body:has(.update-toast.show) .scroll-top-btn {
 }
 
 .sg-ai-move.is-moved {
-  color: var(--red-500);
+  color: var(--accent-text);
   font-weight: 700;
 }
 
@@ -3964,7 +3970,7 @@ body:has(.update-toast.show) .scroll-top-btn {
 }
 
 .settings-ai-msg a {
-  color: var(--red-500);
+  color: var(--accent-text);
 }
 
 /* Liquid Glass */
@@ -4095,7 +4101,7 @@ body:has(.update-toast.show) .scroll-top-btn {
   margin-bottom: 14px;
   border-radius: 16px;
   background: rgba(var(--red-500-rgb), 0.12);
-  color: var(--red-500);
+  color: var(--accent-text);
 }
 
 .empty-icon .i {
@@ -4206,7 +4212,7 @@ body.pad-in-use {
 }
 
 .cl-release.is-current .cl-name {
-  color: var(--red-500);
+  color: var(--accent-text);
 }
 
 /* Notificaciones: no tapan nada al pasar el ratón y se leen mejor */
@@ -4418,7 +4424,7 @@ body.pad-in-use {
 
 .tp-effects {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -4578,7 +4584,7 @@ body.pad-in-use {
 .tp-soon .i {
   width: 14px;
   height: 14px;
-  color: var(--red-500);
+  color: var(--accent-text);
 }
 
 :root[data-effect="glass"] .tp-effect {
@@ -4668,7 +4674,7 @@ body.pad-in-use {
 
 :root[data-effect="y2k"] .section-eyebrow::before {
   content: "✦ ";
-  color: var(--red-500);
+  color: var(--accent-text);
 }
 
 /* Fondo: rejilla, destellos y halos del acento */
@@ -4788,4 +4794,822 @@ body.pad-in-use {
 :root[data-effect="y2k"] .tp-effect.is-selected,
 :root[data-effect="y2k"] .theme-swatch.is-selected {
   box-shadow: 0 0 0 1px var(--red-500), var(--y2k-glow);
+}
+
+/* =====================================================================
+   Estilos 2.9: Cyberpunk, Frutiger Aero, Minimalista, Terminal y Paper
+   =====================================================================
+   Igual que los demás: solo estética encima del color del tema (fondo,
+   acento, blanco y negro). Todo estático (degradados y sombras fijas, sin
+   desenfoques), así que van igual de fluidos que el predeterminado. */
+
+/* ---------------------------------------------------------- Cyberpunk */
+:root[data-effect="cyber"] {
+  --cy-font: "Rajdhani", "Zen Kaku Gothic New", sans-serif;
+  --cy-title: "Orbitron", "Rajdhani", sans-serif;
+  --cy-line: rgba(var(--red-500-rgb), 0.6);
+  --cy-neon: 0 0 6px rgba(var(--red-500-rgb), 0.7), 0 0 18px rgba(var(--red-500-rgb), 0.35);
+  /* Esquinas de HUD: corchetes del acento en las cuatro esquinas */
+  --cy-c: rgba(var(--red-500-rgb), 0.9);
+  --cy-brackets:
+    linear-gradient(var(--cy-c), var(--cy-c)) left top / 14px 2px no-repeat,
+    linear-gradient(var(--cy-c), var(--cy-c)) left top / 2px 14px no-repeat,
+    linear-gradient(var(--cy-c), var(--cy-c)) right top / 14px 2px no-repeat,
+    linear-gradient(var(--cy-c), var(--cy-c)) right top / 2px 14px no-repeat,
+    linear-gradient(var(--cy-c), var(--cy-c)) left bottom / 14px 2px no-repeat,
+    linear-gradient(var(--cy-c), var(--cy-c)) left bottom / 2px 14px no-repeat,
+    linear-gradient(var(--cy-c), var(--cy-c)) right bottom / 14px 2px no-repeat,
+    linear-gradient(var(--cy-c), var(--cy-c)) right bottom / 2px 14px no-repeat;
+  --cy-cut: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+}
+
+:root[data-effect="cyber"] body,
+:root[data-effect="cyber"] body *,
+:root[data-effect="cyber"] .swal2-popup.sl-modal {
+  font-family: var(--cy-font) !important;
+}
+
+:root[data-effect="cyber"] body {
+  font-weight: 500;
+}
+
+:root[data-effect="cyber"] h1,
+:root[data-effect="cyber"] h2,
+:root[data-effect="cyber"] h3,
+:root[data-effect="cyber"] .topnav-title,
+:root[data-effect="cyber"] .section-title,
+:root[data-effect="cyber"] .sl-modal .sl-modal-title {
+  font-family: var(--cy-title) !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+:root[data-effect="cyber"] .section-title {
+  font-size: 26px;
+  text-shadow: 0 0 14px rgba(var(--red-500-rgb), 0.55);
+}
+
+:root[data-effect="cyber"] .topnav-title {
+  font-size: 13px;
+}
+
+:root[data-effect="cyber"] .sl-modal .sl-modal-title {
+  font-size: 19px !important;
+}
+
+:root[data-effect="cyber"] .section-eyebrow {
+  letter-spacing: 0.24em;
+}
+
+:root[data-effect="cyber"] .section-eyebrow::before {
+  content: "▸ ";
+}
+
+:root[data-effect="cyber"] *:not(img),
+:root[data-effect="cyber"] *::before,
+:root[data-effect="cyber"] *::after {
+  border-radius: 0 !important;
+}
+
+/* Fondo: rejilla técnica y un horizonte de neón */
+:root[data-effect="cyber"] .theme-bg {
+  background:
+    radial-gradient(ellipse 90% 45% at 50% 115%, rgba(var(--red-500-rgb), 0.3), transparent 70%),
+    linear-gradient(rgba(var(--red-500-rgb), 0.07) 1px, transparent 1px) 0 0 / 32px 32px,
+    linear-gradient(90deg, rgba(var(--red-500-rgb), 0.07) 1px, transparent 1px) 0 0 / 32px 32px,
+    var(--ink-950);
+}
+
+:root[data-effect="cyber"] .topnav {
+  background: rgb(var(--ink-900-rgb));
+  border-bottom: 1px solid var(--cy-line);
+  box-shadow: 0 1px 14px rgba(var(--red-500-rgb), 0.3);
+}
+
+:root[data-effect="cyber"] .topnav-item {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+
+:root[data-effect="cyber"] .topnav-item.active {
+  color: var(--washi-50);
+  background: rgba(var(--red-500-rgb), 0.16);
+  border-color: var(--cy-line);
+  box-shadow: inset 0 0 12px rgba(var(--red-500-rgb), 0.35);
+}
+
+/* Paneles con corchetes de HUD */
+:root[data-effect="cyber"] .game-card,
+:root[data-effect="cyber"] .empty-state,
+:root[data-effect="cyber"] .pp-team,
+:root[data-effect="cyber"] .pp-detail,
+:root[data-effect="cyber"] .notification,
+:root[data-effect="cyber"] .update-toast,
+:root[data-effect="cyber"] .dropdown-content,
+:root[data-effect="cyber"] .cm-room,
+:root[data-effect="cyber"] .cm-channels,
+:root[data-effect="cyber"] .cm-ach-card,
+:root[data-effect="cyber"] .cm-ach-summary {
+  border: 1px solid rgba(var(--fg-rgb), 0.12);
+  background: var(--cy-brackets), var(--ink-900);
+}
+
+:root[data-effect="cyber"] .game-card:hover {
+  border-color: var(--cy-line);
+  box-shadow: var(--cy-neon);
+}
+
+:root[data-effect="cyber"] .swal2-popup.sl-modal {
+  border: 1px solid var(--cy-line);
+  background: var(--cy-brackets), var(--ink-900) !important;
+  box-shadow: var(--cy-neon), 0 24px 60px rgba(0, 0, 0, 0.5);
+}
+
+:root[data-effect="cyber"] .pp-park,
+:root[data-effect="cyber"] .index-bar {
+  border: 1px solid var(--cy-line);
+}
+
+/* Botones con la esquina cortada */
+:root[data-effect="cyber"] .sl-btn,
+:root[data-effect="cyber"] button.primary,
+:root[data-effect="cyber"] .filter-btn {
+  clip-path: var(--cy-cut);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+}
+
+:root[data-effect="cyber"] button.primary,
+:root[data-effect="cyber"] .sl-btn-primary,
+:root[data-effect="cyber"] .index-btn.is-active {
+  color: var(--on-accent);
+  background: var(--red-500);
+  border-color: transparent;
+}
+
+:root[data-effect="cyber"] .sl-btn-ghost,
+:root[data-effect="cyber"] .icon-btn,
+:root[data-effect="cyber"] .filter-btn {
+  background: rgba(var(--red-500-rgb), 0.08);
+  border: 1px solid var(--cy-line);
+}
+
+:root[data-effect="cyber"] .sl-btn-ghost:hover,
+:root[data-effect="cyber"] .icon-btn:hover,
+:root[data-effect="cyber"] .filter-btn:hover {
+  background: rgba(var(--red-500-rgb), 0.18);
+}
+
+:root[data-effect="cyber"] input[type="text"],
+:root[data-effect="cyber"] .discover-toolbar select,
+:root[data-effect="cyber"] .swal2-input.sl-input {
+  border: 1px solid var(--cy-line) !important;
+  background: rgb(var(--ink-900-rgb)) !important;
+}
+
+:root[data-effect="cyber"] input[type="text"]:focus,
+:root[data-effect="cyber"] .swal2-input.sl-input:focus {
+  box-shadow: var(--cy-neon) !important;
+}
+
+/* ---------------------------------------------------------- Frutiger Aero */
+:root[data-effect="aero"] {
+  --ae-font: "Segoe UI", "Nunito", system-ui, sans-serif;
+  /* Brillo de burbuja: casi blanco arriba, corte suave y reflejo abajo */
+  --ae-gloss: linear-gradient(180deg, rgba(255, 255, 255, 0.78) 0%, rgba(255, 255, 255, 0.28) 48%, rgba(255, 255, 255, 0.06) 52%, rgba(255, 255, 255, 0.32) 100%);
+  --ae-panel: linear-gradient(180deg, rgba(255, 255, 255, 0.26), rgba(255, 255, 255, 0.06) 60%);
+  --ae-edge: inset 0 1px 0 rgba(255, 255, 255, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.35);
+  --ae-bubble: radial-gradient(circle at 34% 30%, rgba(255, 255, 255, 0.7) 0, rgba(255, 255, 255, 0.12) 38%, rgba(255, 255, 255, 0.05) 58%, rgba(255, 255, 255, 0.35) 68%, transparent 70%);
+}
+
+:root[data-effect="aero"] body,
+:root[data-effect="aero"] body *,
+:root[data-effect="aero"] .swal2-popup.sl-modal {
+  font-family: var(--ae-font) !important;
+}
+
+/* Títulos grandes en Segoe UI Light, como en Vista/7 (los pequeños, normales) */
+:root[data-effect="aero"] h1,
+:root[data-effect="aero"] h2,
+:root[data-effect="aero"] .section-title,
+:root[data-effect="aero"] .sl-modal .sl-modal-title {
+  font-weight: 300 !important;
+  letter-spacing: -0.01em;
+}
+
+:root[data-effect="aero"] .section-title {
+  font-size: 34px;
+}
+
+:root[data-effect="aero"] .topnav-title {
+  font-weight: 600;
+}
+
+/* Fondo: agua y cielo, rayos de luz, burbujas y un halo del acento */
+:root[data-effect="aero"] .theme-bg {
+  background:
+    var(--ae-bubble) 6% 78% / 110px 110px no-repeat,
+    var(--ae-bubble) 14% 62% / 46px 46px no-repeat,
+    var(--ae-bubble) 88% 70% / 80px 80px no-repeat,
+    var(--ae-bubble) 80% 86% / 34px 34px no-repeat,
+    var(--ae-bubble) 55% 92% / 60px 60px no-repeat,
+    var(--ae-bubble) 32% 84% / 24px 24px no-repeat,
+    repeating-conic-gradient(from 195deg at 12% -12%, rgba(255, 255, 255, 0.07) 0 5deg, transparent 5deg 13deg),
+    radial-gradient(ellipse 60% 45% at 85% 12%, rgba(var(--red-500-rgb), 0.3), transparent 70%),
+    radial-gradient(ellipse 120% 35% at 50% 108%, rgba(255, 255, 255, 0.22), transparent 70%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 55%),
+    var(--ink-950);
+}
+
+:root[data-effect="aero"] .topnav {
+  background: var(--ae-panel), rgb(var(--ink-900-rgb));
+  border-bottom: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65), 0 2px 16px rgba(0, 0, 0, 0.16);
+}
+
+:root[data-effect="aero"] .topnav-item.active {
+  color: var(--on-accent);
+  background: var(--ae-gloss), var(--red-500);
+  border-color: transparent;
+  box-shadow: var(--ae-edge), 0 2px 10px rgba(var(--red-500-rgb), 0.45);
+}
+
+/* Botones de burbuja */
+:root[data-effect="aero"] button.primary,
+:root[data-effect="aero"] .sl-btn-primary,
+:root[data-effect="aero"] .scroll-top-btn,
+:root[data-effect="aero"] .pp-bag-btn,
+:root[data-effect="aero"] .index-btn.is-active {
+  color: var(--on-accent);
+  border-color: transparent;
+  border-radius: 999px;
+  background: var(--ae-gloss), var(--red-500);
+  box-shadow: var(--ae-edge), 0 4px 12px rgba(var(--red-500-rgb), 0.4);
+}
+
+:root[data-effect="aero"] .sl-btn-ghost,
+:root[data-effect="aero"] .icon-btn,
+:root[data-effect="aero"] .filter-btn,
+:root[data-effect="aero"] .pp-tool-btn,
+:root[data-effect="aero"] .pp-chip {
+  border-color: transparent;
+  border-radius: 999px;
+  background: var(--ae-gloss), rgba(var(--fg-rgb), 0.1);
+  box-shadow: var(--ae-edge);
+}
+
+/* Paneles: cristal blanco con brillo arriba */
+:root[data-effect="aero"] .game-card,
+:root[data-effect="aero"] .empty-state,
+:root[data-effect="aero"] .pp-team,
+:root[data-effect="aero"] .pp-detail,
+:root[data-effect="aero"] .notification,
+:root[data-effect="aero"] .update-toast,
+:root[data-effect="aero"] .dropdown-content,
+:root[data-effect="aero"] .index-bar,
+:root[data-effect="aero"] .cm-room,
+:root[data-effect="aero"] .cm-channels,
+:root[data-effect="aero"] .cm-ach-card,
+:root[data-effect="aero"] .cm-ach-summary {
+  border: 1px solid rgba(255, 255, 255, 0.38);
+  border-radius: 18px;
+  background: var(--ae-panel), var(--ink-900);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 8px 22px rgba(0, 0, 0, 0.14);
+}
+
+:root[data-effect="aero"] .game-card:hover {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 0 0 2px rgba(255, 255, 255, 0.5), 0 12px 28px rgba(0, 0, 0, 0.2);
+}
+
+:root[data-effect="aero"] .pp-park {
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+}
+
+:root[data-effect="aero"] .swal2-popup.sl-modal {
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  border-radius: 22px;
+  background: var(--ae-panel), var(--ink-900) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 24px 60px rgba(0, 0, 0, 0.35);
+}
+
+:root[data-effect="aero"] input[type="text"],
+:root[data-effect="aero"] .discover-toolbar select,
+:root[data-effect="aero"] .swal2-input.sl-input {
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.14);
+}
+
+/* ---------------------------------------------------------- Minimalista */
+:root[data-effect="minimal"] {
+  --mn-font: "Inter", "Zen Kaku Gothic New", system-ui, sans-serif;
+}
+
+:root[data-effect="minimal"] body,
+:root[data-effect="minimal"] body *,
+:root[data-effect="minimal"] .swal2-popup.sl-modal {
+  font-family: var(--mn-font) !important;
+}
+
+:root[data-effect="minimal"] h1,
+:root[data-effect="minimal"] h2,
+:root[data-effect="minimal"] h3,
+:root[data-effect="minimal"] .section-title,
+:root[data-effect="minimal"] .sl-modal .sl-modal-title {
+  font-weight: 600 !important;
+  letter-spacing: -0.03em;
+}
+
+:root[data-effect="minimal"] .section-title {
+  font-size: 40px;
+}
+
+/* Menos elementos: sin antetítulos ni iconos en la barra */
+:root[data-effect="minimal"] .main-content .section-eyebrow,
+:root[data-effect="minimal"] .topnav-item > svg {
+  display: none;
+}
+
+/* Más aire */
+:root[data-effect="minimal"] .main-content {
+  padding: 36px 48px;
+}
+
+:root[data-effect="minimal"] .cards-grid {
+  gap: 28px;
+}
+
+:root[data-effect="minimal"] .topnav {
+  background: var(--ink-950);
+  border-bottom: none;
+  box-shadow: none;
+  padding: 16px 48px;
+}
+
+:root[data-effect="minimal"] .topnav-item {
+  border: none;
+  color: var(--ink-300);
+}
+
+:root[data-effect="minimal"] .topnav-item:hover {
+  background: transparent;
+  color: var(--washi-50);
+}
+
+:root[data-effect="minimal"] .topnav-item.active {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: var(--washi-50);
+  font-weight: 600;
+}
+
+/* Planos: sin bordes ni sombras */
+:root[data-effect="minimal"] .game-card,
+:root[data-effect="minimal"] .empty-state,
+:root[data-effect="minimal"] .pp-team,
+:root[data-effect="minimal"] .pp-detail,
+:root[data-effect="minimal"] .cm-room,
+:root[data-effect="minimal"] .cm-channels,
+:root[data-effect="minimal"] .cm-ach-card,
+:root[data-effect="minimal"] .cm-ach-summary {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+:root[data-effect="minimal"] .game-card:hover {
+  background: var(--ink-900);
+  box-shadow: none;
+}
+
+:root[data-effect="minimal"] .index-bar,
+:root[data-effect="minimal"] .notification,
+:root[data-effect="minimal"] .update-toast,
+:root[data-effect="minimal"] .dropdown-content,
+:root[data-effect="minimal"] .pp-park {
+  border-color: transparent;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+:root[data-effect="minimal"] .swal2-popup.sl-modal {
+  border: none;
+  border-radius: 16px;
+  background: var(--ink-950) !important;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.28);
+}
+
+:root[data-effect="minimal"] .swal2-popup.sl-modal::before {
+  display: none;
+}
+
+:root[data-effect="minimal"] .sl-btn,
+:root[data-effect="minimal"] button.primary,
+:root[data-effect="minimal"] .icon-btn,
+:root[data-effect="minimal"] .filter-btn,
+:root[data-effect="minimal"] .pp-tool-btn,
+:root[data-effect="minimal"] .pp-bag-btn,
+:root[data-effect="minimal"] .scroll-top-btn {
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+:root[data-effect="minimal"] .sl-btn-ghost,
+:root[data-effect="minimal"] .icon-btn,
+:root[data-effect="minimal"] .filter-btn {
+  background: transparent;
+  border: 1px solid var(--ink-700);
+}
+
+:root[data-effect="minimal"] input[type="text"],
+:root[data-effect="minimal"] .discover-toolbar select,
+:root[data-effect="minimal"] .swal2-input.sl-input {
+  border-radius: 8px;
+  border: 1px solid var(--ink-700);
+  background: transparent !important;
+  box-shadow: none;
+}
+
+/* ---------------------------------------------------------- Terminal */
+:root[data-effect="terminal"] {
+  --tm-font: "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
+  --tm-line: rgba(var(--fg-rgb), 0.28);
+}
+
+:root[data-effect="terminal"] body,
+:root[data-effect="terminal"] body *,
+:root[data-effect="terminal"] .swal2-popup.sl-modal {
+  font-family: var(--tm-font) !important;
+  letter-spacing: 0 !important;
+}
+
+:root[data-effect="terminal"] h1,
+:root[data-effect="terminal"] h2,
+:root[data-effect="terminal"] h3,
+:root[data-effect="terminal"] .section-title,
+:root[data-effect="terminal"] .sl-modal .sl-modal-title {
+  font-weight: 700 !important;
+}
+
+:root[data-effect="terminal"] .section-title {
+  font-size: 26px;
+}
+
+/* Prompt y cursor en los títulos de sección */
+:root[data-effect="terminal"] .section-title::before {
+  content: "> ";
+  color: var(--accent-text);
+}
+
+:root[data-effect="terminal"] .section-title::after {
+  content: "";
+  display: inline-block;
+  width: 0.55em;
+  height: 0.95em;
+  margin-left: 6px;
+  vertical-align: -0.1em;
+  background: var(--accent-text);
+  animation: tmBlink 1.1s steps(1) infinite;
+}
+
+@keyframes tmBlink {
+  50% {
+    opacity: 0;
+  }
+}
+
+:root[data-effect="terminal"] .section-eyebrow {
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+:root[data-effect="terminal"] .section-eyebrow::before {
+  content: "# ";
+}
+
+:root[data-effect="terminal"] *:not(img),
+:root[data-effect="terminal"] *::before,
+:root[data-effect="terminal"] *::after {
+  border-radius: 0 !important;
+}
+
+:root[data-effect="terminal"] .topnav {
+  background: var(--ink-950);
+  border-bottom: 1px solid var(--tm-line);
+  box-shadow: none;
+}
+
+:root[data-effect="terminal"] .topnav-item > svg {
+  display: none;
+}
+
+:root[data-effect="terminal"] .topnav-item {
+  border: none;
+  font-size: 12px;
+}
+
+:root[data-effect="terminal"] .topnav-item.active {
+  color: var(--on-accent);
+  background: var(--red-500);
+  box-shadow: none;
+}
+
+:root[data-effect="terminal"] .topnav-item.active::before {
+  content: "$ ";
+}
+
+/* Cajas de texto, como en una interfaz de terminal */
+:root[data-effect="terminal"] .game-card,
+:root[data-effect="terminal"] .empty-state,
+:root[data-effect="terminal"] .pp-team,
+:root[data-effect="terminal"] .pp-detail,
+:root[data-effect="terminal"] .pp-park,
+:root[data-effect="terminal"] .notification,
+:root[data-effect="terminal"] .update-toast,
+:root[data-effect="terminal"] .dropdown-content,
+:root[data-effect="terminal"] .index-bar,
+:root[data-effect="terminal"] .cm-room,
+:root[data-effect="terminal"] .cm-channels,
+:root[data-effect="terminal"] .cm-ach-card,
+:root[data-effect="terminal"] .cm-ach-summary {
+  border: 1px solid var(--tm-line);
+  background: var(--ink-950);
+  box-shadow: none;
+}
+
+:root[data-effect="terminal"] .game-card:hover {
+  border-color: var(--red-500);
+  background: var(--ink-900);
+}
+
+:root[data-effect="terminal"] .swal2-popup.sl-modal {
+  border: 1px solid var(--tm-line);
+  background: var(--ink-950) !important;
+  box-shadow: 0 0 0 1px rgba(var(--red-500-rgb), 0.35), 0 24px 60px rgba(0, 0, 0, 0.5);
+}
+
+:root[data-effect="terminal"] .sl-btn,
+:root[data-effect="terminal"] button.primary,
+:root[data-effect="terminal"] .icon-btn,
+:root[data-effect="terminal"] .filter-btn,
+:root[data-effect="terminal"] .pp-tool-btn,
+:root[data-effect="terminal"] .pp-bag-btn,
+:root[data-effect="terminal"] .scroll-top-btn {
+  box-shadow: none;
+}
+
+:root[data-effect="terminal"] .sl-btn-ghost,
+:root[data-effect="terminal"] .icon-btn,
+:root[data-effect="terminal"] .filter-btn {
+  background: transparent;
+  border: 1px solid var(--tm-line);
+}
+
+:root[data-effect="terminal"] .sl-btn-ghost:hover,
+:root[data-effect="terminal"] .icon-btn:hover,
+:root[data-effect="terminal"] .filter-btn:hover {
+  background: rgba(var(--fg-rgb), 0.08);
+}
+
+:root[data-effect="terminal"] input[type="text"],
+:root[data-effect="terminal"] .discover-toolbar select,
+:root[data-effect="terminal"] .swal2-input.sl-input {
+  border: 1px solid var(--tm-line) !important;
+  background: var(--ink-950) !important;
+  box-shadow: none !important;
+  caret-color: var(--accent-text);
+}
+
+:root[data-effect="terminal"] ::selection {
+  color: var(--on-accent);
+  background: var(--red-500);
+}
+
+/* ---------------------------------------------------------- Paper */
+:root[data-effect="paper"] {
+  --pa-font: "Lora", Georgia, serif;
+  /* Grano de papel (ruido muy suave, se pinta una vez y se repite) */
+  --pa-grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.5  0 0 0 0 0.5  0 0 0 0 0.5  0 0 0 0.09 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  --pa-card-shadow: 0 1px 1px rgba(0, 0, 0, 0.1), 0 3px 8px rgba(0, 0, 0, 0.1), 0 14px 26px -12px rgba(0, 0, 0, 0.3);
+}
+
+:root[data-effect="paper"] body,
+:root[data-effect="paper"] body *,
+:root[data-effect="paper"] .swal2-popup.sl-modal {
+  font-family: var(--pa-font) !important;
+}
+
+:root[data-effect="paper"] h1,
+:root[data-effect="paper"] h2,
+:root[data-effect="paper"] h3,
+:root[data-effect="paper"] .section-title,
+:root[data-effect="paper"] .sl-modal .sl-modal-title {
+  font-weight: 700 !important;
+  letter-spacing: -0.01em;
+}
+
+:root[data-effect="paper"] .section-eyebrow {
+  font-style: italic;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  font-size: 13px;
+}
+
+:root[data-effect="paper"] .theme-bg {
+  background: var(--pa-grain), var(--ink-950);
+}
+
+:root[data-effect="paper"] .topnav {
+  background: var(--pa-grain), rgb(var(--ink-900-rgb));
+  border-bottom: 1px solid rgba(var(--fg-rgb), 0.14);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+:root[data-effect="paper"] .topnav-item.active {
+  color: var(--on-accent);
+  background: var(--red-500);
+  border-color: transparent;
+  border-radius: 4px;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
+}
+
+/* Tarjetas físicas: papel con grano, canto fino y sombra de apoyo */
+:root[data-effect="paper"] .game-card,
+:root[data-effect="paper"] .empty-state,
+:root[data-effect="paper"] .pp-team,
+:root[data-effect="paper"] .pp-detail,
+:root[data-effect="paper"] .notification,
+:root[data-effect="paper"] .update-toast,
+:root[data-effect="paper"] .dropdown-content,
+:root[data-effect="paper"] .index-bar,
+:root[data-effect="paper"] .cm-room,
+:root[data-effect="paper"] .cm-channels,
+:root[data-effect="paper"] .cm-ach-card,
+:root[data-effect="paper"] .cm-ach-summary {
+  border: 1px solid rgba(var(--fg-rgb), 0.1);
+  border-radius: 4px;
+  background: var(--pa-grain), var(--ink-900);
+  box-shadow: var(--pa-card-shadow);
+}
+
+:root[data-effect="paper"] .game-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.1), 0 8px 16px rgba(0, 0, 0, 0.12), 0 22px 34px -12px rgba(0, 0, 0, 0.35);
+}
+
+:root[data-effect="paper"] .game-card img,
+:root[data-effect="paper"] .game-card .card-cover {
+  border-radius: 2px;
+}
+
+:root[data-effect="paper"] .pp-park {
+  border-radius: 4px;
+  box-shadow: var(--pa-card-shadow);
+}
+
+:root[data-effect="paper"] .swal2-popup.sl-modal {
+  border: 1px solid rgba(var(--fg-rgb), 0.1);
+  border-radius: 6px;
+  background: var(--pa-grain), var(--ink-900) !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12), 0 30px 60px -10px rgba(0, 0, 0, 0.45);
+}
+
+/* Botones: sello de tinta */
+:root[data-effect="paper"] .sl-btn,
+:root[data-effect="paper"] button.primary,
+:root[data-effect="paper"] .icon-btn,
+:root[data-effect="paper"] .filter-btn {
+  border-radius: 4px;
+}
+
+:root[data-effect="paper"] button.primary,
+:root[data-effect="paper"] .sl-btn-primary,
+:root[data-effect="paper"] .index-btn.is-active {
+  color: var(--on-accent);
+  background: var(--red-500);
+  border-color: transparent;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.25), inset 0 -2px 0 rgba(0, 0, 0, 0.14);
+}
+
+:root[data-effect="paper"] .sl-btn-ghost,
+:root[data-effect="paper"] .icon-btn,
+:root[data-effect="paper"] .filter-btn {
+  background: transparent;
+  border: 1px solid rgba(var(--fg-rgb), 0.3);
+}
+
+:root[data-effect="paper"] input[type="text"],
+:root[data-effect="paper"] .discover-toolbar select,
+:root[data-effect="paper"] .swal2-input.sl-input {
+  border-radius: 4px;
+  border: 1px solid rgba(var(--fg-rgb), 0.2);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+/* ---------------------------------------------------------- Miniaturas */
+.theme-picker .tp-fx.tp-fx-aero,
+.theme-picker .tp-fx.tp-fx-minimal,
+.theme-picker .tp-fx.tp-fx-paper {
+  border-radius: 10px !important;
+}
+
+.theme-picker .tp-fx-aero .tp-fx-pill,
+.theme-picker .tp-fx-minimal .tp-fx-pill {
+  border-radius: 999px !important;
+}
+
+.tp-fx-cyber {
+  border-radius: 0 !important;
+  box-shadow: inset 0 0 0 1px rgba(var(--red-500-rgb), 0.7), inset 0 0 16px rgba(var(--red-500-rgb), 0.35);
+  background:
+    linear-gradient(rgba(var(--red-500-rgb), 0.12) 1px, transparent 1px) 0 0 / 10px 10px,
+    linear-gradient(90deg, rgba(var(--red-500-rgb), 0.12) 1px, transparent 1px) 0 0 / 10px 10px,
+    rgb(var(--bg-rgb));
+}
+
+.theme-picker .tp-fx-cyber .tp-fx-text {
+  font-family: "Orbitron", sans-serif !important;
+  font-size: 17px;
+  text-shadow: 0 0 8px rgba(var(--red-500-rgb), 0.9);
+}
+
+.tp-fx-cyber .tp-fx-pill {
+  border-radius: 0 !important;
+  clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
+}
+
+.tp-fx-aero {
+  background:
+    radial-gradient(circle at 34% 30%, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.1) 40%, rgba(255, 255, 255, 0.35) 68%, transparent 70%) 80% 20% / 26px 26px no-repeat,
+    radial-gradient(circle at 34% 30%, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.1) 40%, rgba(255, 255, 255, 0.35) 68%, transparent 70%) 12% 70% / 18px 18px no-repeat,
+    linear-gradient(180deg, rgba(255, 255, 255, 0.25), transparent 70%),
+    rgb(var(--bg-rgb));
+}
+
+.tp-fx-aero .tp-fx-pill {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.25) 50%, rgba(255, 255, 255, 0.05) 52%, rgba(255, 255, 255, 0.3)), var(--red-500);
+}
+
+.theme-picker .tp-fx-aero .tp-fx-text {
+  font-family: "Segoe UI", "Nunito", sans-serif !important;
+  font-weight: 300;
+}
+
+.tp-fx-minimal .tp-fx-pill {
+  height: 4px;
+  left: 30%;
+  right: 30%;
+}
+
+.theme-picker .tp-fx-minimal .tp-fx-text {
+  font-family: "Inter", sans-serif !important;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.tp-fx-terminal {
+  border-radius: 0 !important;
+  box-shadow: inset 0 0 0 1px rgba(var(--fg-rgb), 0.3);
+}
+
+.theme-picker .tp-fx-terminal .tp-fx-text {
+  font-family: "JetBrains Mono", Consolas, monospace !important;
+  font-size: 15px;
+}
+
+.tp-fx-terminal .tp-fx-text::before {
+  content: "> ";
+  color: var(--accent-text);
+}
+
+.tp-fx-terminal .tp-fx-pill {
+  border-radius: 0 !important;
+  left: auto;
+  right: 14px;
+  width: 10px;
+  height: 16px;
+  bottom: 19px;
+}
+
+.tp-fx-paper {
+  background: var(--pa-grain-mini), rgb(var(--ink-900-rgb));
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2), 0 6px 12px -6px rgba(0, 0, 0, 0.35);
+}
+
+:root {
+  --pa-grain-mini: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.5  0 0 0 0 0.5  0 0 0 0 0.5  0 0 0 0.12 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+.theme-picker .tp-fx-paper .tp-fx-text {
+  font-family: "Lora", Georgia, serif !important;
+  font-style: italic;
+}
+
+.tp-fx-paper .tp-fx-pill {
+  border-radius: 3px !important;
 }
