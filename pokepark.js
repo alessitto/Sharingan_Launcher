@@ -965,7 +965,6 @@
     renderParkStatic();
     syncActors();
     renderGround();
-    updateBagBadge();
     layoutGround();
     hydrate(root);
   }
@@ -989,7 +988,7 @@
         </div>
         <div class="pp-empty"></div>
         <button type="button" class="pp-bag-btn" title="Bolsa" aria-label="Abrir la bolsa">
-          ${BAG_SVG}<span class="pp-bag-badge"></span>
+          ${BAG_SVG}
         </button>
       </div>`;
 
@@ -1055,7 +1054,6 @@
     if (!sel && state.party.length) {
       det.innerHTML = `
         <div class="pp-overview">
-          <p class="pp-overview-hint">Toca un Pokémon de tu equipo para ver su ficha, darle de comer o limpiarlo. Los que no son tuyos son salvajes: tócalos para intentar capturarlos.</p>
           ${(v ? [v, ...state.party] : state.party)
             .map((m) => {
               const cur = expForLevel(m.lv);
@@ -1254,14 +1252,6 @@
     }
   }
 
-  function updateBagBadge() {
-    const n = Object.values(state.bag).reduce((a, b) => a + b, 0);
-    const badge = root.querySelector(".pp-bag-badge");
-    if (badge) {
-      badge.textContent = n > 99 ? "99+" : n;
-      badge.style.display = n ? "" : "none";
-    }
-  }
 
   function renderGround() {
     const box = root.querySelector(".pp-items");

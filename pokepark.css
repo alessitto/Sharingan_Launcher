@@ -844,21 +844,6 @@ body.in-pokepark .main-content {
   height: 26px;
 }
 
-.pp-bag-badge {
-  position: absolute;
-  top: -2px;
-  right: -2px;
-  min-width: 22px;
-  height: 22px;
-  padding: 0 6px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 800;
-  line-height: 22px;
-  color: var(--red-500);
-  background: var(--washi-50);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-}
 
 /* Menú de bayas */
 .pp-feed-menu {
@@ -1312,12 +1297,6 @@ body.in-pokepark .main-content {
   gap: 6px;
 }
 
-.pp-overview-hint {
-  margin: 2px 4px 8px;
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--ink-300);
-}
 
 .pp-ov-row {
   display: flex;
