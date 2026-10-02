@@ -2232,3 +2232,10 @@ body.in-pokepark .main-content {
     opacity: 1;
   }
 }
+
+/* Cuántas quedan del objeto en la mano */
+.pp-hand-count {
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.85;
+}

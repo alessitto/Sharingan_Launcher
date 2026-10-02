@@ -750,7 +750,11 @@
     a?.el.classList.remove("is-catching");
     if (!state.wild.includes(mon)) return render();
     const name = speciesName(mon.sp);
-    if (Math.random() < CATCH_RATE) {
+    if (state.party.length >= PARTY_MAX) {
+      // Con varias Poké Balls en el aire el equipo se puede llenar antes.
+      showNotification(`Tu equipo está lleno (${PARTY_MAX}): ${name} ha salido de la Poké Ball.`, "error");
+      floatText(mon, "¡Se ha escapado!", true);
+    } else if (Math.random() < CATCH_RATE) {
       state.wild = state.wild.filter((m) => m !== mon);
       const caught = { ...mon, at: now(), caught: now() };
       delete caught.wild;
@@ -763,6 +767,7 @@
       showNotification(`¡Ya está! ¡${name}${mon.shiny ? " variocolor" : ""} atrapado!`);
       floatText(caught, "¡Atrapado!", true);
       sparkle(caught);
+      if (hand?.kind === "ball" && state.party.length >= PARTY_MAX) cancelHand();
     } else if (Math.random() < FLEE_CHANCE) {
       state.wild = state.wild.filter((m) => m !== mon);
       if (selectedUid === mon.uid) selectedUid = null;
@@ -784,8 +789,9 @@
   //  - Poké Ball: se ve grande abajo (en tu mano) y se lanza al punto donde
   //    hagas clic; vuela haciéndose pequeña y solo atrapa si cae encima de un
   //    salvaje (que se siguen moviendo). Si fallas, la Poké Ball se pierde.
+  //    Se puede lanzar seguido (varias a la vez) mientras queden.
   //  - Baya: se elige en el menú y se le da con un clic a un Pokémon de tu
-  //    equipo (o al visitante).
+  //    equipo (o al visitante); se queda en la mano mientras queden.
   //  - Cepillo: mantén pulsado y frota sobre cualquier Pokémon de tu equipo
   //    hasta llenar la barra.
   const COMB_WORK = 1400; // píxeles de frotar para dejarlo reluciente
@@ -813,8 +819,8 @@
   }
 
   const HAND_HINTS = {
-    ball: "Apunta a un Pokémon salvaje y haz clic para lanzar · Esc para guardarla",
-    berry: "Haz clic en un Pokémon de tu equipo para darle la baya · Esc para guardarla",
+    ball: "Apunta a un Pokémon salvaje y haz clic para lanzar (puedes lanzar seguidas) · Esc para guardarla",
+    berry: "Haz clic en tus Pokémon para darles la baya (puedes dar varias seguidas) · Esc para guardarla",
     comb: "Mantén pulsado y frota sobre un Pokémon de tu equipo para cepillarlo · Esc para dejarlo",
   };
 
@@ -828,11 +834,18 @@
     el.style.setProperty("--s", 2.2);
     const hint = document.createElement("div");
     hint.className = "pp-hand-hint";
-    hint.innerHTML = `<span>${HAND_HINTS[kind]}</span>${kind === "comb" ? `<i><em></em></i>` : ""}`;
+    hint.innerHTML = `<span>${HAND_HINTS[kind]}</span>${kind === "comb" ? `<i><em></em></i>` : `<b class="pp-hand-count"></b>`}`;
     park.append(el, hint);
     park.classList.add("is-aiming", `aim-${kind}`);
     hand = { kind, slug, target: null, el, hint, x: park.clientWidth / 2, y: park.clientHeight - 70, work: 0, down: false, last: null, warned: null };
     moveHand(hand.x, hand.y);
+    updateHandCount();
+  }
+
+  // Cuántas te quedan del objeto que llevas en la mano.
+  function updateHandCount() {
+    const el = hand?.hint.querySelector(".pp-hand-count");
+    if (el) el.textContent = `Te quedan ${fmtCount(have(hand.slug))}`;
   }
 
   // Botones del parque: sacan el objeto (o lo guardan si ya lo tienes).
@@ -931,9 +944,14 @@
         if (wild) showNotification(`${speciesName(wild.sp)} es salvaje: no come de tu mano.`, "error");
         return;
       }
+      // La baya se queda en la mano para dar otra mientras queden.
       const slug = hand.slug;
-      cancelHand();
       feed(mon, slug);
+      if (!hand) return;
+      if (!(have(slug) > 0)) {
+        cancelHand();
+        showNotification(`No te quedan más ${itemName(slug)}.`, "error");
+      } else updateHandCount();
     }
   }
 
@@ -949,10 +967,10 @@
     }
     takeFromBag("poke-ball");
     save();
+    updateHandCount();
+    // La mano no se bloquea: se puede lanzar otra mientras esta vuela.
     const park = parkEl();
     const from = { x: hand.x, y: hand.y };
-    hand.busy = true;
-    hand.el.style.visibility = "hidden";
     const ball = document.createElement("img");
     ball.className = "pp-ball-fly";
     ball.src = ITEM_IMG("poke-ball");
@@ -970,8 +988,8 @@
       const hit = monAtPoint(cx, cy, (m) => m.wild && !catching.has(m.uid));
       if (hit) {
         ball.remove();
-        cancelHand();
         resolveCatch(hit);
+        if (hand?.kind === "ball" && !(have("poke-ball") > 0)) cancelHand();
         return;
       }
       // Fallo: rebota en el suelo y desaparece.
@@ -987,10 +1005,7 @@
       floatTextAt(to.x, to.y, "¡Fallaste!");
       updateClock();
       render();
-      if (!hand) return;
-      hand.busy = false;
-      hand.el.style.visibility = "";
-      if (!(have("poke-ball") > 0)) {
+      if (hand?.kind === "ball" && !(have("poke-ball") > 0)) {
         cancelHand();
         showNotification("No te quedan Poké Balls.", "error");
       }
