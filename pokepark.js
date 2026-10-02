@@ -515,7 +515,7 @@
   async function runEvoQueue() {
     if (evoRunning) return;
     // No se interrumpe al usuario si tiene otro modal abierto: se reintenta.
-    if (Swal.isVisible()) {
+    if (Swal.isVisible() || tradeAnimBusy()) {
       setTimeout(runEvoQueue, 1500);
       return;
     }
@@ -613,6 +613,7 @@
     addFriendship(mon, b.fr);
     // Los visitantes ya están al nivel 100: comer solo les da amistad.
     floatText(mon, mon.lv >= 100 ? `+${b.fr} amistad` : `+${Math.round(exp)} EXP`);
+    hop(mon.uid);
     window.Achievements?.track("feeds");
     showNotification(`${displayName(mon)} se ha comido una ${b.n}.`);
     gainExp(mon, exp);
@@ -623,7 +624,7 @@
   function clean(mon) {
     const wait = (mon.cleanedAt || 0) + CLEAN_COOLDOWN_MS - now();
     if (wait > 0) {
-      showNotification(`${displayName(mon)} ya está limpio. Vuelve en ${fmtDuration(wait)}.`, "error");
+      showNotification(`${displayName(mon)} ya está cepillado. Vuelve en ${fmtDuration(wait)}.`, "error");
       return;
     }
     mon.cleanedAt = now();
@@ -631,6 +632,7 @@
     window.Achievements?.track("cleans");
     floatText(mon, "¡Reluciente!", true);
     sparkle(mon);
+    hop(mon.uid);
     save();
     render();
   }
@@ -728,17 +730,9 @@
   // ------------------------------------------------------------ Capturar
   const catching = new Set();
 
-  async function throwBall(mon) {
+  // La Poké Ball ya ha dado al salvaje: se agita y se decide.
+  async function resolveCatch(mon) {
     if (!mon?.wild || catching.has(mon.uid)) return;
-    if (!(state.bag["poke-ball"] > 0)) {
-      showNotification("No te quedan Poké Balls. Cómpralas en la tienda o búscalas por el parque.", "error");
-      return;
-    }
-    if (state.party.length >= PARTY_MAX) {
-      showNotification(`Tu equipo está lleno (${PARTY_MAX}). Libera a alguno para hacerle hueco.`, "error");
-      return;
-    }
-    takeFromBag("poke-ball");
     catching.add(mon.uid);
     save();
     const a = actors.get(mon.uid);
@@ -774,6 +768,267 @@
     refreshWild();
     save();
     render();
+  }
+
+  // ------------------------------------------------------------ Mano
+  // La Poké Ball, las bayas y el cepillo se usan con el ratón dentro del
+  // parque: el objeto va en la mano (sigue al cursor) y se lanza, se da o se
+  // pasa sobre el Pokémon. Esc o clic derecho para soltarlo.
+  //  - Poké Ball: se ve grande abajo (en tu mano) y se lanza al punto donde
+  //    hagas clic; vuela haciéndose pequeña y solo atrapa si cae encima de un
+  //    salvaje (que se siguen moviendo). Si fallas, la Poké Ball se pierde.
+  //  - Baya: haz clic sobre un Pokémon de tu equipo (o el visitante).
+  //  - Cepillo: mantén pulsado y frota sobre el Pokémon hasta llenar la barra.
+  const COMB_WORK = 1400; // píxeles de frotar para dejarlo reluciente
+  let hand = null; // { kind, slug, target, el, hint, x, y, busy, work, down, last }
+
+  const parkEl = () => root?.querySelector(".pp-park");
+  const parkVisible = () => document.getElementById("pokepark")?.classList.contains("active");
+
+  // Pokémon cuyo sprite está bajo el punto (coordenadas de pantalla); el
+  // que está más al frente gana.
+  function monAtPoint(cx, cy, accept) {
+    let best = null;
+    for (const [uid, a] of actors) {
+      const mon = monByUid(uid);
+      if (!mon || !accept(mon)) continue;
+      const img = a.el.querySelector(".pp-mon-img");
+      if (!img) continue;
+      const r = img.getBoundingClientRect();
+      const pad = 6;
+      if (cx < r.left - pad || cx > r.right + pad || cy < r.top - pad || cy > r.bottom + pad) continue;
+      const z = Number(a.el.style.zIndex) || 0;
+      if (!best || z > best.z) best = { mon, z };
+    }
+    return best?.mon || null;
+  }
+
+  const HAND_HINTS = {
+    ball: "Apunta a un Pokémon salvaje y haz clic para lanzar · Esc para guardarla",
+    berry: "Haz clic en un Pokémon de tu equipo para darle la baya · Esc para guardarla",
+    comb: "Mantén pulsado y frota sobre el Pokémon para cepillarlo · Esc para dejarlo",
+  };
+
+  function startHand(kind, slug = null, target = null) {
+    cancelHand();
+    const park = parkEl();
+    if (!park) return;
+    const el = document.createElement("div");
+    el.className = `pp-hand is-${kind}`;
+    el.innerHTML = kind === "comb" ? `<img src="${combSrc()}" alt="" draggable="false">` : itemImg(slug);
+    const hint = document.createElement("div");
+    hint.className = "pp-hand-hint";
+    hint.innerHTML = `<span>${HAND_HINTS[kind]}</span>${kind === "comb" ? `<i><em></em></i>` : ""}`;
+    park.append(el, hint);
+    park.classList.add("is-aiming", `aim-${kind}`);
+    hand = { kind, slug, target, el, hint, x: park.clientWidth / 2, y: park.clientHeight - 70, work: 0, down: false, last: null };
+    moveHand(hand.x, hand.y);
+  }
+
+  function cancelHand() {
+    if (!hand) return;
+    hand.el.remove();
+    hand.hint.remove();
+    parkEl()?.classList.remove("is-aiming", "aim-ball", "aim-berry", "aim-comb");
+    hand = null;
+  }
+
+  // La Poké Ball se queda abajo (en tu mano) siguiendo el cursor de lado;
+  // la baya y el cepillo van pegados al cursor.
+  function moveHand(x, y) {
+    if (!hand) return;
+    const park = parkEl();
+    if (hand.kind === "ball") {
+      hand.x = Math.max(40, Math.min(park.clientWidth - 40, x));
+      hand.y = park.clientHeight - 64;
+      hand.aimX = x;
+      hand.aimY = y;
+    } else {
+      hand.x = x;
+      hand.y = y;
+    }
+    hand.el.style.transform = `translate(${hand.x}px, ${hand.y}px)`;
+  }
+
+  function parkPoint(e) {
+    const r = parkEl().getBoundingClientRect();
+    // El parque puede estar escalado (zoom de la ventana): se pasa a sus píxeles.
+    const k = parkEl().clientWidth / r.width || 1;
+    return { x: (e.clientX - r.left) * k, y: (e.clientY - r.top) * k };
+  }
+
+  function onHandMove(e) {
+    if (!hand || hand.busy || !e.target.closest(".pp-park")) return;
+    const p = parkPoint(e);
+    if (hand.kind === "comb" && hand.down) {
+      if (hand.last) {
+        const d = Math.hypot(p.x - hand.last.x, p.y - hand.last.y);
+        const mon = monByUid(hand.target);
+        if (mon && monAtPoint(e.clientX, e.clientY, (m) => m === mon)) {
+          hand.work += d;
+          if (Math.floor(hand.work / 220) !== Math.floor((hand.work - d) / 220)) sparkle(mon, 2);
+          hand.hint.querySelector("em").style.width = `${Math.min(100, (hand.work / COMB_WORK) * 100)}%`;
+          if (hand.work >= COMB_WORK) {
+            cancelHand();
+            clean(mon);
+            return;
+          }
+        }
+      }
+      hand.last = p;
+    }
+    moveHand(p.x, p.y);
+  }
+
+  function onHandClick(e) {
+    if (!hand || !e.target.closest(".pp-park") || e.target.closest(".pp-hud, .pp-bag-btn")) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (hand.busy) return;
+    if (hand.kind === "ball") return throwAt(parkPoint(e), e.clientX, e.clientY);
+    if (hand.kind === "berry") {
+      const mon = monAtPoint(e.clientX, e.clientY, (m) => !m.wild);
+      if (!mon) {
+        const wild = monAtPoint(e.clientX, e.clientY, (m) => m.wild);
+        if (wild) showNotification(`${speciesName(wild.sp)} es salvaje: no come de tu mano.`, "error");
+        return;
+      }
+      const slug = hand.slug;
+      cancelHand();
+      feed(mon, slug);
+    }
+  }
+
+  // Vuelo de la Poké Ball: curva desde la mano al punto, encogiéndose.
+  function throwAt(to, cx, cy) {
+    if (!(state.bag["poke-ball"] > 0)) {
+      cancelHand();
+      return showNotification("No te quedan Poké Balls. Cómpralas en la tienda o búscalas por el parque.", "error");
+    }
+    if (state.party.length >= PARTY_MAX) {
+      cancelHand();
+      return showNotification(`Tu equipo está lleno (${PARTY_MAX}). Libera a alguno para hacerle hueco.`, "error");
+    }
+    takeFromBag("poke-ball");
+    save();
+    const park = parkEl();
+    const from = { x: hand.x, y: hand.y };
+    hand.busy = true;
+    hand.el.style.visibility = "hidden";
+    const ball = document.createElement("img");
+    ball.className = "pp-ball-fly";
+    ball.src = ITEM_IMG("poke-ball");
+    park.appendChild(ball);
+    const peak = { x: (from.x + to.x) / 2, y: Math.min(from.y, to.y) - 90 - Math.abs(from.x - to.x) * 0.1 };
+    const frames = [];
+    for (let i = 0; i <= 16; i++) {
+      const t = i / 16;
+      const x = (1 - t) ** 2 * from.x + 2 * (1 - t) * t * peak.x + t * t * to.x;
+      const y = (1 - t) ** 2 * from.y + 2 * (1 - t) * t * peak.y + t * t * to.y;
+      frames.push({ transform: `translate(${x}px, ${y}px) translate(-50%, -50%) rotate(${t * 540}deg) scale(${2.2 - t * 1.2})` });
+    }
+    const anim = ball.animate(frames, { duration: 620, easing: "linear", fill: "forwards" });
+    anim.onfinish = () => {
+      const hit = monAtPoint(cx, cy, (m) => m.wild && !catching.has(m.uid));
+      if (hit) {
+        ball.remove();
+        cancelHand();
+        resolveCatch(hit);
+        return;
+      }
+      // Fallo: rebota en el suelo y desaparece.
+      const end = `translate(${to.x}px, ${to.y}px) translate(-50%, -50%)`;
+      ball.animate(
+        [
+          { transform: `${end} scale(1)`, opacity: 1 },
+          { transform: `translate(${to.x + 14}px, ${to.y - 18}px) translate(-50%, -50%) rotate(90deg) scale(1)`, opacity: 1 },
+          { transform: `translate(${to.x + 24}px, ${to.y}px) translate(-50%, -50%) rotate(160deg) scale(1)`, opacity: 0 },
+        ],
+        { duration: 500, easing: "ease-out", fill: "forwards" }
+      ).onfinish = () => ball.remove();
+      floatTextAt(to.x, to.y, "¡Fallaste!");
+      updateClock();
+      render();
+      if (!hand) return;
+      hand.busy = false;
+      hand.el.style.visibility = "";
+      if (!(state.bag["poke-ball"] > 0)) {
+        cancelHand();
+        showNotification("No te quedan Poké Balls.", "error");
+      }
+    };
+  }
+
+  function floatTextAt(x, y, text) {
+    const f = document.createElement("span");
+    f.className = "pp-float is-soft pp-float-at";
+    f.textContent = text;
+    f.style.left = `${x}px`;
+    f.style.top = `${y}px`;
+    parkEl()?.appendChild(f);
+    setTimeout(() => f.remove(), 1600);
+  }
+
+  // Cepillo en pixel art (en los juegos solo sale en Pokémon Refresh, sin
+  // sprite de objeto), al estilo de los sprites de objetos.
+  let combUrl = null;
+  function combSrc() {
+    if (combUrl) return combUrl;
+    const c = document.createElement("canvas");
+    c.width = 30;
+    c.height = 30;
+    const g = c.getContext("2d");
+    const p = (x, y, col, w = 1, h = 1) => {
+      g.fillStyle = col;
+      g.fillRect(x, y, w, h);
+    };
+    const OUT = "#5a1530";
+    const MID = "#e2457a";
+    const HI = "#ff9cc0";
+    const SH = "#a82a57";
+    // lomo (con el mango redondeado a la izquierda)
+    p(3, 6, OUT, 24, 1);
+    p(2, 7, OUT, 1, 4);
+    p(27, 7, OUT, 1, 4);
+    p(3, 7, HI, 24, 1);
+    p(3, 8, MID, 24, 2);
+    p(3, 10, SH, 24, 1);
+    p(3, 11, OUT, 24, 1);
+    p(5, 8, "#ffffff", 3, 1);
+    // púas separadas, más largas en el centro
+    for (let x = 4; x <= 25; x += 3) {
+      const len = x < 8 || x > 21 ? 9 : 13;
+      p(x, 12, MID, 1, len - 1);
+      p(x + 1, 12, SH, 1, len - 1);
+      p(x, 11 + len, OUT, 2, 1);
+    }
+    combUrl = c.toDataURL();
+    return combUrl;
+  }
+
+  function bindHand() {
+    root.addEventListener("click", onHandClick, true);
+    root.addEventListener("mousemove", onHandMove);
+    root.addEventListener("mousedown", (e) => {
+      if (!hand || e.button !== 0 || !e.target.closest(".pp-park")) return;
+      if (hand.kind === "comb") {
+        hand.down = true;
+        hand.last = parkPoint(e);
+        e.preventDefault();
+      }
+    });
+    window.addEventListener("mouseup", () => hand && (hand.down = false));
+    root.addEventListener("contextmenu", (e) => {
+      if (!hand) return;
+      e.preventDefault();
+      cancelHand();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && hand) {
+        e.preventDefault();
+        cancelHand();
+      }
+    });
   }
 
   // ------------------------------------------------------------ Liberar
@@ -1012,6 +1267,7 @@
         render();
       }
     });
+    bindHand();
     updateClock();
   }
 
@@ -1054,7 +1310,7 @@
     if (!sel && state.party.length) {
       det.innerHTML = `
         <div class="pp-overview">
-          ${(v ? [v, ...state.party] : state.party)
+          ${state.party
             .map((m) => {
               const cur = expForLevel(m.lv);
               // Para el visitante la barra es el tiempo que le queda en el parque.
@@ -1107,12 +1363,12 @@
             ${BERRY_SVG}<span>Dar de comer</span>
           </button>
           <button type="button" class="sl-btn sl-btn-ghost" data-pp="clean" ${cleanWait > 0 ? "disabled" : ""}>
-            ${icon("sparkles")}<span>Limpiar</span>
+            <img class="pp-btn-comb" src="${combSrc()}" alt=""><span>Cepillar</span>
           </button>
         </div>
         <p class="pp-cooldowns">
           ${fi.left ? `Comidas con experiencia: ${fi.left}/${FEED_MAX}` : `Lleno · vuelve a tener hambre en ${fmtDuration(fi.resetIn)}`}
-          ${cleanWait > 0 ? ` · Limpio (${fmtDuration(cleanWait)})` : ""}
+          ${cleanWait > 0 ? ` · Cepillado (${fmtDuration(cleanWait)})` : ""}
         </p>
         <div class="pp-portrait ${sel.visitor ? "is-visitor" : ""} ${sel.shiny ? "is-shiny" : ""}">${spriteHtml(sel.sp, "pp-portrait-img", sel.shiny)}</div>
         <div class="pp-name-row">
@@ -1206,7 +1462,7 @@
       <div class="pp-card is-wild">
         <div class="pp-actions">
           <button type="button" class="sl-btn sl-btn-primary" data-pp="catch" ${!balls || full || busy ? "disabled" : ""}>
-            ${POKEBALL_SVG}<span>${busy ? "Capturando…" : "Lanzar Poké Ball"}</span>
+            ${POKEBALL_SVG}<span>${busy ? "Capturando…" : "Coger una Poké Ball"}</span>
           </button>
         </div>
         <p class="pp-cooldowns">${
@@ -1222,7 +1478,7 @@
         <div class="pp-types">${s.t.map((t) => `<span class="pp-type" style="--tc:${TYPE_COLORS[t] || "#888"}">${esc(dex.types[t] || t)}</span>`).join("")}</div>
         <div class="pp-level"><span class="pp-lv">Nv. <b>${sel.lv}</b></span><span class="pp-exp-text">Se irá en ${fmtDuration(sel.leaves - now())}</span></div>
         <div class="pp-exp pp-visit-bar"><span style="width:${Math.max(0, Math.min(100, ((sel.leaves - now()) / (WILD_STAY_MIN[1] * 60000)) * 100))}%"></span></div>
-        <p class="pp-visit-note">Un Pokémon salvaje anda por el parque. Todas las especies se capturan igual de fácil, pero puede escaparse de la Poké Ball (y a veces huir).</p>
+        <p class="pp-visit-note">Coge una Poké Ball y lánzala haciendo clic donde esté: tiene que caerle encima, y se mueve. Todas las especies se capturan igual de fácil, pero puede escaparse (y a veces huir).</p>
       </div>`;
   }
 
@@ -1575,6 +1831,7 @@
   function frame(t) {
     rafId = null;
     const visible = document.getElementById("pokepark")?.classList.contains("active");
+    if (!visible && hand) cancelHand();
     const dt = Math.min(0.05, (t - (lastFrame || t)) / 1000);
     lastFrame = t;
     if (visible) {
@@ -1587,11 +1844,9 @@
           a.x = rand(0.06, 0.94) * w;
           a.y = rand(0.12, 0.92) * h;
         }
-        // Muy de vez en cuando (de media, cada ~12 min por Pokémon) ataca.
-        if (!a.attackUntil || now() > a.attackUntil) {
-          if (Math.random() < dt / 720) attack(a, mon);
-        }
-        if (catching.has(uid) || now() < (a.attackUntil || 0) || now() < a.idleUntil) {
+        // Quieto mientras se le captura o se le cepilla.
+        const still = catching.has(uid) || (hand?.kind === "comb" && hand.target === uid);
+        if (still || now() < a.idleUntil) {
           a.el.classList.remove("is-walking");
         } else {
           if (!a.tx && !a.ty) {
@@ -1624,285 +1879,6 @@
     rafId = requestAnimationFrame(frame);
   }
 
-  // ------------------------------------------------------------ Ataques
-  // Muy de vez en cuando un Pokémon se para y hace el ataque típico de su
-  // tipo. Los efectos son pixel art propio (16x16) al estilo de los combates
-  // de 5ª generación, generado aquí mismo y ampliado sin suavizar, con el
-  // mismo tamaño de píxel que el parque.
-  const ATTACKS = {
-    fire: { n: "Lanzallamas", fx: ["flame", "flameSmall"], kind: "stream" },
-    water: { n: "Pistola Agua", fx: ["drop"], kind: "stream" },
-    electric: { n: "Impactrueno", fx: ["bolt"], kind: "bolt" },
-    grass: { n: "Hoja Afilada", fx: ["leaf"], kind: "spray" },
-    ice: { n: "Rayo Hielo", fx: ["ice"], kind: "stream" },
-    psychic: { n: "Psíquico", fx: ["psy"], kind: "pulse" },
-    ghost: { n: "Bola Sombra", fx: ["shadow"], kind: "ball" },
-    dark: { n: "Mordisco", fx: ["fangTop", "fangBottom"], kind: "bite" },
-    fighting: { n: "Puño Dinámico", fx: ["impact", "star"], kind: "hit" },
-    rock: { n: "Lanzarrocas", fx: ["rock"], kind: "drop" },
-    ground: { n: "Bofetón Lodo", fx: ["mud"], kind: "stream" },
-    poison: { n: "Bomba Lodo", fx: ["poison"], kind: "ball" },
-    bug: { n: "Disparo Demora", fx: ["web"], kind: "ball" },
-    flying: { n: "Tornado", fx: ["gust"], kind: "spray" },
-    dragon: { n: "Pulso Dragón", fx: ["dragonFlame", "psyDragon"], kind: "pulse" },
-    steel: { n: "Garra Metal", fx: ["slash", "star"], kind: "hit" },
-    fairy: { n: "Brillo Mágico", fx: ["sparkle", "heart"], kind: "pulse" },
-    normal: { n: "Placaje", fx: ["impact"], kind: "tackle" },
-  };
-
-  const FX_ART = 16;
-  const fxCache = new Map();
-
-  function makeFx(draw) {
-    const c = document.createElement("canvas");
-    c.width = c.height = FX_ART;
-    const g = c.getContext("2d");
-    const p = (x, y, col, w = 1, h = 1) => {
-      g.fillStyle = col;
-      g.fillRect(Math.round(x), Math.round(y), w, h);
-    };
-    const ell = (cx, cy, rx, ry, col) => {
-      g.fillStyle = col;
-      for (let y = -ry; y <= ry; y++) {
-        const half = Math.round(rx * Math.sqrt(Math.max(0, 1 - (y / (ry + 0.35)) ** 2)));
-        g.fillRect(Math.round(cx - half), Math.round(cy + y), half * 2 + 1, 1);
-      }
-    };
-    const ring = (cx, cy, r, col) => {
-      for (let a = 0; a < 64; a++) p(cx + Math.cos((a / 64) * Math.PI * 2) * r, cy + Math.sin((a / 64) * Math.PI * 2) * r, col);
-    };
-    const line = (x0, y0, x1, y1, col, w = 1) => {
-      const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
-      for (let i = 0; i <= n; i++) p(x0 + ((x1 - x0) * i) / n, y0 + ((y1 - y0) * i) / n, col, w, w);
-    };
-    draw({ g, p, ell, ring, line });
-    return c.toDataURL();
-  }
-
-  // Llama: gota invertida con borde rojo, cuerpo naranja y núcleo amarillo.
-  const flameArt = (outer, mid, core, tip) => ({ p, ell }) => {
-    ell(8, 10, 5, 5, outer);
-    for (let y = 1; y < 7; y++) p(8 - Math.floor(y / 2), y, outer, Math.floor(y / 2) * 2 + 1, 1);
-    ell(8, 11, 3, 3, mid);
-    for (let y = 4; y < 9; y++) p(8 - Math.floor((y - 3) / 2), y, mid, Math.floor((y - 3) / 2) * 2 + 1, 1);
-    ell(8, 12, 1, 2, core);
-    p(8, 9, core);
-    p(8, 2, tip);
-  };
-
-  const FX_DRAW = {
-    flame: flameArt("#c8321a", "#f5871f", "#ffe14a", "#ff9a3c"),
-    flameSmall: ({ p, ell }) => {
-      ell(8, 10, 3, 3, "#e0501c");
-      for (let y = 5; y < 8; y++) p(8 - (y - 5), y, "#e0501c", (y - 5) * 2 + 1, 1);
-      ell(8, 11, 1, 1, "#ffd23a");
-    },
-    dragonFlame: flameArt("#4b2aa8", "#7d5cf0", "#d9ccff", "#9b85ff"),
-    drop: ({ p, ell }) => {
-      ell(8, 10, 4, 4, "#1d5fb8");
-      for (let y = 3; y < 7; y++) p(8 - Math.floor((y - 2) / 2), y, "#1d5fb8", Math.floor((y - 2) / 2) * 2 + 1, 1);
-      ell(8, 10, 3, 3, "#3d8ff0");
-      p(6, 8, "#cfeeff", 2, 1);
-      p(6, 9, "#cfeeff");
-      p(10, 12, "#7fc0ff");
-    },
-    bolt: ({ p, line }) => {
-      const pts = [[10, 0], [5, 7], [9, 7], [4, 15], [12, 6], [8, 6], [12, 0]];
-      for (let i = 0; i < pts.length - 1; i++) line(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], "#b07800", 2);
-      line(10, 1, 6, 7, "#ffd93b", 2);
-      line(8, 7, 5, 13, "#ffd93b", 2);
-      line(10, 2, 7, 7, "#fffbe0");
-    },
-    leaf: ({ p, line }) => {
-      for (let i = 0; i < 12; i++) {
-        const w = Math.round(Math.sin((i / 11) * Math.PI) * 3);
-        for (let k = -w; k <= w; k++) p(2 + i + k * 0.5, 13 - i + k, "#3f9e46");
-      }
-      line(3, 12, 13, 2, "#1f5e26");
-      p(6, 11, "#8fdc6a");
-      p(9, 8, "#8fdc6a");
-    },
-    ice: ({ p, line }) => {
-      for (let y = 0; y < 16; y++) {
-        const w = 7 - Math.abs(7.5 - y);
-        p(8 - w, y, "#3a8fd0", w * 2 + 1, 1);
-        if (w > 1) p(9 - w, y, "#9fe8ff", w * 2 - 1, 1);
-      }
-      line(8, 2, 8, 13, "#ffffff");
-      line(4, 8, 12, 8, "#e6fbff");
-    },
-    psy: ({ ring, ell }) => {
-      ring(8, 8, 7, "#c23d8a");
-      ring(8, 8, 6, "#ff6fb5");
-      ring(8, 8, 3.5, "#ffb3db");
-      ell(8, 8, 1, 1, "#ffe6f4");
-    },
-    psyDragon: ({ ring }) => {
-      ring(8, 8, 7, "#3b2d8f");
-      ring(8, 8, 6, "#6f5cf0");
-      ring(8, 8, 3, "#b4a8ff");
-    },
-    shadow: ({ p, ell, ring }) => {
-      ell(8, 8, 7, 7, "#2a1546");
-      ell(8, 8, 5, 5, "#5a2f8c");
-      ell(8, 8, 3, 3, "#170b26");
-      ring(8, 8, 7, "#8a5cc8");
-      p(5, 5, "#c9a8ff", 2, 1);
-      p(5, 6, "#c9a8ff");
-    },
-    fangTop: ({ p }) => {
-      for (let i = 0; i < 4; i++) {
-        for (let y = 0; y < 7; y++) {
-          const w = Math.max(0, 1.5 - y * 0.25);
-          p(2 + i * 4 - w + 1, 2 + y, y === 0 ? "#9aa0ad" : "#ffffff", Math.max(1, Math.round(w * 2)), 1);
-        }
-      }
-      p(1, 1, "#9aa0ad", 15, 1);
-    },
-    fangBottom: ({ p }) => {
-      for (let i = 0; i < 4; i++) {
-        for (let y = 0; y < 7; y++) {
-          const w = Math.max(0, 1.5 - y * 0.25);
-          p(2 + i * 4 - w + 1, 13 - y, y === 0 ? "#9aa0ad" : "#ffffff", Math.max(1, Math.round(w * 2)), 1);
-        }
-      }
-      p(1, 14, "#9aa0ad", 15, 1);
-    },
-    impact: ({ line, ell }) => {
-      for (let i = 0; i < 8; i++) {
-        const a = (i / 8) * Math.PI * 2;
-        const r = i % 2 ? 5 : 7;
-        line(8, 8, 8 + Math.cos(a) * r, 8 + Math.sin(a) * r, "#f2a51a", 2);
-      }
-      ell(8, 8, 3, 3, "#ffe25c");
-      ell(8, 8, 1, 1, "#ffffff");
-    },
-    star: ({ p, line }) => {
-      line(8, 1, 8, 15, "#ffffff");
-      line(1, 8, 15, 8, "#ffffff");
-      line(4, 4, 12, 12, "#d8e4ff");
-      line(12, 4, 4, 12, "#d8e4ff");
-      p(7, 7, "#ffffff", 3, 3);
-    },
-    rock: ({ p, ell }) => {
-      ell(8, 9, 6, 5, "#5e4b36");
-      ell(8, 8, 5, 4, "#8b7355");
-      ell(6, 6, 2, 2, "#b39b7a");
-      p(10, 11, "#4a3a28", 3, 1);
-      p(4, 9, "#4a3a28");
-    },
-    mud: ({ p, ell }) => {
-      ell(8, 9, 6, 5, "#5a3a1a");
-      ell(8, 9, 5, 4, "#8a5a2b");
-      ell(6, 7, 2, 1, "#b88a52");
-      p(12, 13, "#5a3a1a", 2, 2);
-    },
-    poison: ({ p, ell, ring }) => {
-      ell(8, 8, 6, 6, "#5e2178");
-      ell(8, 8, 5, 5, "#9b45c4");
-      ring(8, 8, 6, "#3c1150");
-      p(5, 5, "#e2b5f5", 2, 2);
-      p(11, 11, "#c27ae6");
-    },
-    web: ({ ring, line }) => {
-      for (let i = 0; i < 6; i++) {
-        const a = (i / 6) * Math.PI * 2;
-        line(8, 8, 8 + Math.cos(a) * 7, 8 + Math.sin(a) * 7, "#f2f2f2");
-      }
-      ring(8, 8, 3, "#dcdcdc");
-      ring(8, 8, 6, "#dcdcdc");
-    },
-    gust: ({ p }) => {
-      for (let a = 0; a < 30; a++) {
-        const t = a / 30;
-        const r = 2 + t * 5;
-        p(8 + Math.cos(t * 9) * r, 8 + Math.sin(t * 9) * r * 0.7, t > 0.5 ? "#ffffff" : "#cfe3f0");
-      }
-      p(2, 13, "#ffffff", 5, 1);
-    },
-    slash: ({ line }) => {
-      line(2, 14, 14, 2, "#8c95a6", 2);
-      line(3, 14, 14, 3, "#ffffff");
-      line(0, 10, 10, 0, "#c8d0dc");
-    },
-    sparkle: ({ p, line }) => {
-      line(8, 0, 8, 15, "#ff8fc4");
-      line(0, 8, 15, 8, "#ff8fc4");
-      line(8, 3, 8, 12, "#ffffff");
-      line(3, 8, 12, 8, "#ffffff");
-      p(7, 7, "#ffffff", 3, 3);
-    },
-    heart: ({ p, ell }) => {
-      ell(5, 6, 3, 3, "#e8467e");
-      ell(11, 6, 3, 3, "#e8467e");
-      for (let y = 7; y < 14; y++) p(2 + (y - 7), y, "#e8467e", 13 - (y - 7) * 2, 1);
-      p(4, 4, "#ffc2d8", 2, 1);
-    },
-  };
-
-  function fxSrc(name) {
-    if (!fxCache.has(name)) fxCache.set(name, FX_DRAW[name] ? makeFx(FX_DRAW[name]) : null);
-    return Promise.resolve(fxCache.get(name));
-  }
-
-  async function attack(a, mon) {
-    const layer = root.querySelector(".pp-mons");
-    const atk = ATTACKS[species(mon.sp).t[0]] || ATTACKS.normal;
-    const srcs = (await Promise.all(atk.fx.map(fxSrc))).filter(Boolean);
-    if (!srcs.length || !layer) return;
-    a.attackUntil = now() + 1800;
-    a.tx = a.ty = 0;
-    const dir = -a.facing; // los sprites miran a la izquierda: facing 1 = izquierda
-    const ox = a.x + dir * 26;
-    const oy = a.y - 34;
-    a.el.classList.remove("is-attacking");
-    void a.el.offsetWidth;
-    a.el.classList.add("is-attacking");
-    setTimeout(() => a.el.classList.remove("is-attacking"), 700);
-    floatText(mon, `¡${atk.n}!`, true);
-
-    const spawn = (src, size, frames, opts) => {
-      const img = document.createElement("img");
-      img.className = "pp-fx";
-      img.src = src;
-      img.style.width = `${size}px`;
-      img.style.zIndex = String(20 + Math.round(a.y));
-      layer.appendChild(img);
-      const anim = img.animate(frames, { easing: "ease-out", fill: "forwards", ...opts });
-      anim.onfinish = () => img.remove();
-    };
-    const at = (x, y, s = 1, r = 0, o = 1) => ({ transform: `translate(${x}px, ${y}px) translate(-50%, -50%) rotate(${r}deg) scale(${s})`, opacity: o });
-
-    if (atk.kind === "stream" || atk.kind === "spray") {
-      for (let i = 0; i < 7; i++) {
-        const spread = atk.kind === "spray" ? rand(-40, 40) : rand(-10, 10);
-        spawn(srcs[i % srcs.length], atk.kind === "spray" ? 32 : 48, [at(ox, oy, 0.4, 0, 0.9), at(ox + dir * rand(150, 220), oy + spread, 1.1, rand(-90, 90), 0)], { duration: 700, delay: i * 70 });
-      }
-    } else if (atk.kind === "ball" || atk.kind === "pulse") {
-      const big = atk.kind === "pulse";
-      spawn(srcs[0], big ? 96 : 48, [at(ox, oy, 0.2, 0, 1), at(ox + dir * (big ? 40 : 180), oy - (big ? 0 : 6), big ? 1.6 : 1, 0, big ? 0 : 0.9)], { duration: big ? 900 : 800 });
-      if (srcs[1]) spawn(srcs[1], 32, [at(ox, oy, 0.3, 0, 0.8), at(ox + dir * 60, oy - 20, 1.4, 180, 0)], { duration: 900, delay: 150 });
-    } else if (atk.kind === "bolt") {
-      for (let i = 0; i < 3; i++) {
-        const bx = a.x + dir * rand(40, 130);
-        spawn(srcs[0], 48, [at(bx, a.y - 150, 1, 0, 0), at(bx, a.y - 70, 1.2, 0, 1), at(bx, a.y - 40, 1.2, 0, 0)], { duration: 420, delay: i * 160 });
-      }
-    } else if (atk.kind === "bite") {
-      const bx = a.x + dir * 70;
-      spawn(srcs[0], 64, [at(bx, oy - 40, 1, 0, 0), at(bx, oy - 10, 1, 0, 1), at(bx, oy - 4, 1, 0, 0)], { duration: 520 });
-      if (srcs[1]) spawn(srcs[1], 64, [at(bx, oy + 30, 1, 0, 0), at(bx, oy, 1, 0, 1), at(bx, oy - 4, 1, 0, 0)], { duration: 520 });
-    } else if (atk.kind === "hit" || atk.kind === "tackle") {
-      const bx = a.x + dir * 70;
-      spawn(srcs[0], 48, [at(ox, oy, 0.4, 0, 0), at(bx, oy, 1.1, dir * 20, 1), at(bx, oy, 1.4, dir * 20, 0)], { duration: 600, delay: atk.kind === "tackle" ? 180 : 0 });
-      if (srcs[1]) spawn(srcs[1], 32, [at(bx, oy - 10, 0.3, 0, 0), at(bx, oy - 10, 1.4, 90, 1), at(bx, oy - 10, 1.8, 180, 0)], { duration: 600, delay: 200 });
-    } else if (atk.kind === "drop") {
-      for (let i = 0; i < 4; i++) {
-        const bx = a.x + dir * rand(50, 150);
-        spawn(srcs[i % srcs.length], 32, [at(bx, a.y - 170, 1, 0, 1), at(bx, a.y - 18, 1, rand(-60, 60), 1), at(bx, a.y - 18, 1.1, 0, 0)], { duration: 650, delay: i * 120, easing: "ease-in" });
-      }
-    }
-  }
-
   function actorOf(mon) {
     return actors.get(mon.uid)?.el || null;
   }
@@ -1917,10 +1893,10 @@
     setTimeout(() => f.remove(), 1600);
   }
 
-  function sparkle(mon) {
+  function sparkle(mon, n = 6) {
     const el = actorOf(mon);
     if (!el) return;
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < n; i++) {
       const s = document.createElement("span");
       s.className = "pp-spark";
       s.style.setProperty("--dx", `${rand(-50, 50)}px`);
@@ -1969,13 +1945,17 @@
       save();
       render();
     } else if (act === "pick") openPicker();
-    else if (act === "catch" && mon?.wild) throwBall(mon);
+    else if (act === "catch" && mon?.wild) startHand("ball", "poke-ball");
     else if (act === "release" && mon && !mon.wild && !mon.visitor) release(mon);
     else if (act === "trade" && mon && !mon.wild && !mon.visitor) openTrades(mon.uid);
     else if (act === "trades") openTrades();
     else if (act === "shop") openShop();
     else if (act === "feed" && mon && !mon.wild) openFeedMenu(mon, t);
-    else if (act === "clean" && mon) clean(mon);
+    else if (act === "clean" && mon && !mon.wild) {
+      const wait = (mon.cleanedAt || 0) + CLEAN_COOLDOWN_MS - now();
+      if (wait > 0) showNotification(`${displayName(mon)} ya está cepillado. Vuelve en ${fmtDuration(wait)}.`, "error");
+      else startHand("comb", null, mon.uid);
+    }
     else if (act === "unequip" && mon?.held) {
       addToBag(mon.held);
       showNotification(`Has guardado ${itemName(mon.held)} en la bolsa.`);
@@ -2016,7 +1996,7 @@
     const menu = document.createElement("div");
     menu.className = "pp-feed-menu";
     menu.innerHTML = berries.length
-      ? `<p class="pp-feed-title">¿Qué baya le das a ${esc(displayName(mon))}?</p>
+      ? `<p class="pp-feed-title">Coge una baya y dásela a un Pokémon</p>
          ${berries
            .map(
              (b) => `<button type="button" class="pp-feed-opt" data-berry="${b}">
@@ -2034,7 +2014,7 @@
       const opt = e.target.closest("[data-berry]");
       if (!opt) return;
       closeFeedMenu();
-      feed(mon, opt.dataset.berry);
+      startHand("berry", opt.dataset.berry);
     });
   }
 
@@ -2456,10 +2436,77 @@
     state.party[idx] = mon;
     if (selectedUid === old.uid) selectedUid = mon.uid;
     window.Achievements?.track("trades");
-    showNotification(`¡Intercambio completado! ${displayName(old)} se ha ido con ${otherName} y ha llegado ${displayName(mon)}${mon.shiny ? " (variocolor)" : ""}.`);
+    if (!parkVisible()) showNotification(`¡Intercambio completado! ${displayName(old)} se ha ido con ${otherName} y ha llegado ${displayName(mon)}${mon.shiny ? " (variocolor)" : ""}.`);
+    queueTradeAnim({ ...old }, mon, otherName);
     const d = findEvolution(mon, "trade", gaveSp);
     if (d) queueEvolution(mon, d);
     return mon;
+  }
+
+  // Animación del intercambio: tu Pokémon entra en su Poké Ball y se va, y
+  // llega la del otro jugador. La ven los dos: quien acepta al momento y
+  // quien ofreció en cuanto su app lo detecta (se consulta cada pocos
+  // segundos mientras tenga ofertas pendientes).
+  const tradeAnims = [];
+  let tradeAnimRunning = false;
+  const tradeAnimBusy = () => tradeAnimRunning || tradeAnims.length > 0;
+
+  function queueTradeAnim(gave, got, other) {
+    tradeAnims.push({ gave, got, other });
+    runTradeAnims();
+  }
+
+  async function runTradeAnims() {
+    if (tradeAnimRunning || !tradeAnims.length) return;
+    if (Swal.isVisible() || !parkVisible()) {
+      setTimeout(runTradeAnims, 1500);
+      return;
+    }
+    tradeAnimRunning = true;
+    const j = tradeAnims.shift();
+    const gaveName = displayName(j.gave);
+    const gotName = displayName(j.got);
+    await openModal({
+      width: 480,
+      html: `
+        <div class="pp-trade-anim">
+          <div class="pp-ta-stage">
+            <div class="pp-ta-glow"></div>
+            <div class="pp-ta-mon is-mine">${spriteHtml(j.gave.sp, "", j.gave.shiny)}</div>
+            <div class="pp-ta-mon is-theirs">${spriteHtml(j.got.sp, "", j.got.shiny)}</div>
+            <img class="pp-ta-ball is-out" src="${ITEM_IMG("poke-ball")}" alt="">
+            <img class="pp-ta-ball is-in" src="${ITEM_IMG("poke-ball")}" alt="">
+          </div>
+          <h3 class="pp-evo-title">¡Adiós, ${esc(gaveName)}!</h3>
+          <p class="pp-evo-text">Enviando a ${esc(gaveName)} con ${esc(j.other)}…</p>
+        </div>`,
+      showConfirmButton: false,
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      customClass: { popup: "sl-modal-sm pp-evo-popup" },
+      didOpen: (popup) => {
+        hydrate(popup);
+        const box = popup.querySelector(".pp-trade-anim");
+        setTimeout(() => box.classList.add("is-running"), 300);
+        setTimeout(() => {
+          popup.querySelector(".pp-evo-title").textContent = `${j.other} te envía a ${speciesName(j.got.sp)}`;
+          popup.querySelector(".pp-evo-text").textContent = "¡Ya llega!";
+        }, 2600);
+        setTimeout(() => {
+          box.classList.add("is-done");
+          popup.querySelector(".pp-evo-title").textContent = "¡Intercambio completado!";
+          popup.querySelector(".pp-evo-text").textContent = `¡Cuida bien de ${gotName}${j.got.shiny ? " (variocolor)" : ""}!`;
+          const btn = document.createElement("button");
+          btn.className = "sl-btn sl-btn-primary";
+          btn.textContent = "¡Genial!";
+          btn.onclick = () => Swal.close();
+          box.appendChild(btn);
+        }, 4500);
+      },
+    });
+    tradeAnimRunning = false;
+    if (tradeAnims.length) setTimeout(runTradeAnims, 400);
+    else if (evoQueue.length) setTimeout(runEvoQueue, 400);
   }
 
   function applyTrades(list) {
@@ -2586,8 +2633,8 @@
       await cloudApi("tradeClaim", t.id);
       save();
       render();
-      // Si evoluciona al llegar, se cierra la ventana para verlo.
-      if (evoQueue.some((q) => q.uid === got.uid)) Swal.close();
+      // Se cierra la ventana para ver la animación del intercambio.
+      if (got) Swal.close();
     });
   }
 
@@ -2794,6 +2841,9 @@
     render();
     syncTrades();
     setInterval(tick, TICK_MS);
+    // Con ofertas propias pendientes se mira cada 5 s, para ver el
+    // intercambio casi a la vez que quien lo acepta.
+    setInterval(() => state.party.some((m) => m.trade) && syncTrades(), 5000);
     setInterval(updateClock, 30 * 1000);
   }
 
@@ -2828,13 +2878,6 @@
       for (const a of actors.values()) a.el.remove();
       actors.clear();
       render();
-    },
-    // Depuración: que todos ataquen a la vez.
-    _attackAll() {
-      for (const [uid, a] of actors) {
-        const mon = monByUid(uid);
-        if (mon) attack(a, mon);
-      }
     },
     // Depuración: traer un visitante (id de especie opcional) o que se vaya ya.
     _summon(sp) {

@@ -152,18 +152,18 @@ body.in-pokepark .main-content {
 
 .pp-portrait {
   overflow: hidden;
-  height: 104px;
+  height: 128px;
   display: flex;
   align-items: flex-end;
   justify-content: center;
   border-radius: 14px;
-  background: radial-gradient(ellipse 60% 22% at 50% 88%, rgba(0, 0, 0, 0.28), transparent 70%),
-    radial-gradient(circle at 50% 60%, rgba(var(--red-500-rgb), 0.16), transparent 65%);
+  background: radial-gradient(ellipse 50% 14% at 50% 92%, rgba(0, 0, 0, 0.25), transparent 70%);
 }
 
 .pp-portrait-img {
-  margin-bottom: calc(var(--pad, 0) / var(--h, 96) * -96px + 4px);
-  height: 96px;
+  --pk: min(2, calc(118 / var(--h, 96)));
+  margin-bottom: calc(var(--pad, 0) * var(--pk) * -1px + 6px);
+  height: calc(var(--h, 96) * var(--pk) * 1px);
   max-width: 100%;
   object-fit: contain;
   object-position: bottom;
@@ -624,27 +624,6 @@ body.in-pokepark .main-content {
   40% {
     transform: translateX(-50%) translateY(calc(var(--drop) - 18px)) scale(var(--k)) scaleX(var(--face, 1));
   }
-}
-
-/* Al atacar se echan un poco hacia delante */
-.pp-mon.is-attacking .pp-mon-img {
-  animation: ppLunge 0.6s var(--ease-smooth);
-}
-
-@keyframes ppLunge {
-  35% {
-    transform: translateX(calc(-50% + var(--face, 1) * -10px)) translateY(calc(var(--drop) - 3px)) scale(var(--k)) scaleX(var(--face, 1));
-  }
-}
-
-.pp-fx {
-  position: absolute;
-  left: 0;
-  top: 0;
-  height: auto;
-  image-rendering: pixelated;
-  pointer-events: none;
-  will-change: transform, opacity;
 }
 
 .pp-float {
@@ -1533,11 +1512,6 @@ body.in-pokepark .main-content {
   font-size: 20px;
 }
 
-.pp-portrait.is-visitor {
-  background: radial-gradient(ellipse 60% 22% at 50% 88%, rgba(0, 0, 0, 0.28), transparent 70%),
-    radial-gradient(circle at 50% 60%, rgba(var(--pp-gold-rgb), 0.3), transparent 65%);
-}
-
 .pp-visit-info {
   margin-top: 12px;
 }
@@ -1569,7 +1543,6 @@ body.in-pokepark .main-content {
 }
 
 .pp-mon.is-visitor .pp-mon-name {
-  opacity: 1;
   color: #2a1f00;
   background: linear-gradient(135deg, #ffe082, var(--pp-gold));
 }
@@ -1736,10 +1709,6 @@ body.in-pokepark .main-content {
   border: 1px solid var(--ink-600);
 }
 
-.pp-portrait.is-shiny {
-  background: radial-gradient(ellipse 60% 22% at 50% 88%, rgba(0, 0, 0, 0.28), transparent 70%),
-    radial-gradient(circle at 50% 60%, rgba(255, 216, 77, 0.28), transparent 65%);
-}
 
 /* Liberar / intercambiar en la ficha */
 .pp-more {
@@ -2012,4 +1981,229 @@ body.in-pokepark .main-content {
 
 .pp-tr-login p {
   margin: 0 0 14px;
+}
+
+/* ===================================================== 2.6: mano (Poké Ball, bayas, cepillo) */
+.pp-park.is-aiming,
+.pp-park.is-aiming .pp-mon,
+.pp-park.is-aiming .pp-ground-item {
+  cursor: crosshair;
+}
+
+.pp-park.aim-berry,
+.pp-park.aim-berry .pp-mon,
+.pp-park.aim-berry .pp-ground-item,
+.pp-park.aim-comb,
+.pp-park.aim-comb .pp-mon,
+.pp-park.aim-comb .pp-ground-item {
+  cursor: none;
+}
+
+.pp-hand {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 60;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.pp-hand img {
+  display: block;
+  image-rendering: pixelated;
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 4px 4px rgba(0, 0, 0, 0.45));
+}
+
+.pp-hand.is-ball img {
+  width: 30px;
+  height: 30px;
+  transform: translate(-50%, -50%) scale(2.2);
+}
+
+.pp-hand.is-berry img {
+  width: 32px;
+  height: 32px;
+  transform: translate(-30%, -70%) scale(1.3);
+}
+
+.pp-hand.is-comb img {
+  width: 30px;
+  height: 30px;
+  transform: translate(-20%, -80%) rotate(-25deg) scale(1.8);
+}
+
+.pp-hand-hint {
+  position: absolute;
+  left: 50%;
+  top: 56px;
+  z-index: 61;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  max-width: calc(100% - 24px);
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--washi-100);
+  background: rgba(var(--ink-900-rgb), 0.8);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+}
+
+.pp-hand-hint i {
+  display: block;
+  width: 180px;
+  height: 6px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.pp-hand-hint em {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #ff9cc0, #e2457a);
+  transition: width 0.1s linear;
+}
+
+.pp-ball-fly {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 59;
+  width: 30px;
+  height: 30px;
+  image-rendering: pixelated;
+  pointer-events: none;
+  filter: drop-shadow(0 4px 3px rgba(0, 0, 0, 0.4));
+}
+
+.pp-float.pp-float-at {
+  bottom: auto;
+  z-index: 62;
+}
+
+.pp-btn-comb {
+  width: 20px;
+  height: 20px;
+  image-rendering: pixelated;
+  transform: rotate(-25deg);
+}
+
+/* Animación del intercambio */
+.pp-trade-anim {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.pp-ta-stage {
+  position: relative;
+  width: 260px;
+  height: 180px;
+  overflow: hidden;
+}
+
+.pp-ta-glow {
+  position: absolute;
+  left: 50%;
+  bottom: 6px;
+  width: 150px;
+  height: 26px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(0, 0, 0, 0.35), transparent 70%);
+}
+
+.pp-ta-mon {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  transform-origin: 50% 100%;
+}
+
+.pp-ta-mon .pp-sprite {
+  --tk: min(2, calc(140 / var(--h, 96)));
+  display: block;
+  height: calc(var(--h, 96) * var(--tk) * 1px);
+  margin-bottom: calc(var(--pad, 0) * var(--tk) * -1px);
+  image-rendering: pixelated;
+}
+
+.pp-ta-mon.is-theirs {
+  opacity: 0;
+}
+
+.pp-ta-ball {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 30px;
+  height: 30px;
+  margin: -15px 0 0 -15px;
+  image-rendering: pixelated;
+  opacity: 0;
+}
+
+.pp-trade-anim.is-running .pp-ta-mon.is-mine {
+  animation: ppTaMineOut 1.1s ease-in forwards;
+}
+
+.pp-trade-anim.is-running .pp-ta-ball.is-out {
+  animation: ppTaBallOut 1.3s 0.9s ease-in forwards;
+}
+
+.pp-trade-anim.is-running .pp-ta-ball.is-in {
+  animation: ppTaBallIn 1.4s 2.4s ease-out forwards;
+}
+
+.pp-trade-anim.is-running .pp-ta-mon.is-theirs {
+  animation: ppTaTheirsIn 0.8s 3.7s ease-out forwards;
+}
+
+@keyframes ppTaMineOut {
+  0%, 55% { transform: translateX(-50%) scale(1); filter: none; opacity: 1; }
+  80% { transform: translateX(-50%) scale(0.6); filter: brightness(0) invert(1); opacity: 1; }
+  100% { transform: translateX(-50%) translateY(-60px) scale(0); filter: brightness(0) invert(1); opacity: 0; }
+}
+
+@keyframes ppTaBallOut {
+  0% { opacity: 1; transform: translate(0, 0) scale(1.4); }
+  30% { opacity: 1; transform: translate(0, 10px) scale(1.4) rotate(-20deg); }
+  100% { opacity: 1; transform: translate(170px, -140px) scale(0.5) rotate(360deg); }
+}
+
+@keyframes ppTaBallIn {
+  0% { opacity: 1; transform: translate(-170px, -140px) scale(0.5) rotate(0deg); }
+  75% { opacity: 1; transform: translate(0, 10px) scale(1.4) rotate(-360deg); }
+  88% { opacity: 1; transform: translate(0, 0) scale(1.5) rotate(-360deg); }
+  100% { opacity: 0; transform: translate(0, 0) scale(2.4) rotate(-360deg); }
+}
+
+@keyframes ppTaTheirsIn {
+  0% { opacity: 1; transform: translateX(-50%) scale(0); filter: brightness(0) invert(1); }
+  60% { opacity: 1; transform: translateX(-50%) scale(1.05); filter: brightness(0) invert(1); }
+  100% { opacity: 1; transform: translateX(-50%) scale(1); filter: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pp-trade-anim.is-running .pp-ta-mon.is-mine,
+  .pp-trade-anim.is-running .pp-ta-ball {
+    animation: none;
+    opacity: 0;
+  }
+  .pp-trade-anim.is-running .pp-ta-mon.is-theirs {
+    animation: none;
+    opacity: 1;
+  }
 }
