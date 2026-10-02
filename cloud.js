@@ -30,6 +30,7 @@ const MESSAGES = {
   invalid_username: "El usuario debe tener de 3 a 20 caracteres: letras, números, punto, guion o guion bajo.",
   invalid_password: "La contraseña debe tener al menos 8 caracteres.",
   too_many_attempts: "Demasiados intentos fallidos. Espera unos minutos.",
+  too_many_accounts: "Se han creado demasiadas cuentas desde tu conexión. Prueba dentro de una hora.",
   unauthorized: "Tu sesión ha caducado. Vuelve a iniciar sesión.",
   forbidden: "No tienes permiso para hacer eso.",
   rate_limited: "Vas demasiado rápido. Espera un momento.",
@@ -38,10 +39,23 @@ const MESSAGES = {
   invalid_body: "El texto es demasiado corto o demasiado largo.",
   not_found: "No se ha encontrado.",
   network: "No se puede conectar con el servidor. Revisa tu conexión.",
+  invalid_channel: "Ese canal no existe.",
+  invalid_type: "Elige si es un bug, una sugerencia o una duda.",
+  invalid_rating: "La nota tiene que ser de 1 a 5 estrellas.",
+  invalid_status: "Ese estado no vale para este reporte.",
+  too_large_library: "Tu biblioteca es demasiado grande para guardarla en la cuenta.",
+  too_large_pokepark: "Los datos del PokéPark son demasiado grandes para guardarlos en la cuenta.",
   missing_config: "El servidor todavía no está configurado.",
+  config_error: "El servidor está mal configurado. Avisa al administrador.",
+  invalid_config: "El servidor está mal configurado. Avisa al administrador.",
   db_connection_failed: "El servidor no puede conectar con la base de datos.",
+  server_error: "El servidor ha tenido un error. Prueba otra vez en un rato.",
 };
-const describe = (err) => MESSAGES[err?.code] || "Ha fallado la conexión con el servidor.";
+const describe = (err) => {
+  if (MESSAGES[err?.code]) return MESSAGES[err.code];
+  if (/^http_5/.test(err?.code || "")) return "El servidor no responde bien ahora mismo. Prueba en un rato.";
+  return "Ha fallado la conexión con el servidor.";
+};
 
 function createCloud(hooks) {
   const { safeStorage, settings, saveSettings, notify } = hooks;

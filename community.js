@@ -69,8 +69,11 @@
     return `hace ${Math.round(s / 86400)} días`;
   }
 
+  // Saltos de línea y enlaces https (se abren en el navegador).
   function linkify(text) {
-    return esc(text).replace(/\n/g, "<br>");
+    return esc(text)
+      .replace(/https:\/\/[^\s<]+[^\s<.,;:!?)\]'"]/g, (url) => `<a href="${url}" target="_blank" rel="noreferrer">${url}</a>`)
+      .replace(/\n/g, "<br>");
   }
 
   // Pide sesión: abre el login y devuelve false si no hay usuario.
@@ -398,7 +401,7 @@
   }
 
   // ------------------------------------------------------------ Reportes
-  const rep = { type: "", state: "", view: null };
+  const rep = { type: "", state: "", view: null, seq: 0 };
 
   async function renderReports(body) {
     if (rep.view) return renderReportDetail(body, rep.view);
@@ -432,9 +435,10 @@
     });
     body.querySelector(".cm-rep-new").addEventListener("click", () => newReport(body));
 
+    const seq = ++rep.seq;
     const res = await api("reports", rep.type ? { type: rep.type } : {});
     const listBox = body.querySelector(".cm-rep-list");
-    if (!listBox) return;
+    if (!listBox || seq !== rep.seq) return;
     if (!res.ok) return (listBox.innerHTML = `<p class="cm-muted">${esc(res.error)}</p>`);
     const items = res.reports.filter((r) => !rep.state || (rep.state === "open" ? r.status === "open" : r.status !== "open"));
     listBox.innerHTML = items.length

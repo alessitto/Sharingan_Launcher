@@ -146,7 +146,7 @@
         <!-- Pasados -->
         <section id="completed" class="section">
           <span class="section-eyebrow">Historial</span>
-          <h2 class="section-title">Juegos pasados</h2>
+          <h2 class="section-title" id="completedTitle">Juegos pasados</h2>
           <div id="completedList" class="cards-grid"></div>
         </section>
 
@@ -549,15 +549,36 @@
       // búsqueda) - "Cargar más" la mantiene para seguir paginando DENTRO
       // de esa letra en vez de volver al listado general.
       let discoverActiveLetter = null;
+      // Cada petición lleva un número: si llega tarde la respuesta de una
+      // búsqueda anterior (escribiendo rápido), se descarta en vez de pisar
+      // la buena.
+      let discoverSeq = 0;
+
+      // Mientras llega la primera página: tarjetas fantasma con la misma
+      // forma que las de verdad.
+      function showDiscoverSkeleton() {
+        const grid = document.getElementById("gamesList");
+        if (!grid) return;
+        const cols = currentGridColumns();
+        grid.innerHTML = Array.from({ length: cols * 2 }, () => `
+          <div class="game-card is-skeleton" aria-hidden="true">
+            <div class="card-cover"><span class="sk-cover"></span></div>
+            <span class="sk-line"></span><span class="sk-line is-short"></span>
+            <span class="sk-btn"></span>
+          </div>`).join("");
+        updateLoadMoreButton(false);
+      }
 
       async function loadDiscoverGames() {
         // Buscar, cambiar filtros o volver al catálogo sale del modo Jarvis.
         if (jarvisMode) setJarvisUi(false);
         renderDiscoverIndexBar();
+        const seq = ++discoverSeq;
         discoverOffset = 0;
         discoverSearchPool = null;
         discoverSearchShown = 0;
         discoverActiveLetter = null;
+        markDiscoverLetter(null);
         gamesTemp = [];
         currentSearchGames = [];
 
@@ -571,11 +592,16 @@
         const bar = document.getElementById("discoverIndexBar");
         if (bar) bar.style.display = (sort === "az" || sort === "za") && !query ? "" : "none";
 
-        const res = await window.electronAPI.discoverGames({ query, genreId, sort, offset: 0, pageSize: DISCOVER_PAGE_SIZE });
-        await applyDiscoverPage(res, true);
+        showDiscoverSkeleton();
+        const res = await window.electronAPI
+          .discoverGames({ query, genreId, sort, offset: 0, pageSize: DISCOVER_PAGE_SIZE })
+          .catch(() => null);
+        if (seq !== discoverSeq) return;
+        await applyDiscoverPage(res, true, seq);
         updateGamepadFocus(true);
       }
 
+      let discoverLoadingMore = false;
       async function loadMoreDiscoverGames() {
         if (discoverSearchPool) {
           const next = discoverSearchPool.slice(
@@ -587,20 +613,33 @@
           updateLoadMoreButton(discoverSearchShown < discoverSearchPool.length);
           return;
         }
+        if (discoverLoadingMore) return;
 
+        const seq = discoverSeq;
         const genreId = document.getElementById("genreFilter")?.value || null;
         const sort = document.getElementById("sortFilter")?.value || "popular";
-        discoverOffset += DISCOVER_PAGE_SIZE;
-
-        const res = await window.electronAPI.discoverGames({
-          query: "",
-          genreId,
-          sort,
-          offset: discoverOffset,
-          letterPrefix: discoverActiveLetter,
-          pageSize: DISCOVER_PAGE_SIZE,
-        });
-        await applyDiscoverPage(res, false);
+        const btn = document.getElementById("loadMoreBtn");
+        discoverLoadingMore = true;
+        btn?.classList.add("is-loading");
+        try {
+          const res = await window.electronAPI.discoverGames({
+            query: "",
+            genreId,
+            sort,
+            offset: discoverOffset + DISCOVER_PAGE_SIZE,
+            letterPrefix: discoverActiveLetter,
+            pageSize: DISCOVER_PAGE_SIZE,
+          });
+          if (seq !== discoverSeq) return;
+          discoverOffset += DISCOVER_PAGE_SIZE;
+          await applyDiscoverPage(res, false, seq);
+        } catch (err) {
+          console.error(err);
+          showNotification("No se han podido cargar más juegos.", "error");
+        } finally {
+          discoverLoadingMore = false;
+          btn?.classList.remove("is-loading");
+        }
       }
 
       // ===============================
@@ -752,8 +791,9 @@
       // Lo que ya tienes (biblioteca o pasados) no sale en Descubrir.
       const notOwned = (items) => items.filter((g) => !libraryIds.has(g.id));
 
-      async function applyDiscoverPage(res, replace) {
+      async function applyDiscoverPage(res, replace, seq = discoverSeq) {
         await libraryReady;
+        if (seq !== discoverSeq) return;
         const items = notOwned((res && res.items) || []);
 
         if (res && res.fullPool) {
@@ -764,6 +804,7 @@
           currentSearchGames = firstPage.slice();
           displayGames("gamesList", firstPage, "add");
           updateLoadMoreButton(discoverSearchShown < items.length);
+          if (!items.length) renderDiscoverEmpty(!!res.failed);
           return;
         }
 
@@ -772,10 +813,45 @@
           gamesTemp = [];
           currentSearchGames = items.slice();
           displayGames("gamesList", items, "add");
+          if (!items.length) renderDiscoverEmpty(!res || !!res.failed);
         } else {
           appendDiscoverGames(items);
         }
         updateLoadMoreButton(discoverHasMore);
+      }
+
+      // Sin resultados (o sin conexión): en vez de una rejilla vacía, se
+      // dice qué pasa y cómo salir de ahí.
+      function renderDiscoverEmpty(failed = false) {
+        const grid = document.getElementById("gamesList");
+        if (!grid) return;
+        const query = document.getElementById("searchInput")?.value.trim() || "";
+        const filtered = !!document.getElementById("genreFilter")?.value || document.getElementById("sortFilter")?.value === "upcoming";
+        const title = failed
+          ? "No se ha podido cargar el catálogo"
+          : query
+            ? `Nada para «${query}»`
+            : "No hay juegos con estos filtros";
+        const text = failed
+          ? "Revisa tu conexión a internet y vuelve a intentarlo."
+          : query
+            ? "Prueba con otro nombre, en inglés o con menos palabras."
+            : "Cambia el género o el orden para ver más juegos.";
+        grid.innerHTML = `
+          <div class="empty-state">
+            <span class="empty-icon">${icon(failed ? "alert" : "searchX")}</span>
+            <p class="empty-title">${escapeHtml(title)}</p>
+            <p class="empty-text">${escapeHtml(text)}</p>
+            <button class="primary" data-empty-act>${failed ? "Reintentar" : query || filtered ? "Ver todo el catálogo" : "Recargar"}</button>
+          </div>`;
+        grid.querySelector("[data-empty-act]").onclick = () => {
+          if (!failed) {
+            document.getElementById("searchInput").value = "";
+            document.getElementById("genreFilter").value = "";
+            if (document.getElementById("sortFilter").value === "upcoming") document.getElementById("sortFilter").value = "popular";
+          }
+          loadDiscoverGames();
+        };
       }
 
       function appendDiscoverGames(items) {
@@ -862,12 +938,18 @@
       function renderCompletedList() {
         const container = document.getElementById("completedList");
         container.innerHTML = "";
+        const title = document.getElementById("completedTitle");
+        if (title) {
+          const plat = completedGamesCache.filter((g) => g.isPlatinum).length;
+          title.innerHTML = `Juegos pasados (${completedGamesCache.length})${plat ? `<span class="title-chip">${icon("crown")}${plat} ${plat === 1 ? "platino" : "platinos"}</span>` : ""}`;
+        }
 
         if (!completedGamesCache.length) {
           container.innerHTML = `
             <div class="empty-state">
-              <p class="empty-title">Aún no has completado ningún juego.</p>
-              <p class="empty-text">Es hora de jugar. Cuando termines un juego podrás marcarlo como pasado.</p>
+              <span class="empty-icon">${icon("trophy")}</span>
+              <p class="empty-title">Aún no has completado ningún juego</p>
+              <p class="empty-text">Cuando termines uno, márcalo como pasado desde su menú (···) en tu biblioteca.</p>
               <button class="primary" onclick="showSection('library', document.querySelectorAll('.topnav-item')[1])">
                 Ir a mi biblioteca
               </button>
@@ -1201,67 +1283,39 @@
       // Modal de Información y Requisitos (BEAUTIFIED)
       // ===============================
       async function openInfoModal(id) {
-        // 1. Buscar juego local
-        let game = libraryGamesCache.find((g) => String(g.id) === String(id));
-        if (!game) {
-          const all = await window.electronAPI.getGames();
-          game =
-            all.games.find((g) => String(g.id) === String(id)) ||
-            all.completedGames.find((g) => String(g.id) === String(id));
-        }
-        // Todavia no esta en la biblioteca (se mira desde Juegos populares):
-        // se usa el resultado de la busqueda de IGDB tal cual.
-        if (!game) {
-          game = currentSearchGames.find((g) => String(g.id) === String(id));
-        }
+        // 1. El juego: de la biblioteca, de pasados o del resultado de
+        //    Descubrir (todavía no es tuyo).
+        const all = [...libraryGamesCache, ...completedGamesCache];
+        const game =
+          all.find((g) => String(g.id) === String(id)) ||
+          currentSearchGames.find((g) => String(g.id) === String(id));
         if (!game) return showNotification("Juego no encontrado", "error");
+        const owned = all.some((g) => String(g.id) === String(id));
 
-        // Aviso de carga: los 3 pasos siguientes pueden tardar un poco (sobre
-        // todo la primera vez, que Steam descarga su lista completa de apps
-        // para la busqueda por nombre), y antes no se veia nada mientras tanto.
+        // Aviso de carga: la primera vez puede tardar (Steam descarga su
+        // lista completa de juegos para buscar por nombre).
         loadingModal("Cargando información", game.name);
 
-        // 2+3+3b. IGDB, requisitos de Steam y specs del equipo: independientes
-        // entre si, se piden en paralelo en vez de uno detras de otro.
-        const [detailsResult, reqsResult, specsResult] = await Promise.allSettled([
-          window.electronAPI.getGameDetails(id),
-          window.electronAPI.getRealRequirements({
-            igdbId: id,
-            steamAppId: game.steamAppId,
-            gameName: game.name,
-          }),
-          window.electronAPI.getSystemSpecs(),
+        // 2. Ficha de IGDB (los importados se buscan por nombre) y, en
+        //    paralelo, los datos del equipo. Los requisitos van después
+        //    porque necesitan el id de IGDB de la ficha.
+        const specsPromise = window.electronAPI.getSystemSpecs().catch(() => null);
+        const details = await window.electronAPI.getGameDetails({ id: game.id, name: game.name }).catch(() => null);
+        const [reqsResult, mySpecs] = await Promise.all([
+          window.electronAPI
+            .getRealRequirements({ igdbId: details?.id || null, steamAppId: game.steamAppId, gameName: game.name })
+            .catch(() => null),
+          specsPromise,
         ]);
+        if (!Swal.isVisible() || !document.querySelector(".sl-loading")) return; // cerrado mientras cargaba
+        const reqs = reqsResult || { min: "", rec: "" };
 
-        let details = null;
-        if (detailsResult.status === "fulfilled" && detailsResult.value?.length > 0) {
-          details = detailsResult.value[0];
-        } else if (detailsResult.status === "rejected") {
-          console.error(detailsResult.reason);
-        }
-
-        let reqs = { min: "No disponible", rec: "No disponible" };
-        if (reqsResult.status === "fulfilled" && reqsResult.value) {
-          reqs = reqsResult.value;
-        } else if (reqsResult.status === "rejected") {
-          console.error(reqsResult.reason);
-        }
-
-        let mySpecs = null;
-        if (specsResult.status === "fulfilled") {
-          mySpecs = specsResult.value;
-        } else {
-          console.error(specsResult.reason);
-        }
-
-        // --- HELPER: Función para embellecer el texto de Steam ---
         // Comparación numérica fiable contra tu equipo en RAM, VRAM,
-        // almacenamiento libre y versión de Windows — son las únicas que se
+        // almacenamiento libre y versión de Windows - las únicas que se
         // pueden comparar con un número sin ambigüedad. El modelo de CPU/GPU
-        // se muestra informativo, sin veredicto: comparar "Core i5-8400" vs
-        // "Ryzen 5 3600" de forma fiable necesitaría una base de datos de
-        // benchmarks (tipo PassMark) que no tenemos, y un veredicto
-        // equivocado ahí es peor que no dar ninguno.
+        // se muestra sin veredicto: compararlos de forma fiable necesitaría
+        // una base de datos de benchmarks, y un veredicto equivocado ahí es
+        // peor que ninguno.
         const extractGb = (str) => {
           const m = str.match(/(\d+(?:[.,]\d+)?)\s*GB/i);
           return m ? parseFloat(m[1].replace(",", ".")) : NaN;
@@ -1270,127 +1324,92 @@
           const m = str.match(/windows\s*(\d+)/i);
           return m ? parseInt(m[1], 10) : NaN;
         };
-
-        const formatSteamReqs = (text) => {
-          if (!text || text.includes("No disponible"))
-            return '<p class="req-val" style="opacity:0.5">Información no disponible.</p>';
-
-          const lines = text.split("\n");
-          let html = '<div class="req-list">';
-
-          lines.forEach((line) => {
-            let cleanLine = line.trim();
-            if (!cleanLine) return;
-
-            // Filtros: Quitamos lineas que solo dicen "Minimo" o "Recomendado" porque ya tenemos titulo
-            const lower = cleanLine.toLowerCase();
-            if (
-              lower === "mínimo:" ||
-              lower === "recomendado:" ||
-              lower === "mínimo" ||
-              lower === "recomendado"
-            )
-              return;
-
-            // Detectar "Clave: Valor"
-            // Buscamos el primer ':'
-            const splitIdx = cleanLine.indexOf(":");
-
-            if (splitIdx > -1 && splitIdx < 20) {
-              // Si hay ':' al principio (ej: "OS: Win10")
-              const key = cleanLine.substring(0, splitIdx).trim();
-              const val = cleanLine.substring(splitIdx + 1).trim();
-
-              // Limpiar viñetas si las hay
-              const cleanKey = key.replace(/•/g, "").trim();
-              const safeKey = escapeHtml(cleanKey);
-              const safeVal = escapeHtml(val);
-              const keyLower = cleanKey.toLowerCase();
-
-              let lineClass = "req-line";
-              if (mySpecs) {
-                if (/memoria|^ram$/i.test(keyLower)) {
-                  const req = extractGb(val);
-                  if (!Number.isNaN(req)) {
-                    lineClass += mySpecs.ram >= req ? " req-pass" : " req-fail";
-                  }
-                } else if (/almacenamiento|espacio|storage/i.test(keyLower)) {
-                  const req = extractGb(val);
-                  if (!Number.isNaN(req) && mySpecs.freeStorage != null) {
-                    lineClass += mySpecs.freeStorage >= req ? " req-pass" : " req-fail";
-                  }
-                } else if (/^so$|^os$|sistema operativo/i.test(keyLower)) {
-                  const req = extractWinVersion(val);
-                  const mine = extractWinVersion(mySpecs.os || "");
-                  if (!Number.isNaN(req) && !Number.isNaN(mine)) {
-                    lineClass += mine >= req ? " req-pass" : " req-fail";
-                  }
-                } else if (/vram/i.test(val) || /vram/i.test(keyLower)) {
-                  const req = extractGb(val);
-                  if (!Number.isNaN(req) && mySpecs.vram) {
-                    lineClass += mySpecs.vram >= req ? " req-pass" : " req-fail";
-                  }
-                }
-              }
-
-              html += `
-               <div class="${lineClass}">
-                 <span class="req-key">${safeKey}</span>
-                 <span class="req-val">${safeVal}</span>
-               </div>
-             `;
-            } else {
-              // Es una linea de texto normal o una nota
-              html += `
-               <div class="req-line">
-                 <span class="req-val">${escapeHtml(cleanLine.replace(/•/g, "").trim())}</span>
-               </div>
-             `;
-            }
-          });
-          html += "</div>";
-          return html;
+        const verdict = (key, val) => {
+          if (!mySpecs) return "";
+          const k = key.toLowerCase();
+          let req = NaN;
+          let mine = NaN;
+          if (/memoria|^ram$/.test(k)) [req, mine] = [extractGb(val), mySpecs.ram];
+          else if (/almacenamiento|espacio|storage/.test(k)) [req, mine] = [extractGb(val), mySpecs.freeStorage ?? NaN];
+          else if (/^so$|^os$|sistema operativo/.test(k)) [req, mine] = [extractWinVersion(val), extractWinVersion(mySpecs.os || "")];
+          else if (/vram/i.test(val) || /vram/.test(k)) [req, mine] = [extractGb(val), mySpecs.vram || NaN];
+          if (Number.isNaN(req) || Number.isNaN(mine)) return "";
+          return mine >= req ? "req-pass" : "req-fail";
         };
 
-        const mySpecsHtml = mySpecs
-          ? `<p class="my-specs">Tu equipo: ${escapeHtml(mySpecs.cpu)} · ${mySpecs.ram} GB RAM · ${escapeHtml(mySpecs.gpu)}${
-              mySpecs.freeStorage != null ? ` · ${mySpecs.freeStorage} GB libres` : ""
-            }</p>`
-          : "";
+        const formatSteamReqs = (text) => {
+          if (!text || /no especificado|no disponible/i.test(text)) return `<p class="req-empty">Steam no indica requisitos.</p>`;
+          const rows = text
+            .split("\n")
+            .map((l) => l.replace(/•/g, "").trim())
+            .filter((l) => l && !/^(mínimos?|recomendados?):?$/i.test(l));
+          return `<div class="req-list">${rows
+            .map((line) => {
+              const at = line.indexOf(":");
+              if (at > -1 && at < 24) {
+                const key = line.slice(0, at).replace(/\*/g, "").trim();
+                const val = line.slice(at + 1).trim();
+                const v = verdict(key, val);
+                return `<div class="req-line ${v}"><span class="req-key">${escapeHtml(key)}${
+                  v ? `<i class="req-mark">${icon(v === "req-pass" ? "check" : "x")}</i>` : ""
+                }</span><span class="req-val">${escapeHtml(val)}</span></div>`;
+              }
+              return `<div class="req-line is-note"><span class="req-val">${escapeHtml(line)}</span></div>`;
+            })
+            .join("")}</div>`;
+        };
 
-        // 4. Renderizar
         const coverUrl = details?.cover?.image_id
           ? `https://images.igdb.com/igdb/image/upload/t_cover_big/${details.cover.image_id}.jpg`
-          : game.coverUrl || "assets/no-cover.png";
-        const genres = details?.genres?.map((g) => g.name).join(", ") || "";
+          : coverOf(game);
+        const year = details?.first_release_date ? new Date(details.first_release_date * 1000).getFullYear() : releaseYear(game);
+        const devs = [...new Set((details?.involved_companies || []).filter((c) => c.developer).map((c) => c.company?.name).filter(Boolean))];
+        const platforms = (details?.platforms || []).map((p) => p.abbreviation).filter(Boolean).slice(0, 6);
+        const score = details?.total_rating_count >= 5 ? Math.round(details.total_rating) : null;
+        const facts = [
+          year ? ["Lanzamiento", year] : null,
+          devs.length ? [devs.length > 1 ? "Estudios" : "Estudio", devs.slice(0, 3).join(", ")] : null,
+          platforms.length ? ["Plataformas", platforms.join(" · ")] : null,
+        ].filter(Boolean);
+        const genres = (details?.genres || []).map((g) => g.name);
+        const isDone = completedGamesCache.some((g) => String(g.id) === String(id));
+        const status = isDone ? (game.isPlatinum ? "Platinado" : "Pasado") : owned ? "En tu biblioteca" : null;
 
         const html = `
-        <div class="info-modal-grid">
-          <div><img src="${coverUrl}" class="info-cover"></div>
-          <div class="info-details">
-             <h3>${escapeHtml(game.name)}</h3>
-             <p class="info-genres">${escapeHtml(genres)}</p>
-             
-             <div class="req-real-container">
-                <div class="req-box">
-                   <h4 class="req-title">MÍNIMOS</h4>
-                   ${formatSteamReqs(reqs.min)}
-                </div>
-                <div class="req-box">
-                   <h4 class="req-title">RECOMENDADOS</h4>
-                   ${formatSteamReqs(reqs.rec)}
-                </div>
-             </div>
-             
-             ${mySpecsHtml}
-             <p class="info-source">Requisitos: Steam Store</p>
-          </div>
-        </div>
-      `;
+          <div class="info-modal">
+            <div class="info-side">
+              <img src="${coverUrl}" class="info-cover" alt="">
+              ${
+                score != null
+                  ? `<div class="info-score" title="Nota media en IGDB (${details.total_rating_count} valoraciones)"><b>${score}</b><span>Nota en IGDB</span></div>`
+                  : ""
+              }
+            </div>
+            <div class="info-details">
+              ${status ? `<span class="info-status">${escapeHtml(status)}</span>` : ""}
+              <h3 class="info-title">${escapeHtml(game.name)}</h3>
+              ${genres.length ? `<div class="info-genres">${genres.map((g) => `<span>${escapeHtml(g)}</span>`).join("")}</div>` : ""}
+              ${facts.length ? `<dl class="info-facts">${facts.map(([k, v]) => `<div><dt>${k}</dt><dd>${escapeHtml(String(v))}</dd></div>`).join("")}</dl>` : ""}
+              ${details?.summary ? `<p class="info-summary">${escapeHtml(details.summary)}</p>` : ""}
+              <h4 class="info-subtitle">Requisitos en PC</h4>
+              <div class="req-real-container">
+                <div class="req-box"><h5 class="req-title">Mínimos</h5>${formatSteamReqs(reqs.min)}</div>
+                <div class="req-box"><h5 class="req-title">Recomendados</h5>${formatSteamReqs(reqs.rec)}</div>
+              </div>
+              ${
+                mySpecs
+                  ? `<p class="my-specs">${icon("info")}<span>Tu equipo: ${escapeHtml(mySpecs.cpu)} · ${mySpecs.ram} GB RAM · ${escapeHtml(mySpecs.gpu)}${
+                      mySpecs.freeStorage != null ? ` · ${mySpecs.freeStorage} GB libres` : ""
+                    }. En verde lo que cumples y en rojo lo que no.</span></p>`
+                  : ""
+              }
+              <p class="info-source">Ficha: IGDB · Requisitos: Steam</p>
+            </div>
+          </div>`;
 
         openModal({
-          html: html,
-          width: 950,
+          html,
+          width: 980,
           showConfirmButton: false,
           showCloseButton: true,
           customClass: { popup: "info-popup" },
@@ -1448,7 +1467,7 @@
           : `<button class="primary add-btn" data-index='${index}'>Agregar a biblioteca</button>${infoButtonHtml(game.id)}`;
 
         div.innerHTML = `
-          <div class="card-cover"><img src="${coverUrl}" alt="${safeAttrName}"></div>
+          <div class="card-cover"><img src="${coverUrl}" alt="${safeAttrName}" loading="lazy" decoding="async"></div>
           <h3>${escapeHtml(name)}</h3>
           <div class="card-actions">${buttonsHtml}</div>
         `;
@@ -1525,25 +1544,29 @@
       // no puede "no encontrar" una letra que sí existe (antes se pedían
       // páginas en serie desde donde se había quedado la búsqueda, lo que
       // con catálogos grandes podía tardar mucho y acabar fallando igual).
+      // La letra elegida se queda marcada en el índice.
+      function markDiscoverLetter(bucket) {
+        document.querySelectorAll("#discoverIndexBar .index-btn").forEach((b) => b.classList.toggle("is-active", b.dataset.bucket === bucket));
+      }
+
       async function jumpToDiscoverLetter(bucket) {
         const genreId = document.getElementById("genreFilter")?.value || null;
         const sort = document.getElementById("sortFilter")?.value || "popular";
 
+        const seq = ++discoverSeq;
         discoverActiveLetter = bucket;
         discoverOffset = 0;
         discoverSearchPool = null;
         discoverSearchShown = 0;
         gamesTemp = [];
         currentSearchGames = [];
+        markDiscoverLetter(bucket);
 
-        const res = await window.electronAPI.discoverGames({
-          query: "",
-          genreId,
-          sort,
-          offset: 0,
-          letterPrefix: bucket,
-        });
-        await applyDiscoverPage(res, true);
+        const res = await window.electronAPI
+          .discoverGames({ query: "", genreId, sort, offset: 0, letterPrefix: bucket, pageSize: DISCOVER_PAGE_SIZE })
+          .catch(() => null);
+        if (seq !== discoverSeq) return;
+        await applyDiscoverPage(res, true, seq);
 
         if (res?.items?.length) {
           document.getElementById("gamesList")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1562,11 +1585,19 @@
           if (mode === "library") {
             container.innerHTML = `
             <div class="empty-state">
-              <p class="empty-title">Todavía no tienes juegos en tu biblioteca.</p>
-              <p class="empty-text">Busca juegos en la sección de populares y añádelos a tu biblioteca.</p>
-              <button class="primary" onclick="showSection('popular', document.querySelectorAll('.topnav-item')[0])">
-                Buscar juegos
-              </button>
+              <span class="empty-icon">${icon("grid")}</span>
+              <p class="empty-title">${showOnlyLinked && libraryGamesCache.length ? "Ningún juego se puede lanzar todavía" : "Tu biblioteca está vacía"}</p>
+              <p class="empty-text">${
+                showOnlyLinked && libraryGamesCache.length
+                  ? "Vincula el ejecutable de algún juego o quita el filtro «Jugables»."
+                  : "Importa los juegos que ya tienes instalados o busca en Descubrir y añádelos."
+              }</p>
+              <div class="empty-actions">${
+                showOnlyLinked && libraryGamesCache.length
+                  ? `<button class="primary" onclick="toggleLinkedFilter()">Quitar el filtro</button>`
+                  : `<button class="primary" onclick="openImportModal()">Importar instalados</button>
+                     <button onclick="showSection('popular', document.querySelectorAll('.topnav-item')[0])">Ir a Descubrir</button>`
+              }</div>
             </div>
           `;
             return;
@@ -2467,6 +2498,30 @@
         window.electronAPI.getUpdateState().then(renderUpdateToast).catch(() => {});
       }
 
+      // Notas de una release (Markdown sencillo de GitHub): viñetas con
+      // sublistas por sangría, **negrita** y `código`. Los títulos (#) se
+      // saltan porque cada release ya lleva su nombre.
+      function changelogHtml(body) {
+        const inline = (t) =>
+          escapeHtml(t)
+            .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")
+            .replace(/`([^`]+)`/g, "<code>$1</code>");
+        let html = "";
+        let open = false;
+        for (const raw of body.replace(/\r/g, "").split("\n")) {
+          if (!raw.trim() || /^\s*#+\s/.test(raw)) continue;
+          const nested = /^\s{2,}[-*]\s/.test(raw) && open;
+          const text = inline(raw.trim().replace(/^[-*]\s*/, ""));
+          if (nested) {
+            html = html.replace(/(<\/ul>)?<\/li>$/, (m, sub) => (sub ? "" : "<ul>")) + `<li>${text}</li></ul></li>`;
+          } else {
+            html += `<li>${text}</li>`;
+            open = true;
+          }
+        }
+        return html;
+      }
+
       async function openChangelogModal() {
         const version = (document.getElementById("versionLink")?.textContent || "").replace(/^v/, "");
         let root = null;
@@ -2500,12 +2555,7 @@
               ? new Date(r.publishedAt).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" })
               : "";
             const isCurrent = version && String(r.tag || "").replace(/^v/, "") === version;
-            const lines = (r.body || "")
-              .split("\n")
-              .map((l) => l.trim())
-              .filter((l) => l && !/^#+\s/.test(l))
-              .map((l) => `<li>${escapeHtml(l.replace(/^[-*]\s*/, ""))}</li>`)
-              .join("");
+            const lines = changelogHtml(r.body || "");
             return `
             <article class="cl-release ${isCurrent ? "is-current" : ""}">
               <header class="cl-head">
@@ -3266,6 +3316,19 @@
         return [];
       }
 
+      // El foco del mando solo se ve (y solo mueve el scroll) mientras se usa
+      // el mando: con ratón o teclado no hay ni marco ni saltos al repintar.
+      let padInUse = false;
+      function setPadInUse(on) {
+        if (padInUse === on) return;
+        padInUse = on;
+        document.body.classList.toggle("pad-in-use", on);
+        if (on) updateGamepadFocus();
+      }
+      ["mousemove", "mousedown", "wheel", "keydown"].forEach((ev) =>
+        window.addEventListener(ev, () => setPadInUse(false), { passive: true })
+      );
+
       function updateGamepadFocus(force = false) {
         const cards = getCardsInActiveGrid();
         cards.forEach((c) => c.classList.remove("gp-focused"));
@@ -3274,6 +3337,7 @@
 
         if (focusedIndex < 0) focusedIndex = 0;
         if (focusedIndex >= cards.length) focusedIndex = cards.length - 1;
+        if (!padInUse) return;
 
         const focused = cards[focusedIndex];
         if (focused) {
@@ -3286,12 +3350,33 @@
         }
       }
 
-      function getGridColumns() {
-        const w = window.innerWidth;
-        if (w <= 700) return 2;
-        if (w <= 1000) return 3;
-        if (w <= 1400) return 4;
-        return 6;
+      // Mueve el foco a la tarjeta más cercana en esa dirección según su
+      // posición real en pantalla (las columnas las elige el usuario y los
+      // bloques de saga rompen cualquier cuenta fija de "N por fila").
+      function moveGamepadFocus(dir) {
+        const cards = getCardsInActiveGrid();
+        if (!cards.length) return;
+        const from = cards[Math.min(Math.max(focusedIndex, 0), cards.length - 1)].getBoundingClientRect();
+        const cx = from.left + from.width / 2;
+        const cy = from.top + from.height / 2;
+        let best = -1;
+        let bestScore = Infinity;
+        cards.forEach((c, i) => {
+          if (i === focusedIndex) return;
+          const r = c.getBoundingClientRect();
+          const x = r.left + r.width / 2 - cx;
+          const y = r.top + r.height / 2 - cy;
+          const main = dir === "left" ? -x : dir === "right" ? x : dir === "up" ? -y : y;
+          const cross = dir === "left" || dir === "right" ? Math.abs(y) : Math.abs(x);
+          if (main <= 4) return;
+          const score = main + cross * 2.5;
+          if (score < bestScore) {
+            bestScore = score;
+            best = i;
+          }
+        });
+        if (best >= 0) focusedIndex = best;
+        updateGamepadFocus();
       }
 
       function clickPrimaryActionOnFocused() {
@@ -3350,36 +3435,36 @@
           const lb = !!gp.buttons[4]?.pressed;
           const rb = !!gp.buttons[5]?.pressed;
 
-          const cols = getGridColumns();
+          const fired = { up: edge(up, "up"), down: edge(down, "down"), left: edge(left, "left"), right: edge(right, "right") };
+          const pressA = edge(a, "a");
+          const pressB = edge(b, "b");
+          const pressLb = edge(lb, "lb");
+          const pressRb = edge(rb, "rb");
+          const pressX = edge(x, "x");
+          const pressY = edge(y, "y");
+          if (Object.values(fired).some(Boolean) || pressA || pressB || pressLb || pressRb || pressX || pressY) setPadInUse(true);
 
-          if (edge(up, "up")) {
-            focusedIndex -= cols;
-            updateGamepadFocus();
-          }
-          if (edge(down, "down")) {
-            focusedIndex += cols;
-            updateGamepadFocus();
-          }
-          if (edge(left, "left")) {
-            focusedIndex -= 1;
-            updateGamepadFocus();
-          }
-          if (edge(right, "right")) {
-            focusedIndex += 1;
-            updateGamepadFocus();
+          // Con un modal abierto, A acepta y B cierra; lo de detrás no se toca.
+          if (Swal.isVisible()) {
+            if (pressA && Swal.getConfirmButton()?.offsetParent) Swal.clickConfirm();
+            if (pressB) Swal.close();
+            requestAnimationFrame(tickGamepad);
+            return;
           }
 
-          if (edge(a, "a")) clickPrimaryActionOnFocused();
-          if (edge(b, "b")) backAction();
+          for (const dir of ["up", "down", "left", "right"]) if (fired[dir]) moveGamepadFocus(dir);
 
-          if (edge(lb, "lb")) switchSection(-1);
-          if (edge(rb, "rb")) switchSection(+1);
+          if (pressA) clickPrimaryActionOnFocused();
+          if (pressB) backAction();
 
-          if (edge(x, "x")) {
+          if (pressLb) switchSection(-1);
+          if (pressRb) switchSection(+1);
+
+          if (pressX) {
             if (getActiveSectionId() === "library") toggleLinkedFilter();
           }
 
-          if (edge(y, "y")) {
+          if (pressY) {
             if (getActiveSectionId() === "popular") {
               document.getElementById("searchInput")?.focus();
             }

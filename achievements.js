@@ -188,35 +188,39 @@
     setInterval(scheduleCheck, 60 * 1000);
   }
 
+  // Los contadores se tocan solo cuando ya están cargados de disco: si no,
+  // lo que se cuenta al arrancar (el tema) podía guardarse encima de todo
+  // el progreso.
+  const ready = init().catch((err) => console.error("logros", err));
+  const whenReady = (fn) => (...args) => ready.then(() => fn(...args));
+
   window.Achievements = {
     CATEGORIES,
     DEFS,
     list: () => DEFS.map((d) => ({ ...d, ...progress(d), unlockedAt: unlocked[d.id] || null })),
     loggedIn,
-    track(key, n = 1) {
+    track: whenReady((key, n = 1) => {
       stats[key] = (stats[key] || 0) + n;
       save();
       scheduleCheck();
-    },
+    }),
     // Fija un contador a un valor (si es mayor que el que había).
-    trackMax(key, value) {
+    trackMax: whenReady((key, value) => {
       if ((stats[key] || 0) >= value) return;
       stats[key] = value;
       save();
       scheduleCheck();
-    },
-    trackTheme(id) {
+    }),
+    trackTheme: whenReady((id) => {
       const set = new Set(stats.themes || []);
       if (set.has(id)) return;
       set.add(id);
       stats.themes = [...set];
       save();
       scheduleCheck();
-    },
-    refresh: scheduleCheck,
+    }),
+    refresh: () => ready.then(scheduleCheck),
     recheckUser: () => window.electronAPI.cloud("status").then((s) => setUser(s?.user)),
     onChange: (fn) => listeners.add(fn),
   };
-
-  init();
 })();

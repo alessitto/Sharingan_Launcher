@@ -1193,3 +1193,17 @@ body.in-community .main-content {
   border: none;
   background: rgba(118, 118, 128, 0.26);
 }
+
+/* Enlaces en mensajes y reportes (se abren en el navegador) */
+.cm-msg-body a,
+.cm-detail-body a {
+  color: var(--red-400);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  word-break: break-all;
+}
+
+:root[data-theme="glass"] .cm-msg-body a,
+:root[data-theme="glass"] .cm-detail-body a {
+  color: #64b5ff;
+}

@@ -8,8 +8,20 @@ const { createCloud } = require("./cloud");
 let cloud = null; // se crea al arrancar (setupCloud)
 const fs = require("fs");
 const fetch = require("node-fetch"); // npm install node-fetch@2
-const ps = require("ps-node"); // npm install ps-node
 const si = require("systeminformation"); // npm install systeminformation
+
+// Una sola ventana: si ya está abierta, abrirla otra vez la trae al frente
+// (dos instancias escribiendo los mismos archivos acababan pisándose).
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+  process.exit(0);
+}
+app.on("second-instance", () => {
+  if (!win || win.isDestroyed()) return;
+  if (win.isMinimized()) win.restore();
+  win.show();
+  win.focus();
+});
 
 let win;
 let games = [];
@@ -40,14 +52,23 @@ const IGDB_URL = "https://api.igdb.com/v4";
 // cargar en silencio), se pide uno nuevo con el Client Secret cuando hace
 // falta y se cachea en memoria hasta que esta a punto de caducar.
 let igdbTokenCache = { token: null, expiresAt: 0 };
+// Al arrancar se piden varias cosas a la vez: todas esperan al mismo token
+// en vez de pedir uno cada una.
+let igdbTokenPending = null;
 
-async function getIgdbToken(forceRefresh = false) {
-  const now = Date.now();
+function getIgdbToken(forceRefresh = false) {
   // Margen de 5 minutos antes de que caduque de verdad, por si acaso.
-  if (!forceRefresh && igdbTokenCache.token && now < igdbTokenCache.expiresAt - 5 * 60 * 1000) {
-    return igdbTokenCache.token;
+  if (!forceRefresh && igdbTokenCache.token && Date.now() < igdbTokenCache.expiresAt - 5 * 60 * 1000) {
+    return Promise.resolve(igdbTokenCache.token);
   }
+  if (!igdbTokenPending) {
+    igdbTokenPending = requestIgdbToken().finally(() => (igdbTokenPending = null));
+  }
+  return igdbTokenPending;
+}
 
+async function requestIgdbToken() {
+  const now = Date.now();
   if (!IGDB_CLIENT_ID || !IGDB_CLIENT_SECRET) {
     throw new Error("Faltan igdbClientId/igdbClientSecret en config.json");
   }
@@ -109,10 +130,17 @@ function loadData() {
   }
 }
 
+// Se escribe en un temporal y se renombra: si la app se cierra a mitad de
+// escribir, library.json no se queda cortado (y la biblioteca vacía).
+function writeFileAtomic(file, text) {
+  const tmp = file + ".tmp";
+  fs.writeFileSync(tmp, text, "utf8");
+  fs.renameSync(tmp, file);
+}
+
 function writeLibraryFile() {
   try {
-    const payload = JSON.stringify({ games, completedGames, sagas }, null, 2);
-    fs.writeFileSync(dataFilePath, payload, "utf8");
+    writeFileAtomic(dataFilePath, JSON.stringify({ games, completedGames, sagas }, null, 2));
   } catch (err) {
     console.error("Error saving library.json", err);
   }
@@ -169,7 +197,7 @@ function loadSettings() {
 
 function saveSettings() {
   try {
-    fs.writeFileSync(settingsFilePath, JSON.stringify(appSettings, null, 2), "utf8");
+    writeFileAtomic(settingsFilePath, JSON.stringify(appSettings, null, 2));
   } catch (err) {
     console.error("Error saving settings.json", err);
   }
@@ -619,6 +647,18 @@ function createWindow() {
     },
   });
 
+  // La ventana nunca navega fuera de la app ni abre otras ventanas: los
+  // enlaces https se abren en el navegador.
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith("https://")) shell.openExternal(url);
+    return { action: "deny" };
+  });
+  win.webContents.on("will-navigate", (e, url) => {
+    if (url.startsWith("file:")) return;
+    e.preventDefault();
+    if (url.startsWith("https://")) shell.openExternal(url);
+  });
+
   win.maximize();
   win.loadFile("index.html");
 }
@@ -723,33 +763,42 @@ async function igdbGamesQuery(body, endpoint = "games", isRetry = false) {
     token = await getIgdbToken();
   } catch (err) {
     console.error("IGDB token error", err.message);
-    return [];
+    return null;
   }
 
-  const res = await fetch(`${IGDB_URL}/${endpoint}`, {
-    method: "POST",
-    headers: {
-      "Client-ID": IGDB_CLIENT_ID,
-      Authorization: `Bearer ${token}`,
-      Accept: "application/json",
-      "Content-Type": "text/plain",
-    },
-    body,
-  });
+  // Sin conexión (o IGDB caído) se devuelve una lista vacía en vez de un
+  // error, igual que cuando IGDB contesta mal.
+  let res;
+  try {
+    res = await fetch(`${IGDB_URL}/${endpoint}`, {
+      method: "POST",
+      headers: {
+        "Client-ID": IGDB_CLIENT_ID,
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+        "Content-Type": "text/plain",
+      },
+      body,
+      timeout: 20000,
+    });
+  } catch (err) {
+    console.error("IGDB sin conexión", err.message);
+    return null;
+  }
 
   if (!res.ok) {
     // Token invalidado desde fuera (revocado, etc.) antes de la caducidad
     // que esperabamos: se fuerza una renovacion y se reintenta una vez.
     if (res.status === 401 && !isRetry) {
-      await getIgdbToken(true);
+      await getIgdbToken(true).catch(() => null);
       return igdbGamesQuery(body, endpoint, true);
     }
-    const text = await res.text();
+    const text = await res.text().catch(() => "");
     console.error("IGDB error", res.status, text);
-    return [];
+    return null;
   }
 
-  return res.json();
+  return res.json().catch(() => null);
 }
 
 // -------------------- IGDB IPC --------------------
@@ -891,7 +940,7 @@ ipcMain.handle("igdb:discover", async (_e, opts = {}) => {
     // mismo en JS, y el renderer pagina en local sobre ese conjunto.
     const body = `search "${trimmedQuery.replace(/"/g, '\\"')}"; ${fields} ${whereClause} limit ${IGDB_MAX_LIMIT};`;
     const results = await igdbGamesQuery(body);
-    if (!Array.isArray(results)) return { items: [], hasMore: false };
+    if (!Array.isArray(results)) return { items: [], hasMore: false, failed: true };
     return { items: sortDiscoverResults(results, sort), hasMore: false, fullPool: true };
   }
 
@@ -903,7 +952,7 @@ ipcMain.handle("igdb:discover", async (_e, opts = {}) => {
   const safeOffset = Math.max(0, Number(offset) || 0);
   const body = `${fields} ${whereClause} ${sortClause}; limit ${pageSize}; offset ${safeOffset};`;
   const results = await igdbGamesQuery(body);
-  if (!Array.isArray(results)) return { items: [], hasMore: false };
+  if (!Array.isArray(results)) return { items: [], hasMore: false, failed: true };
 
   return { items: results, hasMore: results.length === pageSize };
 });
@@ -918,7 +967,7 @@ ipcMain.handle("games:get", () => ({ games, completedGames }));
 ipcMain.handle("games:add", (_e, incoming) => {
   const { jarvisReason, ...game } = incoming || {}; // el motivo de Jarvis no se guarda
   const gameId = Number(game.id);
-  if (!games.find((g) => g.id === gameId)) {
+  if (!findAnyGame(gameId)) {
     const baseName = game.name || "";
     games.push({
       ...game,
@@ -2203,11 +2252,26 @@ ipcMain.handle("changelog:get", async () => {
 });
 
 // -------------------- IGDB Details (Info Modal) --------------------
-ipcMain.handle("igdb:getDetails", async (_e, id) => {
-  return igdbGamesQuery(`
-    fields name, summary, storyline, genres.name, involved_companies.company.name, first_release_date, cover.image_id, screenshots.image_id;
-    where id = ${id};
-  `);
+// Los juegos importados de Steam/Epic/GOG llevan el id de su tienda (o uno
+// generado), no el de IGDB: esos se buscan por nombre. Devuelve la ficha
+// (o null) y el id de IGDB, que hace falta para los requisitos.
+const DETAILS_FIELDS =
+  "fields name,summary,genres.name,involved_companies.developer,involved_companies.company.name,first_release_date,cover.image_id,platforms.abbreviation,total_rating,total_rating_count;";
+
+ipcMain.handle("igdb:getDetails", async (_e, arg) => {
+  const { id, name } = typeof arg === "object" && arg ? arg : { id: arg };
+  const owned = findAnyGame(Number(id));
+  const imported = owned && (owned.installDir || owned.steamAppId || owned.epicAppName || owned.gogGameId || Number(id) < 0);
+  if (!imported && Number(id) > 0) {
+    const rows = await igdbGamesQuery(`${DETAILS_FIELDS} where id = ${Number(id)};`);
+    if (Array.isArray(rows) && rows[0]) return rows[0];
+  }
+  const q = igdbLiteral(name || owned?.name || "");
+  if (!q) return null;
+  const rows = await igdbGamesQuery(`search "${q}"; ${DETAILS_FIELDS} where game_type = ${IGDB_REAL_GAME_TYPES}; limit 10;`);
+  if (!Array.isArray(rows) || !rows.length) return null;
+  const target = normalizeGameName(name || owned?.name);
+  return rows.find((g) => normalizeGameName(g.name) === target) || rows[0];
 });
 
 // -------------------- Steam StoreService AppList (replacement) --------------------
@@ -2336,15 +2400,12 @@ ipcMain.handle(
 
     console.log(`[Reqs] Buscando para: "${gameName}" (IGDB: ${igdbId})`);
 
-    // 1. INTENTO A: IGDB external_games
-    if (!targetSteamId && igdbId) {
+    // 1. INTENTO A: IGDB external_games (external_game_source 1 = Steam; el
+    // antiguo "category" ya no se rellena)
+    if (!targetSteamId && Number(igdbId) > 0) {
       try {
         const res = await igdbGamesQuery(
-          `
-        fields uid; 
-        where game = ${igdbId} & category = 1; 
-        limit 1;
-      `,
+          `fields uid; where game = ${Number(igdbId)} & external_game_source = 1; limit 1;`,
           "external_games"
         );
 
@@ -2392,6 +2453,7 @@ ipcMain.handle(
     }
 
     // 3. Descargar requisitos de la tienda
+    if (!targetSteamId) return null;
     try {
       const steamUrl = `https://store.steampowered.com/api/appdetails?appids=${targetSteamId}&l=spanish`;
 
