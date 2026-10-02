@@ -11,6 +11,7 @@
     />
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="pokepark.css" />
+    <link rel="stylesheet" href="music.css" />
   </head>
   <body>
     <div class="theme-bg" aria-hidden="true"></div>
@@ -48,6 +49,10 @@
           <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h6"/><path d="M15 12h6"/><circle cx="12" cy="12" r="3"/></svg>
           PokéPark
         </div>
+        <div class="topnav-item" onclick="showSection('music', this)">
+          <svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+          Música
+        </div>
 
         <span id="versionLink" class="version-link" onclick="openChangelogModal()" title="Historial de versiones"></span>
         <button class="icon-btn settings-btn" onclick="openSettingsModal()" title="Ajustes" aria-label="Ajustes">
@@ -61,12 +66,18 @@
         <section id="popular" class="section active">
           <span class="section-eyebrow">Catálogo</span>
           <h2 class="section-title">Descubrir</h2>
-          <input
-            type="text"
-            id="searchInput"
-            placeholder="Buscar juegos..."
-            oninput="onSearchInput()"
-          />
+          <div class="discover-search-row">
+            <input
+              type="text"
+              id="searchInput"
+              placeholder="Buscar juegos..."
+              oninput="onSearchInput()"
+            />
+            <button type="button" id="jarvisBtn" class="jarvis-btn" onclick="openJarvis()" title="Jarvis elige juegos para ti según tu biblioteca, tus pasados y tus platinos">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9Z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9Z"/></svg>
+              <span>Recomendación por Jarvis</span>
+            </button>
+          </div>
           <div class="discover-toolbar">
             <select id="genreFilter" onchange="loadDiscoverGames()">
               <option value="">Todos los géneros</option>
@@ -81,6 +92,14 @@
             </select>
           </div>
           <div id="discoverIndexBar" class="index-bar"></div>
+          <div id="jarvisBar" class="jarvis-bar" hidden>
+            <div class="jarvis-bar-text">
+              <b>Recomendado por Jarvis</b>
+              <span id="jarvisBarText"></span>
+            </div>
+            <button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" id="jarvisMoreBtn" onclick="openJarvis(true)">Otra tanda</button>
+            <button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" onclick="exitJarvis()">Volver al catálogo</button>
+          </div>
           <div id="gamesList" class="cards-grid"></div>
           <div class="load-more-wrap">
             <button id="loadMoreBtn" class="filter-btn" onclick="loadMoreDiscoverGames()" style="display:none;">
@@ -134,6 +153,11 @@
         <section id="pokepark" class="section">
           <div class="pp-root" id="ppRoot"></div>
         </section>
+
+        <!-- Música (lógica en music.js) -->
+        <section id="music" class="section">
+          <div class="mu-root" id="muRoot"></div>
+        </section>
       </main>
 
       <button
@@ -150,6 +174,7 @@
     <script src="node_modules/sweetalert2/dist/sweetalert2.all.min.js"></script>
     <script src="pokepark.js" defer></script>
     <script src="liquid-glass.js" defer></script>
+    <script src="music.js" defer></script>
 
     <script>
       // ===============================
@@ -358,6 +383,8 @@
         if (id === "completed") focusedContainerId = "completedList";
         document.body.classList.toggle("in-pokepark", id === "pokepark");
         if (id === "pokepark") window.PokePark?.onShow();
+        document.body.classList.toggle("in-music", id === "music");
+        window.Music?.setVisible(id === "music");
         focusedIndex = 0;
         updateGamepadFocus(true);
       }
@@ -501,6 +528,8 @@
       let discoverActiveLetter = null;
 
       async function loadDiscoverGames() {
+        // Buscar, cambiar filtros o volver al catálogo sale del modo Jarvis.
+        if (jarvisMode) setJarvisUi(false);
         renderDiscoverIndexBar();
         discoverOffset = 0;
         discoverSearchPool = null;
@@ -549,6 +578,151 @@
           pageSize: DISCOVER_PAGE_SIZE,
         });
         await applyDiscoverPage(res, false);
+      }
+
+      // ===============================
+      // Jarvis: recomendaciones con IA
+      // ===============================
+      // Aquí no hay orden ni filtros: el orden es el que da la IA (de más a
+      // menos recomendable). Nunca salen juegos que ya tengas.
+      let jarvisMode = false;
+      let jarvisBusy = false;
+      const jarvisShown = []; // ya recomendados en esta sesión (para "Otra tanda")
+
+      function setJarvisUi(on) {
+        jarvisMode = on;
+        document.getElementById("popular")?.classList.toggle("is-jarvis", on);
+        for (const id of ["sortFilter", "genreFilter"]) {
+          const el = document.getElementById(id);
+          if (el) el.disabled = on;
+        }
+        const bar = document.getElementById("jarvisBar");
+        if (bar) bar.hidden = !on;
+        if (on) {
+          const idx = document.getElementById("discoverIndexBar");
+          if (idx) idx.style.display = "none";
+          updateLoadMoreButton(false);
+        }
+      }
+
+      async function openJarvis(more = false) {
+        if (jarvisBusy) return;
+        const status = await window.electronAPI.aiStatus().catch(() => ({ configured: false }));
+        if (!status.configured) {
+          const go = await confirmDialog({
+            title: "Jarvis necesita tu clave de IA",
+            text: "Las recomendaciones las hace Claude con tu propia clave de API. Añádela en Ajustes, en «Inteligencia artificial».",
+            confirmText: "Ir a Ajustes",
+            iconName: "sparkles",
+          });
+          if (go) openSettingsModal();
+          return;
+        }
+
+        jarvisBusy = true;
+        const search = document.getElementById("searchInput");
+        if (search) search.value = "";
+        setJarvisUi(true);
+        const btn = document.getElementById("jarvisBtn");
+        const moreBtn = document.getElementById("jarvisMoreBtn");
+        btn?.classList.add("is-loading");
+        if (moreBtn) moreBtn.disabled = true;
+        document.getElementById("jarvisBarText").textContent = "Pensando en tus gustos…";
+        document.getElementById("gamesList").innerHTML = `
+          <div class="jarvis-loading">
+            <span class="jarvis-orb"></span>
+            <p><b>Jarvis está mirando tu biblioteca</b>Tus platinos y tus pasados pesan más. Puede tardar un poco.</p>
+          </div>`;
+
+        try {
+          const res = await window.electronAPI.aiRecommend({ exclude: more ? jarvisShown : [] });
+          if (!jarvisMode) return; // el usuario se ha ido mientras pensaba
+          if (!res?.ok) {
+            showNotification(res?.error || "Jarvis no ha podido recomendarte nada.", "error");
+            setJarvisUi(false);
+            loadDiscoverGames();
+            return;
+          }
+          await libraryReady;
+          const items = notOwned(res.items || []);
+          jarvisShown.push(...items.map((g) => g.name));
+          gamesTemp = [];
+          currentSearchGames = items.slice();
+          displayGames("gamesList", items, "add");
+          // El porqué de cada recomendación, bajo el título.
+          const cards = document.querySelectorAll("#gamesList > .game-card");
+          items.forEach((g, i) => {
+            const card = cards[i];
+            if (!card || !g.jarvisReason) return;
+            const p = document.createElement("p");
+            p.className = "jarvis-reason";
+            p.textContent = g.jarvisReason;
+            card.querySelector(".card-actions")?.before(p);
+            const rank = document.createElement("span");
+            rank.className = "jarvis-rank";
+            rank.textContent = i + 1;
+            card.querySelector(".card-cover")?.appendChild(rank);
+          });
+          document.getElementById("jarvisBarText").textContent = items.length
+            ? `${items.length} juegos elegidos para ti, de más a menos recomendable.`
+            : "No ha encontrado nada nuevo que no tengas ya. Prueba otra tanda.";
+          updateGamepadFocus(true);
+        } finally {
+          jarvisBusy = false;
+          btn?.classList.remove("is-loading");
+          if (moreBtn) moreBtn.disabled = false;
+        }
+      }
+
+      function exitJarvis() {
+        if (!jarvisMode) return;
+        loadDiscoverGames();
+      }
+
+      // Ajustes > Inteligencia artificial
+      async function setupAiSettings() {
+        const row = document.getElementById("settingsAiRow");
+        const msg = document.getElementById("settingsAiMsg");
+        if (!row) return;
+        const status = await window.electronAPI.aiStatus().catch(() => ({ configured: false }));
+        msg.textContent = "";
+        if (status.configured) {
+          row.innerHTML = `
+            <span class="settings-ai-ok">${icon("check")}Clave guardada · modelo ${escapeHtml(status.model)}</span>
+            <button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-ai="clear">Quitar clave</button>`;
+        } else {
+          row.innerHTML = `
+            <input type="password" class="settings-ai-input" placeholder="sk-ant-…" autocomplete="off" spellcheck="false" aria-label="Clave de la API de Claude">
+            <button type="button" class="sl-btn sl-btn-primary sl-btn-sm" data-ai="save">Guardar</button>`;
+          msg.innerHTML = `Consíguela en <a href="#" data-ai="console">console.anthropic.com</a> (API Keys). Cada uso se cobra en tu cuenta de la API.`;
+        }
+        const container = document.getElementById("settingsAi");
+        container.onclick = async (e) => {
+          const t = e.target.closest("[data-ai]");
+          if (!t) return;
+          e.preventDefault();
+          if (t.dataset.ai === "console") {
+            window.electronAPI.openExternal?.("https://console.anthropic.com/settings/keys");
+          } else if (t.dataset.ai === "clear") {
+            await window.electronAPI.aiClearKey();
+            setupAiSettings();
+          } else if (t.dataset.ai === "save") {
+            const input = row.querySelector(".settings-ai-input");
+            t.disabled = true;
+            msg.textContent = "Comprobando la clave…";
+            const res = await window.electronAPI.aiSetKey(input.value);
+            t.disabled = false;
+            if (res.ok) {
+              setupAiSettings();
+              showNotification("Clave guardada. Jarvis ya está listo.");
+            } else {
+              msg.textContent = res.error;
+            }
+          }
+        };
+        row.querySelector(".settings-ai-input")?.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") row.querySelector('[data-ai="save"]')?.click();
+        });
       }
 
       // Lo que ya tienes (biblioteca o pasados) no sale en Descubrir.
@@ -1265,8 +1439,10 @@
       function letterBucket(str) {
         const s = (str || "").trim();
         if (!s) return "#";
-        const ch = s[0].toUpperCase();
-        if (ch === "Ñ") return "Ñ";
+        const raw = s[0].toUpperCase();
+        if (raw === "Ñ") return "Ñ";
+        // "Ōkami" o "Éxodo" van con su letra, no con los símbolos.
+        const ch = raw.normalize("NFD")[0];
         if (/[A-Z]/.test(ch)) return ch;
         if (/[0-9]/.test(ch)) return "0-9";
         return "#";
@@ -1323,15 +1499,6 @@
       // páginas en serie desde donde se había quedado la búsqueda, lo que
       // con catálogos grandes podía tardar mucho y acabar fallando igual).
       async function jumpToDiscoverLetter(bucket) {
-        if (bucket === "#") {
-          // Apicalypse no tiene forma fiable de filtrar "no empieza por
-          // letra ni número" - se comprueba solo lo que ya hay cargado.
-          const target = document.querySelector('#gamesList [data-letter="#"]');
-          if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
-          else showNotification('No hay juegos con nombres de símbolos con estos filtros.', "error");
-          return;
-        }
-
         const genreId = document.getElementById("genreFilter")?.value || null;
         const sort = document.getElementById("sortFilter")?.value || "popular";
 
@@ -1585,6 +1752,10 @@
         let confirmingDelete = false;
         let busy = false;
         let root = null;
+        // Propuesta de orden de la IA: solo se enseña; se aplica si el
+        // usuario quiere y después puede seguir moviéndolos a mano.
+        let aiProposal = null;
+        let aiThinking = false;
         // Sagas sugeridas (se cargan al abrir) y, para las que se acaban de
         // crear desde una sugerencia, qué juegos la formaban: salen abajo
         // como sugerencias para que el usuario meta los que quiera.
@@ -1663,6 +1834,7 @@
                 ${icon("pencil", "sg-name-icon")}
               </div>
               <div class="sg-head-actions">
+                ${confirmingDelete ? "" : `<button type="button" class="sl-btn sl-btn-ghost sl-btn-sm ${aiThinking ? "is-loading" : ""}" data-act="ai-sort" title="Claude propone el orden cronológico de la historia; tú decides si aplicarlo" ${aiThinking ? "disabled" : ""}>${icon("sparkles")}<span>${aiThinking ? "Pensando…" : "Orden con IA"}</span></button>`}
                 ${confirmingDelete ? "" : `<button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-act="sort" title="Vuelve a colocar los juegos por fecha de lanzamiento">${icon("calendar")}<span>Ordenar por lanzamiento</span></button>`}
                 ${deleteHtml}
               </div>
@@ -1685,6 +1857,41 @@
           if (!s || !ol) return;
           // Ordenar solo tiene sentido con dos juegos o más.
           root.querySelector('[data-act="sort"]')?.toggleAttribute("hidden", s.gameIds.length < 2);
+          root.querySelector('[data-act="ai-sort"]')?.toggleAttribute("hidden", s.gameIds.length < 2);
+          // Propuesta de la IA pendiente (si la saga no ha cambiado entretanto).
+          const p = aiProposal;
+          if (p && (p.sagaId !== s.id || p.order.length !== s.gameIds.length || p.order.some((o) => !s.gameIds.includes(o.id)))) {
+            aiProposal = null;
+          }
+          if (aiProposal) {
+            ol.innerHTML =
+              `<li class="sg-ai">
+                <span class="sg-ai-head">${icon("sparkles")}<b>Orden cronológico propuesto por la IA</b></span>
+                <span class="sg-ai-summary">${esc(aiProposal.summary)}</span>
+                <span class="sg-ai-actions">
+                  <button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-act="ai-discard">Descartar</button>
+                  <button type="button" class="sl-btn sl-btn-primary sl-btn-sm" data-act="ai-apply">${icon("check")}Aplicar este orden</button>
+                </span>
+              </li>` +
+              aiProposal.order
+                .map((o, i) => {
+                  const g = byId.get(o.id);
+                  const before = s.gameIds.indexOf(o.id) + 1;
+                  const moved = before !== i + 1;
+                  return `
+                <li class="sg-game is-proposal">
+                  <span class="sg-game-pos">${i + 1}</span>
+                  <img class="sg-game-cover" src="${coverOf(g)}" alt="">
+                  <span class="sg-game-text">
+                    <span class="sg-game-name">${esc(g?.name || "Juego eliminado")}</span>
+                    <span class="sg-game-meta">${esc(o.note || releaseYear(g) || "")}</span>
+                  </span>
+                  <span class="sg-ai-move ${moved ? "is-moved" : ""}">${moved ? `antes ${before}º` : "igual"}</span>
+                </li>`;
+                })
+                .join("");
+            return;
+          }
           ol.innerHTML = s.gameIds.length
             ? s.gameIds
                 .map((gid, i) => {
@@ -1898,6 +2105,32 @@
                 renderList();
                 renderGames();
                 renderResults();
+              });
+            } else if (act === "ai-sort") {
+              if (aiThinking) return;
+              aiThinking = true;
+              const sagaId = s.id;
+              renderDetail();
+              window.electronAPI
+                .aiOrderSaga(sagaId)
+                .catch(() => ({ ok: false, error: "No se ha podido hablar con la IA." }))
+                .then((res) => {
+                  aiThinking = false;
+                  if (res.ok) aiProposal = { sagaId, order: res.order, summary: res.summary };
+                  else showNotification(res.error, "error");
+                  if (selected()?.id === sagaId) renderDetail();
+                });
+            } else if (act === "ai-discard") {
+              aiProposal = null;
+              renderGames();
+            } else if (act === "ai-apply" && aiProposal) {
+              const ids = aiProposal.order.map((o) => o.id);
+              run(async () => {
+                await refresh(await window.electronAPI.setSagaOrder(s.id, ids));
+                aiProposal = null;
+                renderList();
+                renderGames();
+                showNotification(`"${s.name}" ordenada en orden cronológico. Puedes seguir moviéndolos a mano.`);
               });
             } else if (act === "sort") {
               btn.classList.add("is-loading");
@@ -2395,6 +2628,17 @@
               <div class="settings-divider"></div>
 
               <div class="settings-section">
+                <span class="section-eyebrow">Inteligencia artificial</span>
+                <div class="settings-ai" id="settingsAi">
+                  <p class="settings-update-text">Jarvis (recomendaciones en Descubrir) y el orden cronológico de las sagas usan Claude con tu propia clave de API. Se guarda cifrada en este PC.</p>
+                  <div class="settings-ai-row" id="settingsAiRow"></div>
+                  <p class="settings-ai-msg" id="settingsAiMsg"></p>
+                </div>
+              </div>
+
+              <div class="settings-divider"></div>
+
+              <div class="settings-section">
                 <span class="section-eyebrow">Datos</span>
                 <div class="settings-data">
                   <div class="settings-data-row">
@@ -2460,6 +2704,7 @@
               updateBtn.disabled = false;
             });
 
+            setupAiSettings();
             document.getElementById("settingsBackupBtn")?.addEventListener("click", () => openBackupModal());
             document.getElementById("settingsWipeBtn")?.addEventListener("click", () => wipeAllData());
 

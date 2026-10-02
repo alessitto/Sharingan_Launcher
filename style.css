@@ -3782,3 +3782,289 @@ body:has(.update-toast.show) .scroll-top-btn {
   box-shadow: var(--lg-rim), 0 20px 50px rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(30px) saturate(180%);
 }
+
+/* ===============================
+   IA: Jarvis, orden de sagas y ajustes
+   =============================== */
+.discover-search-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.discover-search-row input[type="text"] {
+  margin-bottom: 0;
+}
+
+.jarvis-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--washi-50);
+  background: linear-gradient(120deg, rgba(var(--red-500-rgb), 0.28), rgba(var(--red-500-rgb), 0.08));
+  border: 1px solid rgba(var(--red-500-rgb), 0.5);
+}
+
+.jarvis-btn:hover {
+  background: linear-gradient(120deg, rgba(var(--red-500-rgb), 0.4), rgba(var(--red-500-rgb), 0.14));
+}
+
+.jarvis-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: var(--red-500);
+  stroke: none;
+}
+
+.jarvis-btn.is-loading svg,
+.sl-btn.is-loading svg {
+  animation: jarvisSpin 1.4s linear infinite;
+}
+
+@keyframes jarvisSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+#popular.is-jarvis .jarvis-btn {
+  border-color: var(--red-500);
+  box-shadow: 0 0 0 3px rgba(var(--red-500-rgb), 0.18);
+}
+
+.discover-toolbar select:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.jarvis-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 2px 0 18px;
+  padding: 12px 14px 12px 18px;
+  border-radius: 14px;
+  border: 1px solid rgba(var(--red-500-rgb), 0.35);
+  background: linear-gradient(100deg, rgba(var(--red-500-rgb), 0.14), rgba(var(--red-500-rgb), 0.03));
+}
+
+.jarvis-bar[hidden] {
+  display: none;
+}
+
+.jarvis-bar-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+  color: var(--ink-200);
+}
+
+.jarvis-bar-text b {
+  font-size: 14px;
+  color: var(--washi-50);
+}
+
+.jarvis-loading {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 60px 20px;
+}
+
+.jarvis-loading p {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--ink-300);
+  font-size: 13px;
+}
+
+.jarvis-loading b {
+  font-size: 17px;
+  color: var(--washi-50);
+}
+
+.jarvis-orb {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #fff, var(--red-500) 45%, transparent 72%);
+  box-shadow: 0 0 30px rgba(var(--red-500-rgb), 0.6);
+  animation: jarvisOrb 1.6s ease-in-out infinite;
+}
+
+@keyframes jarvisOrb {
+  50% {
+    transform: scale(0.82);
+    box-shadow: 0 0 12px rgba(var(--red-500-rgb), 0.35);
+  }
+}
+
+.jarvis-reason {
+  margin: -2px 0 2px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--ink-300);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.jarvis-rank {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--red-500);
+  color: var(--on-accent);
+  font-size: 12px;
+  font-weight: 800;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+}
+
+/* Sagas: propuesta de orden de la IA */
+.sg-ai {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(var(--red-500-rgb), 0.4);
+  background: rgba(var(--red-500-rgb), 0.08);
+}
+
+.sg-ai-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--washi-50);
+}
+
+.sg-ai-head .i {
+  width: 16px;
+  height: 16px;
+  color: var(--red-500);
+}
+
+.sg-ai-summary {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-200);
+}
+
+.sg-ai-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.sg-game.is-proposal {
+  cursor: default;
+}
+
+.sg-ai-move {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--ink-400);
+}
+
+.sg-ai-move.is-moved {
+  color: var(--red-500);
+  font-weight: 700;
+}
+
+/* Ajustes > Inteligencia artificial */
+.settings-ai {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.settings-ai-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.settings-ai-input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--ink-700);
+  background: var(--ink-900);
+  color: var(--washi-100);
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+}
+
+.settings-ai-input:focus {
+  border-color: var(--red-500);
+}
+
+.settings-ai-ok {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--washi-100);
+}
+
+.settings-ai-ok .i {
+  width: 16px;
+  height: 16px;
+  color: #4caf50;
+}
+
+.settings-ai-msg {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ink-300);
+}
+
+.settings-ai-msg:empty {
+  display: none;
+}
+
+.settings-ai-msg a {
+  color: var(--red-500);
+}
+
+/* Liquid Glass */
+:root[data-theme="glass"] .jarvis-btn,
+:root[data-theme="glass"] .jarvis-bar {
+  border: none;
+  box-shadow: var(--lg-rim);
+}
+
+:root[data-theme="glass"] .jarvis-bar {
+  border-radius: 22px;
+}
+
+:root[data-theme="glass"] .settings-ai-input {
+  border: none;
+  background: rgba(118, 118, 128, 0.26);
+}

@@ -1,8 +1,9 @@
-const { app, BrowserWindow, ipcMain, dialog, shell } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, shell, safeStorage } = require("electron");
 const Fuse = require("fuse.js");
 const path = require("path");
 const { execFile, spawn } = require("child_process");
 const saves = require("./saves");
+const ai = require("./ai");
 const fs = require("fs");
 const fetch = require("node-fetch"); // npm install node-fetch@2
 const ps = require("ps-node"); // npm install ps-node
@@ -169,7 +170,10 @@ function saveSettings() {
 
 loadSettings();
 
-ipcMain.handle("settings:get", () => appSettings);
+// La clave de la IA (cifrada) no se le pasa nunca a la ventana.
+const publicSettings = () => ({ ...appSettings, aiKey: undefined });
+
+ipcMain.handle("settings:get", () => publicSettings());
 
 ipcMain.handle("settings:set", (_e, patch = {}) => {
   if (patch.gamesPerPage !== undefined) {
@@ -182,7 +186,7 @@ ipcMain.handle("settings:set", (_e, patch = {}) => {
     appSettings.theme = clampTheme(patch.theme);
   }
   saveSettings();
-  return appSettings;
+  return publicSettings();
 });
 
 // -------------------- Helpers procesos --------------------
@@ -807,12 +811,20 @@ function discoverSortClause(sort) {
 // (tambien verificado). "#" (simbolos sueltos) no tiene filtro fiable
 // posible en Apicalypse, asi que ese caso se resuelve en el renderer con lo
 // que ya haya cargado, sin pedir nada al servidor.
+const SYMBOL_PREFIXES = [".", "'", '"', "(", "[", "!", "¡", "¿", "?", "#", "$", "&", "*", "+", "-", "/", "@", "~", ":", "<", ">", "=", "^", "|", "{", ",", ";", "…", "«", "“", "‘"];
+
 function letterPrefixClause(bucket) {
   if (bucket === "0-9") {
     const digits = "0123456789".split("").map((d) => `name = "${d}"*`);
     return `(${digits.join(" | ")})`;
   }
-  if (bucket === "#") return null;
+  if (bucket === "#") {
+    // Nombres que empiezan por símbolo (".hack//", "#IDARB", "[Redacted]"...).
+    // El prefijo de IGDB funciona como un LIKE: "_" y "%" son comodines y
+    // devolverían todo el catálogo, así que no se incluyen.
+    const lits = SYMBOL_PREFIXES.map((s) => `name = "${s.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"*`);
+    return `(${lits.join(" | ")})`;
+  }
   return `name = "${String(bucket).replace(/"/g, '\\"')}"*`;
 }
 
@@ -835,7 +847,8 @@ ipcMain.handle("igdb:discover", async (_e, opts = {}) => {
     // Este umbral solo se aplica al navegar (sin buscar): en "Mas popular"
     // sin texto queremos juegos de verdad conocidos. Al buscar por nombre no
     // se aplica, para no perder resultados legitimos poco valorados.
-    whereParts.push("total_rating_count > 20");
+    // Con nombres de símbolos casi ninguno llega a 20 valoraciones.
+    whereParts.push(letterPrefix === "#" ? "total_rating_count > 2" : "total_rating_count > 20");
   } else if ((sort === "az" || sort === "za") && !trimmedQuery) {
     // Sin este filtro, el principio (y el final) del catalogo ordenado por
     // nombre esta lleno de fichas basura con nombres de simbolos sueltos
@@ -885,7 +898,8 @@ ipcMain.handle("igdb:genres", async () => {
 // -------------------- Biblioteca IPC --------------------
 ipcMain.handle("games:get", () => ({ games, completedGames }));
 
-ipcMain.handle("games:add", (_e, game) => {
+ipcMain.handle("games:add", (_e, incoming) => {
+  const { jarvisReason, ...game } = incoming || {}; // el motivo de Jarvis no se guarda
   const gameId = Number(game.id);
   if (!games.find((g) => g.id === gameId)) {
     const baseName = game.name || "";
@@ -1904,6 +1918,253 @@ ipcMain.handle("games:togglePlatinum", (_e, id) => {
   }
   return { games, completedGames };
 });
+
+// -------------------- IA (Claude) --------------------
+// La clave es del propio usuario y se guarda cifrada con el almacén seguro
+// del sistema (DPAPI en Windows) dentro de settings.json.
+function getAiKey() {
+  if (!appSettings.aiKey) return null;
+  try {
+    return safeStorage.decryptString(Buffer.from(appSettings.aiKey, "base64"));
+  } catch {
+    return null;
+  }
+}
+
+ipcMain.handle("ai:status", () => ({ configured: !!getAiKey(), model: ai.MODEL }));
+
+ipcMain.handle("ai:setKey", async (_e, key) => {
+  const k = String(key || "").trim();
+  if (!/^sk-ant-[\w-]{20,}$/.test(k)) return { ok: false, error: "Eso no parece una clave de la API de Claude (empieza por sk-ant-)." };
+  const check = await ai.checkKey(k);
+  if (!check.ok) return check;
+  if (!safeStorage.isEncryptionAvailable()) return { ok: false, error: "Windows no permite guardar la clave cifrada en este equipo." };
+  appSettings.aiKey = safeStorage.encryptString(k).toString("base64");
+  saveSettings();
+  return { ok: true };
+});
+
+ipcMain.handle("ai:clearKey", () => {
+  delete appSettings.aiKey;
+  saveSettings();
+  return { ok: true };
+});
+
+function requireAiKey() {
+  const key = getAiKey();
+  if (!key) throw new ai.AiError("Primero añade tu clave de la API de Claude en Ajustes.");
+  return key;
+}
+
+const aiResult = async (fn) => {
+  try {
+    return { ok: true, ...(await fn()) };
+  } catch (err) {
+    if (!(err instanceof ai.AiError)) console.error("IA", err);
+    return { ok: false, error: err instanceof ai.AiError ? err.message : "No se ha podido hablar con la IA." };
+  }
+};
+
+// Propuesta de orden cronológico (de la historia) para una saga. No se
+// aplica sola: la ventana la enseña y el usuario decide.
+ipcMain.handle("ai:orderSaga", (_e, sagaId) =>
+  aiResult(async () => {
+    const key = requireAiKey();
+    const saga = sagas.find((x) => x.id === sagaId);
+    if (!saga || saga.gameIds.length < 2) throw new ai.AiError("La saga necesita al menos dos juegos.");
+    const list = saga.gameIds.map((id) => findAnyGame(id)).filter(Boolean);
+    return ai.orderSaga(key, saga.name, list);
+  })
+);
+
+// Recomendaciones de Jarvis: la IA propone títulos y aquí se buscan en IGDB
+// (10 por petición con /multiquery) para tener ficha y carátula. Lo que ya
+// tienes (biblioteca o pasados) se descarta aunque la IA lo proponga.
+const JARVIS_COUNT = 30;
+const JARVIS_FIELDS =
+  "fields id,name,cover.image_id,rating,rating_count,total_rating,total_rating_count,platforms,first_release_date,genres.name;";
+
+const igdbYear = (g) => (g.first_release_date ? new Date(g.first_release_date * 1000).getUTCFullYear() : null);
+const igdbLiteral = (s) => String(s).replace(/[®™©]/g, "").replace(/\\/g, "\\\\").replace(/"/g, '\\"').trim();
+
+// Mismo nombre y año > mismo nombre > mismo año > el más relevante.
+function bestIgdbHit(rec, hits) {
+  const target = normalizeGameName(rec.title);
+  return (
+    hits.find((g) => normalizeGameName(g.name) === target && (!rec.year || igdbYear(g) === rec.year)) ||
+    hits.find((g) => normalizeGameName(g.name) === target) ||
+    hits.find((g) => rec.year && igdbYear(g) === rec.year) ||
+    hits[0] ||
+    null
+  );
+}
+
+async function resolveOnIgdb(recs) {
+  const found = new Array(recs.length).fill(null);
+  const where = `game_type = ${IGDB_REAL_GAME_TYPES} & cover != null`;
+  // 1) Nombre exacto (sin distinguir mayúsculas), 10 juegos por petición.
+  //    /multiquery no admite "search", por eso va con "where name ~".
+  for (let start = 0; start < recs.length; start += 10) {
+    const body = recs
+      .slice(start, start + 10)
+      .map((r, i) => `query games "r${start + i}" { ${JARVIS_FIELDS} where name ~ "${igdbLiteral(r.title)}" & ${where}; limit 6; };`)
+      .join("\n");
+    const data = await igdbGamesQuery(body, "multiquery");
+    for (const block of Array.isArray(data) ? data : []) {
+      const idx = Number(String(block.name).slice(1));
+      if (recs[idx] && block.result?.length) found[idx] = bestIgdbHit(recs[idx], block.result);
+    }
+  }
+  // 2) Los que no casan exacto (subtítulos, símbolos...): búsqueda normal,
+  //    de una en una para no pasar del límite de 4 peticiones/s de IGDB.
+  for (let i = 0; i < recs.length; i++) {
+    if (found[i]) continue;
+    const data = await igdbGamesQuery(`search "${igdbLiteral(recs[i].title)}"; ${JARVIS_FIELDS} where ${where}; limit 6;`);
+    if (Array.isArray(data) && data.length) found[i] = bestIgdbHit(recs[i], data);
+    await new Promise((r) => setTimeout(r, 260));
+  }
+  return found;
+}
+
+ipcMain.handle("ai:recommend", (_e, opts = {}) =>
+  aiResult(async () => {
+    const key = requireAiKey();
+    const owned = [...games, ...completedGames];
+    if (!owned.length) throw new ai.AiError("Jarvis necesita algún juego en tu biblioteca o en pasados para conocer tus gustos.");
+    const exclude = Array.isArray(opts.exclude) ? opts.exclude.slice(0, 200).map(String) : [];
+    const recs = await ai.recommend(key, {
+      platinum: completedGames.filter((g) => g.isPlatinum),
+      completed: completedGames.filter((g) => !g.isPlatinum),
+      library: games,
+      exclude,
+      count: JARVIS_COUNT,
+    });
+    const hits = await resolveOnIgdb(recs);
+    const ownedIds = new Set(owned.map((g) => Number(g.id)));
+    const ownedNames = new Set(owned.map((g) => normalizeGameName(g.name)));
+    const seen = new Set();
+    const items = [];
+    recs.forEach((r, i) => {
+      const g = hits[i];
+      if (!g || ownedIds.has(g.id) || ownedNames.has(normalizeGameName(g.name)) || seen.has(g.id)) return;
+      seen.add(g.id);
+      items.push({ ...g, jarvisReason: r.reason });
+    });
+    return { items };
+  })
+);
+
+// -------------------- Música (controles multimedia de Windows) --------------------
+// media-bridge.ps1 habla con los controles multimedia de Windows (los del
+// panel de volumen): Spotify de escritorio sale ahí sin iniciar sesión ni
+// API de desarrollador. Escribe una línea JSON por segundo; las órdenes se
+// le mandan por stdin. Solo corre mientras la sección Música está abierta.
+let mediaProc = null;
+let mediaState = { active: false };
+let mediaCover = null;
+let mediaStopTimer = null;
+
+function startMediaBridge() {
+  clearTimeout(mediaStopTimer);
+  if (mediaProc) return;
+  // PowerShell no puede leer dentro del .asar: se copia el script a userData.
+  const script = path.join(app.getPath("userData"), "media-bridge.ps1");
+  try {
+    fs.writeFileSync(script, fs.readFileSync(path.join(__dirname, "media-bridge.ps1")));
+  } catch (err) {
+    console.error("media-bridge", err);
+    return;
+  }
+  const proc = spawn("powershell.exe", ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", script], {
+    windowsHide: true,
+  });
+  mediaProc = proc;
+  mediaState = { active: false, pending: true }; // hasta que llegue la primera lectura
+  let buf = "";
+  proc.stdout.setEncoding("utf8");
+  proc.stdout.on("data", (chunk) => {
+    buf += chunk;
+    let nl;
+    while ((nl = buf.indexOf("\n")) >= 0) {
+      const raw = buf.slice(0, nl).trim();
+      buf = buf.slice(nl + 1);
+      if (!raw.startsWith("{")) continue;
+      try {
+        const s = JSON.parse(raw);
+        // La carátula solo llega al cambiar de canción ("" = no tiene).
+        if (typeof s.cover === "string") mediaCover = s.cover || null;
+        if (!s.active) mediaCover = null;
+        mediaState = { ...s, cover: mediaCover };
+        if (win && !win.isDestroyed()) win.webContents.send("media:state", mediaState);
+      } catch {}
+    }
+  });
+  proc.on("exit", () => {
+    if (mediaProc === proc) mediaProc = null;
+  });
+}
+
+ipcMain.handle("media:start", () => {
+  startMediaBridge();
+  return mediaState;
+});
+
+// Al salir de la sección se para a los pocos segundos (por si se vuelve).
+ipcMain.handle("media:stop", () => {
+  clearTimeout(mediaStopTimer);
+  mediaStopTimer = setTimeout(() => {
+    mediaProc?.kill();
+    mediaProc = null;
+  }, 15000);
+});
+
+ipcMain.handle("media:command", (_e, cmd) => {
+  const c = String(cmd || "");
+  if (!/^(toggle|next|prev|seek \d+(\.\d+)?)$/.test(c)) return false;
+  mediaProc?.stdin.write(`${c}\n`);
+  return true;
+});
+
+ipcMain.handle("media:openSpotify", () => shell.openExternal("spotify:"));
+
+// Enlaces externos desde la ventana: solo https.
+ipcMain.handle("app:openExternal", (_e, url) => {
+  if (String(url).startsWith("https://")) shell.openExternal(String(url));
+});
+
+// Letras: LRCLIB (gratis, sin clave). Sincronizadas si las tiene.
+const lyricsCache = new Map();
+ipcMain.handle("media:lyrics", async (_e, { artist, title, album, duration } = {}) => {
+  const key = `${artist}|${title}`.toLowerCase();
+  if (lyricsCache.has(key)) return lyricsCache.get(key);
+  const headers = { "User-Agent": `SharinganLauncher/${app.getVersion()} (https://github.com/alessitto/Sharingan_Launcher)` };
+  const pick = (d) => (d && (d.syncedLyrics || d.plainLyrics) ? { synced: d.syncedLyrics || null, plain: d.plainLyrics || null, instrumental: !!d.instrumental } : null);
+  let result = null;
+  try {
+    const q = new URLSearchParams({ artist_name: artist || "", track_name: title || "" });
+    if (album) q.set("album_name", album);
+    if (duration) q.set("duration", String(Math.round(duration)));
+    const res = await fetch(`https://lrclib.net/api/get?${q}`, { headers, timeout: 10000 });
+    if (res.ok) result = pick(await res.json());
+    if (!result) {
+      const s = new URLSearchParams({ artist_name: artist || "", track_name: title || "" });
+      const r2 = await fetch(`https://lrclib.net/api/search?${s}`, { headers, timeout: 10000 });
+      const list = r2.ok ? await r2.json() : [];
+      const best =
+        (Array.isArray(list) ? list : []).find((x) => x.syncedLyrics && (!duration || Math.abs((x.duration || 0) - duration) < 4)) ||
+        (Array.isArray(list) ? list : []).find((x) => x.syncedLyrics || x.plainLyrics);
+      result = pick(best);
+    }
+  } catch (err) {
+    console.error("LRCLIB", err.message);
+    return { error: true };
+  }
+  const out = result || { none: true };
+  lyricsCache.set(key, out);
+  return out;
+});
+
+app.on("before-quit", () => mediaProc?.kill());
 
 // -------------------- System Specs IPC --------------------
 ipcMain.handle("system:getSpecs", async () => {

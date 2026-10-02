@@ -80,4 +80,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
   backupSaves: (ids, dir) => ipcRenderer.invoke('saves:backup', { ids, dir }),
   openBackupDir: (dir) => ipcRenderer.invoke('saves:openDir', dir),
   onBackupProgress: (cb) => ipcRenderer.on('saves:progress', (_e, p) => cb(p)),
+
+  // IA (Claude)
+  aiStatus: () => ipcRenderer.invoke('ai:status'),
+  aiSetKey: (key) => ipcRenderer.invoke('ai:setKey', key),
+  aiClearKey: () => ipcRenderer.invoke('ai:clearKey'),
+  aiOrderSaga: (sagaId) => ipcRenderer.invoke('ai:orderSaga', sagaId),
+  aiRecommend: (opts) => ipcRenderer.invoke('ai:recommend', opts),
+
+  // Música (Spotify vía controles multimedia de Windows) y letras
+  mediaStart: () => ipcRenderer.invoke('media:start'),
+  mediaStop: () => ipcRenderer.invoke('media:stop'),
+  mediaCommand: (cmd) => ipcRenderer.invoke('media:command', cmd),
+  mediaLyrics: (track) => ipcRenderer.invoke('media:lyrics', track),
+  openExternal: (url) => ipcRenderer.invoke('app:openExternal', url),
+  mediaOpenSpotify: () => ipcRenderer.invoke('media:openSpotify'),
+  onMediaState: (cb) => ipcRenderer.on('media:state', (_e, s) => cb(s)),
 });

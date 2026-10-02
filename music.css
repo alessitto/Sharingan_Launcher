@@ -1,0 +1,390 @@
+/* =====================================================================
+   Música: reproductor (Spotify vía Windows) + letra sincronizada
+   ===================================================================== */
+body.in-music .main-content {
+  overflow: hidden;
+}
+
+.mu-root {
+  position: relative;
+  height: calc(100vh - 100px);
+  min-height: 460px;
+  border-radius: 24px;
+  overflow: hidden;
+  isolation: isolate;
+  border: 1px solid var(--ink-800);
+  background: var(--ink-900);
+}
+
+/* La carátula, muy desenfocada, tiñe todo el fondo como en Spotify/Apple Music */
+.mu-ambient {
+  position: absolute;
+  inset: -80px;
+  z-index: -1;
+  background-position: center;
+  background-size: cover;
+  filter: blur(70px) saturate(1.6);
+  opacity: 0;
+  transform: scale(1.1);
+  transition: opacity 0.8s var(--ease-smooth);
+}
+
+.mu-root.has-cover .mu-ambient {
+  opacity: 0.55;
+}
+
+.mu-root::after {
+  /* Velo para que el texto se lea sobre cualquier carátula */
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(180deg, rgba(var(--ink-900-rgb), 0.2), rgba(var(--ink-900-rgb), 0.55));
+  pointer-events: none;
+}
+
+/* ------------------------------------------------------------ Sin música */
+.mu-empty {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 30px;
+  text-align: center;
+}
+
+.mu-empty[hidden],
+.mu-player[hidden] {
+  display: none;
+}
+
+.mu-empty-icon svg {
+  width: 54px;
+  height: 54px;
+  color: var(--red-500);
+  opacity: 0.85;
+}
+
+.mu-empty.is-pending .mu-empty-icon svg {
+  animation: muPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes muPulse {
+  50% {
+    opacity: 0.35;
+    transform: scale(0.92);
+  }
+}
+
+.mu-empty h3 {
+  margin: 6px 0 0;
+  font-size: 22px;
+}
+
+.mu-empty p {
+  max-width: 46ch;
+  margin: 0 0 8px;
+  line-height: 1.55;
+  color: var(--ink-200);
+}
+
+.mu-empty small {
+  max-width: 50ch;
+  color: var(--ink-400);
+  font-size: 12px;
+}
+
+.mu-empty .sl-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* ------------------------------------------------------------ Reproductor */
+.mu-player {
+  height: 100%;
+  display: grid;
+  grid-template-columns: minmax(300px, 400px) minmax(0, 1fr);
+  gap: 28px;
+  padding: 28px;
+}
+
+.mu-card {
+  align-self: center;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.mu-cover {
+  position: relative;
+  aspect-ratio: 1;
+  width: 100%;
+  border-radius: 18px;
+  overflow: hidden;
+  background: rgba(var(--red-500-rgb), 0.1);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mu-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mu-cover img[hidden],
+.mu-cover-empty[hidden] {
+  display: none;
+}
+
+.mu-cover-empty svg {
+  width: 72px;
+  height: 72px;
+  color: var(--ink-400);
+}
+
+.mu-app {
+  margin-top: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--red-500);
+}
+
+.mu-title {
+  margin: 6px 0 2px;
+  font-size: 24px;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mu-artist {
+  margin: 0;
+  color: var(--ink-200);
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mu-progress {
+  margin-top: 18px;
+}
+
+.mu-bar {
+  position: relative;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--ink-700);
+  cursor: pointer;
+}
+
+/* Zona de clic más alta que la barra visible */
+.mu-bar::before {
+  content: "";
+  position: absolute;
+  inset: -8px 0;
+}
+
+.mu-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: inherit;
+  background: var(--washi-50);
+}
+
+.mu-knob {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 50%;
+  background: var(--washi-50);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.mu-bar:hover .mu-knob {
+  opacity: 1;
+}
+
+.mu-bar:hover .mu-fill {
+  background: var(--red-500);
+}
+
+.mu-times {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-300);
+}
+
+.mu-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  margin-top: 12px;
+}
+
+.mu-btn {
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--washi-100);
+  box-shadow: none;
+}
+
+.mu-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.mu-btn svg {
+  width: 24px;
+  height: 24px;
+}
+
+.mu-play {
+  width: 66px;
+  height: 66px;
+  background: var(--washi-50);
+  color: var(--ink-950);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35);
+}
+
+.mu-play:hover {
+  background: var(--washi-50);
+  transform: scale(1.05);
+}
+
+.mu-play svg {
+  width: 30px;
+  height: 30px;
+}
+
+/* ------------------------------------------------------------ Letra */
+.mu-lyrics {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-radius: 20px;
+  background: rgba(var(--ink-900-rgb), 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.mu-lyrics-head {
+  padding: 18px 26px 0;
+}
+
+.mu-lyrics-head .section-eyebrow {
+  margin: 0;
+}
+
+.mu-lyrics-inner {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px 26px 40vh;
+  scroll-behavior: smooth;
+  /* Las líneas se desvanecen arriba y abajo */
+  mask-image: linear-gradient(180deg, transparent, #000 8%, #000 82%, transparent);
+}
+
+.mu-line {
+  margin: 0;
+  padding: 7px 0;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  color: var(--washi-50);
+  opacity: 0.32;
+  cursor: pointer;
+  transform-origin: left center;
+  transition: opacity 0.35s var(--ease-smooth), transform 0.35s var(--ease-smooth), filter 0.35s;
+  filter: blur(0.4px);
+}
+
+.mu-line:hover {
+  opacity: 0.6;
+}
+
+.mu-line.is-past {
+  opacity: 0.45;
+}
+
+.mu-line.is-active {
+  opacity: 1;
+  filter: none;
+  transform: scale(1.03);
+}
+
+.mu-line.is-plain {
+  font-size: 18px;
+  font-weight: 500;
+  opacity: 0.9;
+  filter: none;
+  cursor: default;
+}
+
+.mu-lyrics-note {
+  margin: 40px 0 0;
+  font-size: 18px;
+  color: var(--ink-300);
+}
+
+.mu-lyrics-tag {
+  margin: 4px 0 10px;
+  font-size: 12px;
+  color: var(--ink-400);
+}
+
+@media (max-width: 900px) {
+  .mu-root {
+    height: auto;
+  }
+  .mu-player {
+    grid-template-columns: 1fr;
+  }
+  .mu-lyrics {
+    height: 420px;
+  }
+}
+
+/* Liquid Glass: la tarjeta de la letra y la sección son cristal tintado */
+:root[data-theme="glass"] .mu-root {
+  border: none;
+  border-radius: 30px;
+  background: var(--lg-fill);
+  box-shadow: var(--lg-rim), 0 14px 40px rgba(0, 0, 0, 0.3);
+}
+
+:root[data-theme="glass"] .mu-lyrics {
+  border: none;
+  border-radius: 26px;
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: var(--lg-rim);
+}
+
+:root[data-theme="glass"] .mu-cover {
+  border-radius: 24px;
+}

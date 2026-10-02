@@ -1,6 +1,6 @@
 {
   "name": "sharingan-launcher",
-  "version": "2.3.7-beta",
+  "version": "2.3.8-beta",
   "description": "Estas cansado de tener muchos juegos en diferentes launchers, simplificalo y unelos todos en uno, Sharingan Launcher.",
   "main": "main.js",
   "scripts": {
@@ -16,13 +16,15 @@
     "electron-builder": "^24.13.3"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.131.0",
     "electron-updater": "^6.8.9",
     "fuse.js": "^7.1.0",
     "js-yaml": "^4.3.2",
     "node-fetch": "^2.7.0",
     "ps-node": "^0.1.6",
     "sweetalert2": "^11.26.13",
-    "systeminformation": "^5.28.3"
+    "systeminformation": "^5.28.3",
+    "zod": "^4.6.5"
   },
   "build": {
     "appId": "com.sharingan.launcher",
