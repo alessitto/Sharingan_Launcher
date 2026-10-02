@@ -1,11 +1,14 @@
 // =====================================================================
 // PokéPark
 // =====================================================================
-// Un parque donde viven hasta 6 Pokémon elegidos por el usuario. Mientras
-// la app está abierta ganan experiencia, se les da de comer (bayas), se les
-// limpia (amistad), evolucionan como en los juegos (nivel, piedras, amistad,
-// día/noche, objeto equipado...) salvo por intercambio, y de vez en cuando
-// aparecen objetos en el parque o los encuentra algún Pokémon.
+// Un parque con tu equipo (hasta 6 Pokémon) y hasta 10 Pokémon salvajes.
+// Al principio solo se elige el inicial; el resto se captura con Poké Balls
+// entre los salvajes que van apareciendo (siempre en su primera etapa).
+// Mientras la app está abierta tu equipo gana experiencia, se le da de comer
+// (bayas), se le limpia (amistad) y evoluciona como en los juegos (nivel,
+// piedras, amistad, día/noche, objeto equipado e intercambio con otros
+// jugadores). De vez en cuando aparecen objetos en el parque o los encuentra
+// algún Pokémon. Los variocolor salen con la probabilidad de los juegos.
 //
 // Datos: assets/pokepark/pokedex.json (generado desde PokeAPI). Sprites:
 // animados estilo 5ª gen de Pokémon Showdown cuando existen; si no, el
@@ -27,36 +30,91 @@
   const EXP_EVERY_TICKS = 3; // exp pasiva cada 3 minutos con la app abierta
   const FEED_WINDOW_MS = 4 * 60 * 60 * 1000; // cada 4 h se puede volver a alimentar
   const FEED_MAX = 5; // las 5 primeras tomas de cada ventana dan exp
-  const CLEAN_COOLDOWN_MS = 30 * 60 * 1000;
-  const GROUND_MAX = 4; // objetos tirados en el parque a la vez
+  const CLEAN_COOLDOWN_MS = 2 * 60 * 60 * 1000;
+  const CLEAN_FRIENDSHIP = 3;
+  const PASSIVE_FRIENDSHIP_TICKS = 30; // +1 de amistad cada 30 min con la app abierta
+  // Los objetos del suelo hay que recogerlos a mano: duran 30 min y no hay
+  // más de 15 a la vez. Así el parque no se "farmea" dejándolo abierto.
+  const GROUND_MAX = 15;
+  const GROUND_CHANCE = 0.06; // por minuto (~1 objeto cada 17 min)
+  const GROUND_TTL_MS = 30 * 60 * 1000;
+  const FIND_CHANCE = 0.002; // por minuto y Pokémon del equipo: solo Poké Balls (~1 cada 8 h)
   const MOVE_SUBST_LEVEL = 33; // "conoce el movimiento X" -> nivel aproximado
   const SPECIAL_SUBST_LEVEL = 36; // condiciones de combate/lugar -> nivel aproximado
+
+  // Salvajes: siempre en su primera etapa, se quedan un rato y se van.
+  const WILD_MAX = 10;
+  const WILD_STAY_MIN = [40, 150]; // minutos
+  const WILD_LEVEL = [3, 12];
+  const CATCH_RATE = 0.4; // igual para todos
+  const FLEE_CHANCE = 0.15; // tras fallar una captura
+  const START_BALLS = 5;
+
+  // Variocolor: la probabilidad de los juegos actuales (1/4096) y con el
+  // Amuleto Iris (3/4096). Legendarios, singulares y ultraentes, nunca.
+  const SHINY_ODDS = 1 / 4096;
+  const SHINY_CHARM_ODDS = 3 / 4096;
+  const CHARM_CHANCE = 0.01; // de cada objeto que aparece en el suelo
+
+  // Liberar: 3 al mes, y los demás pierden un corazón de amistad.
+  const RELEASES_PER_MONTH = 3;
+  const RELEASE_PENALTY = FRIENDSHIP_MAX / 5;
+
+  // Iniciales de las 9 generaciones.
+  const STARTERS = [1, 4, 7, 152, 155, 158, 252, 255, 258, 387, 390, 393, 495, 498, 501, 650, 653, 656, 722, 725, 728, 810, 813, 816, 906, 909, 912];
+
+  // Pokédólares. Se empieza con 3.000 ₽ como en los juegos y se vende por la
+  // mitad de lo que cuesta. Precios de compra oficiales (Espada/Escudo y
+  // Escarlata/Púrpura) donde existen; los objetos que en los juegos no se
+  // pueden comprar llevan un precio acorde a su rareza.
+  const START_MONEY = 3000;
+  const BALL_PRICE = 200;
+  const STONE_SLUGS = new Set(["fire-stone", "water-stone", "thunder-stone", "leaf-stone", "ice-stone", "moon-stone", "sun-stone", "shiny-stone", "dusk-stone", "dawn-stone"]);
+  const SWEET_SLUGS = new Set(["strawberry-sweet", "berry-sweet", "love-sweet", "star-sweet", "clover-sweet", "flower-sweet", "ribbon-sweet"]);
+  const RARE_SLUGS = new Set(["chipped-pot", "masterpiece-teacup", "metal-alloy"]);
+  // Las bayas solo se venden (en los juegos tampoco se compran).
+  const BERRY_SELL = { "oran-berry": 40, "sitrus-berry": 100, "cheri-berry": 40, "chesto-berry": 40, "pecha-berry": 40, "rawst-berry": 40, "aspear-berry": 40, "razz-berry": 60, "pinap-berry": 60, "lum-berry": 250 };
+  function buyPrice(slug) {
+    if (slug === "poke-ball") return BALL_PRICE;
+    if (STONE_SLUGS.has(slug)) return 3000;
+    if (SWEET_SLUGS.has(slug)) return 500;
+    if (RARE_SLUGS.has(slug)) return 6000;
+    if (slug === "oval-stone" || slug === "razor-fang" || slug === "razor-claw") return 2000;
+    if (heldItems.has(slug)) return 2000; // objetos para evolucionar por intercambio
+    if (useItems.has(slug)) return 3000; // manzanas, tetera, armaduras...
+    return 0;
+  }
+  const sellPrice = (slug) => BERRY_SELL[slug] || Math.floor(buyPrice(slug) / 2);
+  const fmtMoney = (n) => `${Math.floor(n).toLocaleString("es-ES")} ₽`;
 
   // Visitas: legendarios, singulares y ultraentes llegan al azar, se quedan
   // 24 h y su amistad se conserva entre visitas. Cuanta más amistad, más
   // posibilidades de que sea ese el que vuelva.
   const VISIT_MS = 24 * 60 * 60 * 1000;
-  const VISIT_CHANCE = 1 / 240; // por minuto con la app abierta (~4 h de media)
+  const VISIT_CHANCE = 1 / 720; // por minuto con la app abierta (~12 h de media)
   const VISIT_LEVEL = 100;
   const VISIT_START_FRIENDSHIP = 0;
   const visitWeight = (fr) => 1 + fr / 20; // amistad máxima ≈ x13
 
-  const SPRITE_ANI = (id) => `https://play.pokemonshowdown.com/sprites/gen5ani/${id}.gif`;
-  const SPRITE_PNG = (id) => `https://play.pokemonshowdown.com/sprites/gen5/${id}.png`;
-  const ITEM_IMG = (slug) => `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/${slug}.png`;
+  const SHOWDOWN = "https://play.pokemonshowdown.com/sprites";
+  const SPRITE_ANI = (id, shiny) => `${SHOWDOWN}/gen5ani${shiny ? "-shiny" : ""}/${id}.gif`;
+  const SPRITE_PNG = (id, shiny) => `${SHOWDOWN}/gen5${shiny ? "-shiny" : ""}/${id}.png`;
+  // Sprites originales de los objetos, incluidos en la app (assets/pokepark/items).
+  const ITEM_IMG = (slug) => `assets/pokepark/items/${slug}.png`;
+  const EXTRA_ITEMS = { "poke-ball": "Poké Ball", "shiny-charm": "Amuleto Iris" };
 
   // Bayas: exp base (escala con el nivel) y amistad. "w" = probabilidad de salir.
   const BERRIES = {
-    "oran-berry": { n: "Baya Aranja", exp: 50, fr: 3, w: 10, desc: "Muy nutritiva: buena experiencia." },
-    "sitrus-berry": { n: "Baya Zidra", exp: 100, fr: 4, w: 4, desc: "Jugosa y rara: mucha experiencia." },
-    "cheri-berry": { n: "Baya Zreza", exp: 35, fr: 4, w: 8, desc: "Picante. Un poco de todo." },
-    "chesto-berry": { n: "Baya Atania", exp: 35, fr: 4, w: 8, desc: "Dura y seca. Un poco de todo." },
-    "pecha-berry": { n: "Baya Meloc", exp: 25, fr: 7, w: 8, desc: "Muy dulce: les encanta." },
-    "rawst-berry": { n: "Baya Safre", exp: 35, fr: 4, w: 7, desc: "Amarga. Un poco de todo." },
-    "aspear-berry": { n: "Baya Perasi", exp: 35, fr: 4, w: 7, desc: "Ácida. Un poco de todo." },
-    "razz-berry": { n: "Baya Frambu", exp: 15, fr: 10, w: 5, desc: "Su favorita: mucha amistad." },
-    "pinap-berry": { n: "Baya Pinia", exp: 70, fr: 2, w: 5, desc: "Les da energía: más experiencia." },
-    "lum-berry": { n: "Baya Ziuela", exp: 180, fr: 8, w: 1.5, desc: "Rarísima. Experiencia y amistad." },
+    "oran-berry": { n: "Baya Aranja", exp: 50, fr: 1, w: 10, desc: "Muy nutritiva: buena experiencia." },
+    "sitrus-berry": { n: "Baya Zidra", exp: 100, fr: 1, w: 4, desc: "Jugosa y rara: mucha experiencia." },
+    "cheri-berry": { n: "Baya Zreza", exp: 35, fr: 1, w: 8, desc: "Picante. Un poco de todo." },
+    "chesto-berry": { n: "Baya Atania", exp: 35, fr: 1, w: 8, desc: "Dura y seca. Un poco de todo." },
+    "pecha-berry": { n: "Baya Meloc", exp: 25, fr: 2, w: 8, desc: "Muy dulce: les gusta." },
+    "rawst-berry": { n: "Baya Safre", exp: 35, fr: 1, w: 7, desc: "Amarga. Un poco de todo." },
+    "aspear-berry": { n: "Baya Perasi", exp: 35, fr: 1, w: 7, desc: "Ácida. Un poco de todo." },
+    "razz-berry": { n: "Baya Frambu", exp: 15, fr: 4, w: 5, desc: "Su favorita: algo más de amistad." },
+    "pinap-berry": { n: "Baya Pinia", exp: 70, fr: 1, w: 5, desc: "Les da energía: más experiencia." },
+    "lum-berry": { n: "Baya Ziuela", exp: 180, fr: 3, w: 1.5, desc: "Rarísima. Experiencia y amistad." },
   };
 
   // Objetos que no se pueden conseguir porque solo los usan formas regionales
@@ -109,12 +167,55 @@
   };
 
   function newState() {
-    return { v: 1, party: [], bag: { "oran-berry": 3, "pecha-berry": 2, "razz-berry": 1 }, ground: [], visitor: null, legends: {} };
+    return {
+      v: 2,
+      party: [],
+      bag: { "oran-berry": 3, "pecha-berry": 2, "razz-berry": 1, "poke-ball": START_BALLS },
+      ground: [],
+      wild: [],
+      visitor: null,
+      legends: {},
+      money: START_MONEY,
+      starter: false,
+      shinyCharm: false,
+      releases: { m: "", n: 0 },
+    };
   }
 
-  // Equipo + visitante (si hay), para todo lo que recorre "Pokémon del parque".
-  const allMons = () => (state.visitor ? [...state.party, state.visitor] : state.party);
+  // Completa un estado guardado (o venido de la cuenta) con lo que falte.
+  // Los parques de antes de la 2.5 ya tenían su equipo elegido: se les da el
+  // inicial por hecho, unas Poké Balls y el dinero inicial.
+  function normalizeState(saved) {
+    const st = saved && Array.isArray(saved.party) ? { ...newState(), ...saved } : newState();
+    st.bag ||= {};
+    st.ground = (st.ground || []).filter((g) => g && g.slug).map((g) => ({ ...g, at: g.at || now() }));
+    st.wild ||= [];
+    st.legends ||= {};
+    st.visitor ||= null;
+    st.releases ||= { m: "", n: 0 };
+    if (!(saved?.v >= 2) && saved && Array.isArray(saved.party)) {
+      st.starter = st.party.length > 0;
+      st.bag["poke-ball"] = (st.bag["poke-ball"] || 0) + START_BALLS;
+      st.money = START_MONEY;
+      st.v = 2;
+    }
+    if (typeof st.money !== "number" || !isFinite(st.money)) st.money = 0;
+    return st;
+  }
+
+  // Equipo + visitante (si hay): los que ganan exp, comen y hacen amigos.
+  const parkMons = () => (state.visitor ? [...state.party, state.visitor] : state.party);
+  // Todo lo que anda por el parque (también los salvajes).
+  const allMons = () => [...parkMons(), ...state.wild];
   const monByUid = (uid) => allMons().find((m) => m.uid === uid) || null;
+  const newUid = (p) => `${p}${now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+
+  function rollShiny(s) {
+    if (isLegendary(s)) return false;
+    return Math.random() < (state.shinyCharm ? SHINY_CHARM_ODDS : SHINY_ODDS);
+  }
+  const randomGender = (s) => (s.g === -1 ? null : Math.random() * 8 < s.g ? "f" : "m");
+  const randomIvs = () => Array.from({ length: 6 }, () => Math.floor(Math.random() * 32));
 
   function save() {
     clearTimeout(saveTimer);
@@ -125,7 +226,7 @@
   const species = (id) => byId.get(Number(id));
   const speciesName = (id) => species(id)?.n || "???";
   const displayName = (mon) => mon.nick || speciesName(mon.sp);
-  const itemName = (slug) => BERRIES[slug]?.n || dex.items[slug]?.n || slug;
+  const itemName = (slug) => BERRIES[slug]?.n || EXTRA_ITEMS[slug] || dex.items[slug]?.n || slug;
   const isBerry = (slug) => !!BERRIES[slug];
 
   function isPickable(s) {
@@ -167,12 +268,13 @@
     });
   }
 
-  function loadSprite(sp) {
+  function loadSprite(sp, shiny = false) {
     const s = species(sp);
     if (!s) return Promise.resolve(null);
-    if (spriteCache.has(s.id)) return spriteCache.get(s.id);
-    const tries = [...(s.a ? [[SPRITE_ANI(s.sd), true]] : []), [SPRITE_PNG(s.sd), false]];
-    if (s.sprite) tries.push([s.sprite, false]);
+    const key = `${s.id}${shiny ? "s" : ""}`;
+    if (spriteCache.has(key)) return spriteCache.get(key);
+    const tries = [...(s.a ? [[SPRITE_ANI(s.sd, shiny), true]] : []), [SPRITE_PNG(s.sd, shiny), false]];
+    if (s.sprite) tries.push([shiny ? s.sprite.replace("/pokemon/", "/pokemon/shiny/") : s.sprite, false]);
     const p = (async () => {
       for (const [url, ani] of tries) {
         const src = await window.electronAPI.pokeparkSprite(url).catch(() => null);
@@ -182,22 +284,33 @@
       }
       return null;
     })();
-    spriteCache.set(s.id, p);
-    p.then((r) => !r && spriteCache.delete(s.id)); // sin conexión: se reintentará
+    spriteCache.set(key, p);
+    p.then((r) => !r && spriteCache.delete(key)); // sin conexión: se reintentará
     return p;
   }
 
-  function spriteHtml(sp, cls = "") {
-    return `<img class="pp-sprite ${cls}" data-sp="${sp}" alt="" draggable="false">`;
+  function spriteHtml(sp, cls = "", shiny = false) {
+    return `<img class="pp-sprite ${cls}" data-sp="${sp}" ${shiny ? 'data-shiny="1"' : ""} alt="" draggable="false">`;
   }
+
+  // Miniatura fija (equipo, listas): el sprite de 5ª gen, con su versión
+  // variocolor si lo es.
+  function thumbHtml(mon, extra = "") {
+    const s = species(mon.sp);
+    const fb = s.sprite ? (mon.shiny ? s.sprite.replace("/pokemon/", "/pokemon/shiny/") : s.sprite) : "";
+    return `<img src="${SPRITE_PNG(s.sd, mon.shiny)}" alt="" ${extra} onerror="this.onerror=null;${fb ? `this.src='${fb}'` : "this.style.visibility='hidden'"}">`;
+  }
+  const SHINY_MARK = `<span class="pp-shiny-mark" title="Variocolor">✦</span>`;
 
   // Rellena las imágenes de sprite que haya dentro de "box".
   function hydrate(box) {
     box?.querySelectorAll("img.pp-sprite[data-sp]").forEach((img) => {
       const sp = img.dataset.sp;
-      if (img.dataset.loaded === sp) return;
-      img.dataset.loaded = sp;
-      loadSprite(sp).then((r) => {
+      const shiny = img.dataset.shiny === "1";
+      const key = `${sp}${shiny ? "s" : ""}`;
+      if (img.dataset.loaded === key) return;
+      img.dataset.loaded = key;
+      loadSprite(sp, shiny).then((r) => {
         if (!r || img.dataset.sp !== sp) return;
         img.style.setProperty("--pad", r.pad);
         img.style.setProperty("--h", r.h);
@@ -228,7 +341,7 @@
   }
 
   function itemImg(slug, cls = "") {
-    return `<img class="pp-item-img ${cls}" src="${ITEM_IMG(slug)}" alt="" draggable="false" onerror="this.onerror=null;this.src='assets/icon.png'">`;
+    return `<img class="pp-item-img ${cls}" src="${ITEM_IMG(slug)}" alt="" draggable="false" onerror="this.onerror=null;this.style.visibility='hidden'">`;
   }
 
   // ------------------------------------------------------------ Stats / nivel
@@ -303,7 +416,15 @@
 
   function conditionsMet(mon, d, mode, item) {
     const kind = kindOf(d);
-    if (kind === "trade" || kind === "none") return false;
+    if (kind === "none") return false;
+    // Intercambio: "item" es la especie por la que se ha cambiado.
+    if (mode === "trade") {
+      if (kind !== "trade") return false;
+      if (d.held && mon.held !== d.held) return false;
+      if (d.tradeSpecies && species(item)?.slug !== d.tradeSpecies) return false;
+      return true;
+    }
+    if (kind === "trade") return false;
     if (mode === "item") {
       if (kind !== "item" || d.item !== item) return false;
     } else if (kind !== "level") return false;
@@ -329,7 +450,8 @@
   // decide de forma fija por el Pokémon para que no cambie cada vez.
   function findEvolution(mon, mode, item) {
     const s = species(mon.sp);
-    const ok = usableDetails(s)
+    const pool = mode === "trade" ? (s.evo || []).filter((d) => kindOf(d) === "trade") : usableDetails(s);
+    const ok = pool
       .filter((d) => conditionsMet(mon, d, mode, item))
       // primero las más concretas (movimiento, objeto, hora...)
       .sort((a, b) => Object.keys(b).length - Object.keys(a).length);
@@ -344,7 +466,10 @@
   function describeDetail(d) {
     const kind = kindOf(d);
     const parts = [];
-    if (kind === "trade") return d.held ? `Intercambio con ${itemName(d.held)} (llegará con el modo online)` : "Intercambio (llegará con el modo online)";
+    if (kind === "trade") {
+      if (d.tradeSpecies) return `Intercambiarlo por un ${speciesName(bySlug.get(d.tradeSpecies)?.id)}`;
+      return d.held ? `Intercambiarlo equipado con ${itemName(d.held)}` : "Intercambiarlo con otro jugador";
+    }
     if (kind === "item") parts.push(`Usar ${itemName(d.item)}`);
     const need = levelNeeded(null, d);
     if (need) parts.push(`nivel ${need}${d.level ? "" : " (aprox.)"}`);
@@ -377,7 +502,7 @@
     return [...byTarget.entries()].map(([to, d]) => ({
       to,
       text: describeDetail(d),
-      blocked: kindOf(d) === "trade",
+      blocked: false,
     }));
   }
 
@@ -407,8 +532,8 @@
         <div class="pp-evo">
           <div class="pp-evo-stage">
             <div class="pp-evo-glow"></div>
-            <div class="pp-evo-from">${spriteHtml(fromSp)}</div>
-            <div class="pp-evo-to">${spriteHtml(job.to)}</div>
+            <div class="pp-evo-from">${spriteHtml(fromSp, "", mon.shiny)}</div>
+            <div class="pp-evo-to">${spriteHtml(job.to, "", mon.shiny)}</div>
           </div>
           <h3 class="pp-evo-title">¿Qué? ¡${esc(oldName)} está evolucionando!</h3>
           <p class="pp-evo-text">&nbsp;</p>
@@ -502,7 +627,7 @@
       return;
     }
     mon.cleanedAt = now();
-    addFriendship(mon, 10);
+    addFriendship(mon, CLEAN_FRIENDSHIP);
     window.Achievements?.track("cleans");
     floatText(mon, "¡Reluciente!", true);
     sparkle(mon);
@@ -525,13 +650,162 @@
     return `${h} h${m % 60 ? ` ${m % 60} min` : ""}`;
   }
 
-  // Objeto al azar: bayas casi siempre; objetos evolutivos a veces.
-  function randomItem(evoChance) {
+  // Objeto al azar: bayas casi siempre; Poké Balls y objetos evolutivos a veces.
+  function randomItem(evoChance, ballChance = 0) {
+    if (Math.random() < ballChance) return "poke-ball";
     if (Math.random() >= evoChance) return pickWeighted(Object.entries(BERRIES).map(([k, v]) => [k, v.w]));
     const pool = [...useItems, ...heldItems]
       .filter((s) => !ITEM_BLOCKLIST.has(s))
       .map((s) => [s, COMMON_STONES.has(s) ? 5 : useItems.has(s) ? 2 : 1.2]);
     return pickWeighted(pool);
+  }
+
+  // Los objetos que nadie recoge en 30 min desaparecen.
+  function expireGround() {
+    const before = state.ground.length;
+    state.ground = state.ground.filter((g) => now() - (g.at || 0) < GROUND_TTL_MS);
+    return state.ground.length !== before;
+  }
+
+  // Lo que aparece tirado en el parque. El Amuleto Iris sale una sola vez.
+  function randomGroundItem() {
+    const charmOut = state.shinyCharm || state.ground.some((g) => g.slug === "shiny-charm");
+    if (!charmOut && Math.random() < CHARM_CHANCE) return "shiny-charm";
+    return randomItem(0.15, 0.25);
+  }
+
+  // ------------------------------------------------------------ Salvajes
+  const wildPool = () => dex.species.filter(isPickable);
+  const wildMax = () => WILD_MAX - (state.visitor ? 1 : 0);
+
+  function spawnWild() {
+    const pool = wildPool();
+    const s = pool[Math.floor(Math.random() * pool.length)];
+    const lv = Math.round(rand(WILD_LEVEL[0], WILD_LEVEL[1]));
+    const mon = {
+      uid: newUid("w"),
+      sp: s.id,
+      nick: "",
+      lv,
+      exp: expForLevel(lv),
+      fr: START_FRIENDSHIP,
+      g: randomGender(s),
+      iv: randomIvs(),
+      held: null,
+      shiny: rollShiny(s),
+      wild: true,
+      leaves: now() + rand(WILD_STAY_MIN[0], WILD_STAY_MIN[1]) * 60000,
+    };
+    state.wild.push(mon);
+    if (mon.shiny) showNotification(`¡Ha aparecido un ${s.n} variocolor en el PokéPark!`);
+    return mon;
+  }
+
+  // Se van los que han cumplido su tiempo (aunque la app estuviera cerrada)
+  // y llegan otros hasta llenar el parque.
+  function refreshWild() {
+    let changed = false;
+    const t = now();
+    const before = state.wild.length;
+    state.wild = state.wild.filter((m) => m.leaves > t || catching.has(m.uid));
+    if (state.wild.length !== before) {
+      changed = true;
+      if (selectedUid && !monByUid(selectedUid)) selectedUid = null;
+    }
+    while (state.wild.length > wildMax()) {
+      state.wild.sort((a, b) => a.leaves - b.leaves);
+      if (catching.has(state.wild[0].uid)) break;
+      state.wild.shift();
+      changed = true;
+    }
+    while (state.wild.length < wildMax()) {
+      spawnWild();
+      changed = true;
+    }
+    return changed;
+  }
+
+  // ------------------------------------------------------------ Capturar
+  const catching = new Set();
+
+  async function throwBall(mon) {
+    if (!mon?.wild || catching.has(mon.uid)) return;
+    if (!(state.bag["poke-ball"] > 0)) {
+      showNotification("No te quedan Poké Balls. Cómpralas en la tienda o búscalas por el parque.", "error");
+      return;
+    }
+    if (state.party.length >= PARTY_MAX) {
+      showNotification(`Tu equipo está lleno (${PARTY_MAX}). Libera a alguno para hacerle hueco.`, "error");
+      return;
+    }
+    takeFromBag("poke-ball");
+    catching.add(mon.uid);
+    save();
+    const a = actors.get(mon.uid);
+    a?.el.classList.add("is-catching");
+    if (a) a.tx = a.ty = 0;
+    render();
+    await new Promise((r) => setTimeout(r, 2300));
+    catching.delete(mon.uid);
+    a?.el.classList.remove("is-catching");
+    if (!state.wild.includes(mon)) return render();
+    const name = speciesName(mon.sp);
+    if (Math.random() < CATCH_RATE) {
+      state.wild = state.wild.filter((m) => m !== mon);
+      const caught = { ...mon, at: now(), caught: now() };
+      delete caught.wild;
+      delete caught.leaves;
+      state.party.push(caught);
+      if (!state.starter) state.starter = true;
+      a?.el.classList.remove("is-wild");
+      selectedUid = caught.uid;
+      window.Achievements?.track("catches");
+      showNotification(`¡Ya está! ¡${name}${mon.shiny ? " variocolor" : ""} atrapado!`);
+      floatText(caught, "¡Atrapado!", true);
+      sparkle(caught);
+    } else if (Math.random() < FLEE_CHANCE) {
+      state.wild = state.wild.filter((m) => m !== mon);
+      if (selectedUid === mon.uid) selectedUid = null;
+      showNotification(`¡Oh, no! ¡${name} ha escapado!`, "error");
+    } else {
+      showNotification(`¡Oh, no! ¡${name} ha salido de la Poké Ball!`, "error");
+      floatText(mon, "¡Se ha escapado!", true);
+    }
+    refreshWild();
+    save();
+    render();
+  }
+
+  // ------------------------------------------------------------ Liberar
+  const monthKey = () => new Date().toISOString().slice(0, 7);
+  function releasesLeft() {
+    const r = state.releases || {};
+    return r.m === monthKey() ? Math.max(0, RELEASES_PER_MONTH - (r.n || 0)) : RELEASES_PER_MONTH;
+  }
+
+  async function release(mon) {
+    if (mon.trade) return showNotification(`${displayName(mon)} está en una oferta de intercambio.`, "error");
+    if (state.party.length <= 1) return showNotification("No puedes quedarte sin Pokémon.", "error");
+    const left = releasesLeft();
+    if (!left) return showNotification(`Ya has liberado ${RELEASES_PER_MONTH} Pokémon este mes.`, "error");
+    const ok = await confirmDialog({
+      title: `¿Liberar a ${displayName(mon)}?`,
+      text: `Se irá del parque para siempre${mon.held ? ` (su ${itemName(mon.held)} vuelve a la bolsa)` : ""}. Los demás Pokémon de tu equipo lo echarán de menos y perderán un corazón de amistad. Este mes te ${left === 1 ? "queda 1 liberación" : `quedan ${left} liberaciones`}.`,
+      confirmText: "Liberar",
+      danger: true,
+      iconName: "trash",
+    });
+    if (!ok || !state.party.includes(mon)) return;
+    if (mon.held) addToBag(mon.held);
+    state.party = state.party.filter((m) => m !== mon);
+    for (const m of state.party) addFriendship(m, -RELEASE_PENALTY);
+    const r = state.releases?.m === monthKey() ? state.releases : { m: monthKey(), n: 0 };
+    r.n++;
+    state.releases = r;
+    if (selectedUid === mon.uid) selectedUid = null;
+    showNotification(`Adiós, ${displayName(mon)}. ¡Cuídate!`);
+    save();
+    render();
   }
 
   // ------------------------------------------------------------ Visitas
@@ -564,6 +838,7 @@
       leaves: now() + VISIT_MS,
       seen: false,
     };
+    refreshWild(); // el visitante ocupa uno de los 10 huecos de salvajes
     save();
     render();
     announceVisitor();
@@ -635,15 +910,17 @@
     checkVisitorLeave();
     if (!state.party.length) return;
     tickCount++;
-    let dirty = false;
+    let dirty = refreshWild();
 
     if (tickCount % EXP_EVERY_TICKS === 0) {
-      for (const mon of allMons()) {
-        gainExp(mon, 10 + mon.lv * 4);
-        addFriendship(mon, 1);
-      }
+      for (const mon of parkMons()) gainExp(mon, 10 + mon.lv * 4);
       dirty = true;
     }
+    if (tickCount % PASSIVE_FRIENDSHIP_TICKS === 0) {
+      for (const mon of parkMons()) addFriendship(mon, 1);
+      dirty = true;
+    }
+    if (tickCount % 2 === 0) syncTrades();
 
     // Visita al azar (solo una a la vez y con algún Pokémon en el parque)
     if (!state.visitor && Math.random() < VISIT_CHANCE) {
@@ -653,17 +930,17 @@
     if (state.visitor) dirty = true; // cuenta atrás de la visita en el panel
 
     // Objetos que aparecen en el parque
-    if (state.ground.length < GROUND_MAX && Math.random() < 0.18) {
-      state.ground.push({ id: `g${now()}${Math.floor(Math.random() * 1000)}`, slug: randomItem(0.18), x: rand(0.06, 0.94), y: rand(0.15, 0.9) });
+    if (expireGround()) dirty = true;
+    if (state.ground.length < GROUND_MAX && Math.random() < GROUND_CHANCE) {
+      state.ground.push({ id: `g${now()}${Math.floor(Math.random() * 1000)}`, slug: randomGroundItem(), x: rand(0.06, 0.94), y: rand(0.15, 0.9), at: now() });
       dirty = true;
     }
 
-    // Algún Pokémon encuentra algo
+    // Algún Pokémon encuentra una Poké Ball (lo demás hay que recogerlo)
     for (const mon of state.party) {
-      if (Math.random() < 0.025) {
-        const slug = randomItem(0.3);
-        addToBag(slug);
-        showNotification(`¡${displayName(mon)} ha encontrado ${isBerry(slug) ? "una" : ""} ${itemName(slug)}!`.replace("  ", " "));
+      if (Math.random() < FIND_CHANCE) {
+        addToBag("poke-ball");
+        showNotification(`¡${displayName(mon)} ha encontrado una Poké Ball!`);
         floatText(mon, "¡Ha encontrado algo!", true);
         dirty = true;
       }
@@ -706,6 +983,9 @@
           <span class="pp-chip pp-clock"></span>
           <span class="pp-hud-right">
             <span class="pp-chip pp-count"></span>
+            <span class="pp-chip pp-money" title="Pokédólares"></span>
+            <button type="button" class="pp-chip pp-hud-btn" data-pp="shop" title="Tienda: compra Poké Balls y objetos, vende lo que no quieras">${SHOP_SVG}<span>Tienda</span></button>
+            <button type="button" class="pp-chip pp-hud-btn" data-pp="trades" title="Intercambios con otros jugadores">${TRADE_SVG}<span>Intercambios</span><em class="pp-trade-badge"></em></button>
             <button type="button" class="pp-chip pp-fs-btn" data-pp="fullscreen" title="Pantalla completa (Esc para salir)">${FS_SVG}<span>Pantalla completa</span></button>
           </span>
         </div>
@@ -746,17 +1026,20 @@
       const m = state.party[i];
       slots.push(
         m
-          ? `<button type="button" class="pp-slot ${sel && m.uid === sel.uid ? "is-active" : ""}" data-pp="select" data-uid="${m.uid}" title="${esc(displayName(m))}">
-               <img src="${SPRITE_PNG(species(m.sp).sd)}" alt="" onerror="this.onerror=null;this.src='${species(m.sp).sprite || ""}'">
+          ? `<button type="button" class="pp-slot ${sel && m.uid === sel.uid ? "is-active" : ""} ${m.trade ? "is-trading" : ""}" data-pp="select" data-uid="${m.uid}" title="${esc(displayName(m))}${m.trade ? " (en intercambio)" : ""}">
+               ${thumbHtml(m)}
+               ${m.shiny ? SHINY_MARK : ""}
                <span class="pp-slot-lv">Nv.${m.lv}</span>
              </button>`
-          : `<button type="button" class="pp-slot is-empty" data-pp="pick" title="Elegir Pokémon">${icon("plus")}</button>`
+          : state.starter
+            ? `<span class="pp-slot is-empty is-locked" title="Hueco libre: captura un Pokémon salvaje con una Poké Ball">${POKEBALL_SVG}</span>`
+            : `<button type="button" class="pp-slot is-empty" data-pp="pick" title="Elegir tu Pokémon inicial">${icon("plus")}</button>`
       );
     }
     const v = state.visitor;
     const visit = v
       ? `<button type="button" class="pp-visit ${sel && v.uid === sel.uid ? "is-active" : ""}" data-pp="select" data-uid="${v.uid}" title="${esc(displayName(v))}">
-           <img src="${SPRITE_PNG(species(v.sp).sd)}" alt="" onerror="this.style.visibility='hidden'">
+           ${thumbHtml(v)}
            <span><small>De visita · ${legendKind(species(v.sp))}</small><b>${esc(displayName(v))}</b></span>
            <em>${fmtDuration(v.leaves - now())}</em>
          </button>`
@@ -767,10 +1050,14 @@
       ${state.party.length || v ? visit : ""}`;
 
     const det = root.querySelector(".pp-detail");
+    if (sel?.wild) {
+      det.innerHTML = wildCardHtml(sel);
+      return;
+    }
     if (!sel && state.party.length) {
       det.innerHTML = `
         <div class="pp-overview">
-          <p class="pp-overview-hint">Toca un Pokémon en el parque o en tu equipo para ver su ficha, darle de comer o limpiarlo.</p>
+          <p class="pp-overview-hint">Toca un Pokémon de tu equipo para ver su ficha, darle de comer o limpiarlo. Los que no son tuyos son salvajes: tócalos para intentar capturarlos.</p>
           ${(v ? [v, ...state.party] : state.party)
             .map((m) => {
               const cur = expForLevel(m.lv);
@@ -831,7 +1118,7 @@
           ${fi.left ? `Comidas con experiencia: ${fi.left}/${FEED_MAX}` : `Lleno · vuelve a tener hambre en ${fmtDuration(fi.resetIn)}`}
           ${cleanWait > 0 ? ` · Limpio (${fmtDuration(cleanWait)})` : ""}
         </p>
-        <div class="pp-portrait ${sel.visitor ? "is-visitor" : ""}">${spriteHtml(sel.sp, "pp-portrait-img")}</div>
+        <div class="pp-portrait ${sel.visitor ? "is-visitor" : ""} ${sel.shiny ? "is-shiny" : ""}">${spriteHtml(sel.sp, "pp-portrait-img", sel.shiny)}</div>
         <div class="pp-name-row">
           ${
             sel.visitor
@@ -843,7 +1130,7 @@
           }
           ${gender}
         </div>
-        <p class="pp-species">${sel.visitor ? `<span class="pp-legend-badge">${legendKind(s)}</span> ` : ""}${sel.nick ? `${esc(s.n)} · ` : ""}Nº ${String(s.id).padStart(4, "0")}</p>
+        <p class="pp-species">${sel.visitor ? `<span class="pp-legend-badge">${legendKind(s)}</span> ` : ""}${sel.shiny ? `<span class="pp-shiny-badge">✦ Variocolor</span> ` : ""}${sel.nick ? `${esc(s.n)} · ` : ""}Nº ${String(s.id).padStart(4, "0")}${sel.ot ? ` · EO ${esc(sel.ot)}` : ""}</p>
         <div class="pp-types">${s.t.map((t) => `<span class="pp-type" style="--tc:${TYPE_COLORS[t] || "#888"}">${esc(dex.types[t] || t)}</span>`).join("")}</div>
         ${
           sel.visitor
@@ -897,15 +1184,63 @@
             : `<div class="pp-evo-hints"><span class="pp-held-label">Evolución</span><p class="is-final"><span>No evoluciona más.</span></p></div>`
         }
 
+        ${
+          sel.visitor
+            ? ""
+            : `<div class="pp-more">
+                 ${sel.trade ? `<p class="pp-trade-note">${TRADE_SVG}En una oferta de intercambio. Cancélala en «Intercambios» si quieres recuperarlo del todo.</p>` : ""}
+                 <div class="pp-more-btns">
+                   <button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-pp="trade" ${sel.trade ? "disabled" : ""}>${TRADE_SVG}Intercambiar</button>
+                   <button type="button" class="sl-btn sl-btn-danger-ghost sl-btn-sm" data-pp="release" ${sel.trade || state.party.length <= 1 || !releasesLeft() ? "disabled" : ""}
+                     title="${releasesLeft()} de ${RELEASES_PER_MONTH} liberaciones este mes">${icon("trash")}Liberar (${releasesLeft()}/${RELEASES_PER_MONTH})</button>
+                 </div>
+               </div>`
+        }
+      </div>`;
+  }
+
+  // Ficha de un Pokémon salvaje: datos básicos y la Poké Ball.
+  function wildCardHtml(sel) {
+    const s = species(sel.sp);
+    const balls = state.bag["poke-ball"] || 0;
+    const full = state.party.length >= PARTY_MAX;
+    const busy = catching.has(sel.uid);
+    const gSym = sel.g === "m" ? "♂" : sel.g === "f" ? "♀" : "";
+    return `
+      <div class="pp-card is-wild">
+        <div class="pp-actions">
+          <button type="button" class="sl-btn sl-btn-primary" data-pp="catch" ${!balls || full || busy ? "disabled" : ""}>
+            ${POKEBALL_SVG}<span>${busy ? "Capturando…" : "Lanzar Poké Ball"}</span>
+          </button>
+        </div>
+        <p class="pp-cooldowns">${
+          full
+            ? `Tu equipo está lleno (${PARTY_MAX}/${PARTY_MAX}): libera a alguno para hacer hueco.`
+            : balls
+              ? `Te quedan ${balls} Poké ${balls === 1 ? "Ball" : "Balls"}.`
+              : "No te quedan Poké Balls: cómpralas en la tienda o búscalas por el parque."
+        }</p>
+        <div class="pp-portrait ${sel.shiny ? "is-shiny" : ""}">${spriteHtml(sel.sp, "pp-portrait-img", sel.shiny)}</div>
+        <div class="pp-name-row"><h3 class="pp-visitor-name">${esc(s.n)}</h3>${gSym ? `<span class="pp-g is-${sel.g}">${gSym}</span>` : ""}</div>
+        <p class="pp-species"><span class="pp-wild-badge">Salvaje</span> ${sel.shiny ? `<span class="pp-shiny-badge">✦ Variocolor</span> ` : ""}Nº ${String(s.id).padStart(4, "0")}</p>
+        <div class="pp-types">${s.t.map((t) => `<span class="pp-type" style="--tc:${TYPE_COLORS[t] || "#888"}">${esc(dex.types[t] || t)}</span>`).join("")}</div>
+        <div class="pp-level"><span class="pp-lv">Nv. <b>${sel.lv}</b></span><span class="pp-exp-text">Se irá en ${fmtDuration(sel.leaves - now())}</span></div>
+        <div class="pp-exp pp-visit-bar"><span style="width:${Math.max(0, Math.min(100, ((sel.leaves - now()) / (WILD_STAY_MIN[1] * 60000)) * 100))}%"></span></div>
+        <p class="pp-visit-note">Un Pokémon salvaje anda por el parque. Todas las especies se capturan igual de fácil, pero puede escaparse de la Poké Ball (y a veces huir).</p>
       </div>`;
   }
 
   function renderParkStatic() {
-    root.querySelector(".pp-count").textContent = `${state.party.length}/${PARTY_MAX} Pokémon`;
+    root.querySelector(".pp-count").textContent = `Equipo ${state.party.length}/${PARTY_MAX} · ${state.wild.length} salvajes`;
+    root.querySelector(".pp-money").textContent = fmtMoney(state.money);
+    const incoming = trades.list.filter((t) => !t.outgoing && t.status === "pending").length;
+    const badge = root.querySelector(".pp-trade-badge");
+    badge.textContent = incoming || "";
+    badge.style.display = incoming ? "" : "none";
     const empty = root.querySelector(".pp-empty");
     empty.innerHTML = state.party.length
       ? ""
-      : `<div class="pp-empty-card"><p>Aquí vivirán tus Pokémon</p><button type="button" class="sl-btn sl-btn-primary" data-pp="pick">${icon("plus")}Elegir Pokémon</button></div>`;
+      : `<div class="pp-empty-card"><p>Aquí vivirán tus Pokémon</p><button type="button" class="sl-btn sl-btn-primary" data-pp="pick">${icon("plus")}Elegir tu Pokémon inicial</button></div>`;
   }
 
   function updateClock() {
@@ -1228,18 +1563,24 @@
       if (!a) {
         const el = document.createElement("div");
         el.className = `pp-mon${mon.visitor ? " is-visitor" : ""}`;
+        el.innerHTML = "";
         el.dataset.uid = mon.uid;
         el.dataset.pp = "select";
-        a = { el, x: rand(0.1, 0.9) * (w || 600), y: rand(0.2, 0.85) * (h || 300), tx: 0, ty: 0, idleUntil: now() + rand(300, 2500), facing: 1, sp: null };
+        // Si el parque aún no tiene tamaño (oculto), se coloca en el primer fotograma.
+        a = { el, x: rand(0.06, 0.94) * w, y: rand(0.12, 0.92) * h, place: !w, tx: 0, ty: 0, idleUntil: now() + rand(300, 2500), facing: 1, sp: null };
         layer.appendChild(el);
         actors.set(mon.uid, a);
       }
-      if (a.sp !== mon.sp) {
-        a.sp = mon.sp;
-        a.el.innerHTML = `<span class="pp-mon-ring"></span><span class="pp-mon-shadow"></span>${spriteHtml(mon.sp, "pp-mon-img")}<span class="pp-mon-name"></span>`;
+      const look = `${mon.sp}${mon.shiny ? "s" : ""}`;
+      if (a.sp !== look) {
+        a.sp = look;
+        a.el.innerHTML = `<span class="pp-mon-ring"></span><span class="pp-mon-shadow"></span>${spriteHtml(mon.sp, "pp-mon-img", mon.shiny)}<span class="pp-mon-ball">${POKEBALL_IMG}</span><span class="pp-mon-name"></span>`;
         hydrate(a.el);
       }
-      a.el.querySelector(".pp-mon-name").textContent = displayName(mon);
+      a.el.classList.toggle("is-wild", !!mon.wild);
+      a.el.classList.toggle("is-shiny", !!mon.shiny);
+      a.el.classList.toggle("is-catching", catching.has(mon.uid));
+      a.el.querySelector(".pp-mon-name").textContent = `${mon.shiny ? "✦ " : ""}${displayName(mon)}${mon.wild ? ` · Nv.${mon.lv}` : ""}`;
       a.el.classList.toggle("is-selected", mon.uid === selected()?.uid);
     }
     if (!rafId) rafId = requestAnimationFrame(frame);
@@ -1255,11 +1596,16 @@
       for (const [uid, a] of actors) {
         const mon = monByUid(uid);
         if (!mon || !w) continue;
+        if (a.place) {
+          a.place = false;
+          a.x = rand(0.06, 0.94) * w;
+          a.y = rand(0.12, 0.92) * h;
+        }
         // Muy de vez en cuando (de media, cada ~12 min por Pokémon) ataca.
         if (!a.attackUntil || now() > a.attackUntil) {
           if (Math.random() < dt / 720) attack(a, mon);
         }
-        if (now() < (a.attackUntil || 0) || now() < a.idleUntil) {
+        if (catching.has(uid) || now() < (a.attackUntil || 0) || now() < a.idleUntil) {
           a.el.classList.remove("is-walking");
         } else {
           if (!a.tx && !a.ty) {
@@ -1637,7 +1983,12 @@
       save();
       render();
     } else if (act === "pick") openPicker();
-    else if (act === "feed" && mon) openFeedMenu(mon, t);
+    else if (act === "catch" && mon?.wild) throwBall(mon);
+    else if (act === "release" && mon && !mon.wild && !mon.visitor) release(mon);
+    else if (act === "trade" && mon && !mon.wild && !mon.visitor) openTrades(mon.uid);
+    else if (act === "trades") openTrades();
+    else if (act === "shop") openShop();
+    else if (act === "feed" && mon && !mon.wild) openFeedMenu(mon, t);
     else if (act === "clean" && mon) clean(mon);
     else if (act === "unequip" && mon?.held) {
       addToBag(mon.held);
@@ -1649,11 +2000,17 @@
       const g = state.ground.find((x) => x.id === t.dataset.id);
       if (!g) return;
       state.ground = state.ground.filter((x) => x !== g);
-      addToBag(g.slug);
-      t.classList.add("is-taken");
-      setTimeout(() => render(), 300);
-      showNotification(`Has recogido ${itemName(g.slug)}.`);
+      t.remove();
+      if (g.slug === "shiny-charm") {
+        state.shinyCharm = true;
+        window.Achievements?.track("shinyCharm");
+        showNotification("¡Has encontrado el Amuleto Iris! Desde ahora es más fácil encontrar Pokémon variocolor.");
+      } else {
+        addToBag(g.slug);
+        showNotification(`Has recogido ${itemName(g.slug)}.`);
+      }
       save();
+      render();
     }
   }
 
@@ -1697,11 +2054,11 @@
 
   // ------------------------------------------------------------ Elegir Pokémon
   async function openPicker() {
-    if (state.party.length >= PARTY_MAX) {
-      showNotification(`Ya tienes ${PARTY_MAX} Pokémon en el parque.`, "error");
+    if (state.starter) {
+      showNotification("Ya elegiste tu inicial. Los demás Pokémon se capturan en el parque.", "error");
       return;
     }
-    const list = dex.species.filter(isPickable);
+    const list = STARTERS.map(species).filter(Boolean);
     const types = Object.keys(dex.types);
     let q = "";
     let type = "";
@@ -1736,7 +2093,7 @@
 
     await openModal({
       eyebrow: "PokéPark",
-      title: "Elige un Pokémon",
+      title: "Elige tu Pokémon inicial",
       width: 860,
       html: `
         <div class="pp-picker">
@@ -1749,7 +2106,7 @@
               .map((g) => `<option value="${g}">${g}ª generación</option>`)
               .join("")}</select>
           </div>
-          <p class="pp-pick-note"><span class="pp-pick-count"></span> · Solo Pokémon en su primera etapa. Legendarios, singulares y ultraentes no se pueden elegir. Te quedan ${PARTY_MAX - state.party.length} de ${PARTY_MAX} huecos.</p>
+          <p class="pp-pick-note"><span class="pp-pick-count"></span> · Elige uno de los iniciales de cualquier generación. Es el único que se elige: el resto tendrás que capturarlo con Poké Balls entre los Pokémon salvajes que vayan apareciendo por el parque.</p>
           <div class="pp-pick-grid"></div>
         </div>`,
       showConfirmButton: false,
@@ -1785,9 +2142,7 @@
     const left = PARTY_MAX - state.party.length - 1;
     const ok = await confirmDialog({
       title: `¿Elegir a ${s.n}?`,
-      text: `Solo puedes tener ${PARTY_MAX} Pokémon en el parque y no se puede deshacer. ${
-        left ? `Después te quedarán ${left} ${left === 1 ? "hueco" : "huecos"}.` : "Será el último hueco libre."
-      }`,
+      text: `Será tu Pokémon inicial y no se puede cambiar. Los otros ${left} huecos del equipo se llenan capturando Pokémon salvajes.`,
       confirmText: `Elegir a ${s.n}`,
       iconName: "sparkles",
     });
@@ -1800,17 +2155,21 @@
       lv: START_LEVEL,
       exp: expForLevel(START_LEVEL),
       fr: START_FRIENDSHIP,
-      g: s.g === -1 ? null : Math.random() * 8 < s.g ? "f" : "m",
-      iv: Array.from({ length: 6 }, () => Math.floor(Math.random() * 32)),
+      g: randomGender(s),
+      iv: randomIvs(),
       held: null,
+      shiny: rollShiny(s),
       at: now(),
     };
+    if (state.starter) return;
     state.party.push(mon);
+    state.starter = true;
+    refreshWild();
     selectedUid = mon.uid;
     save();
     render();
     hop(mon.uid);
-    showNotification(`¡${s.n} se ha unido a tu parque!`);
+    showNotification(`¡${s.n}${mon.shiny ? " variocolor" : ""} se ha unido a tu parque! Han aparecido Pokémon salvajes: captúralos con Poké Balls.`);
   }
 
   // ------------------------------------------------------------ Bolsa
@@ -1823,7 +2182,8 @@
       return {
         berries: entries.filter(([s]) => isBerry(s)),
         use: entries.filter(([s]) => !isBerry(s) && useItems.has(s)),
-        held: entries.filter(([s]) => !isBerry(s) && !useItems.has(s)),
+        held: entries.filter(([s]) => !isBerry(s) && !useItems.has(s) && !EXTRA_ITEMS[s]),
+        other: [...entries.filter(([s]) => s === "poke-ball"), ...(state.shinyCharm ? [["shiny-charm", 1]] : [])],
       };
     };
 
@@ -1866,18 +2226,25 @@
         berries: "No tienes bayas. Aparecen por el parque y tus Pokémon las encuentran de vez en cuando.",
         use: "No tienes objetos evolutivos. Las piedras y demás aparecen por el parque o las encuentra algún Pokémon.",
         held: "No tienes objetos para equipar.",
+        other: "No tienes Poké Balls. Cómpralas en la tienda o búscalas por el parque.",
       };
       box.innerHTML = list.length
         ? `<div class="pp-bag-list">${list
             .map(([slug, n]) => {
               const btn =
-                tab === "berries"
+                tab === "other"
+                  ? `<span class="pp-bag-hint">${slug === "poke-ball" ? "Toca un salvaje" : "Objeto clave"}</span>`
+                  : tab === "berries"
                   ? `<span class="pp-bag-hint">Desde «Dar de comer»</span>`
                   : tab === "use"
                     ? `<button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-bag="use" data-slug="${slug}">Usar</button>`
                     : `<button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-bag="equip" data-slug="${slug}">Equipar</button>`;
               const sub =
-                tab === "berries"
+                slug === "poke-ball"
+                  ? "Lánzala a un Pokémon salvaje para capturarlo."
+                  : slug === "shiny-charm"
+                    ? "Triplica la probabilidad de encontrar Pokémon variocolor."
+                    : tab === "berries"
                   ? BERRIES[slug].desc
                   : tab === "use"
                     ? "Se gasta al usarlo para evolucionar."
@@ -1892,7 +2259,7 @@
       const trade = dex.species.some((s) => (s.evo || []).some((d) => d.held === slug && kindOf(d) === "trade"));
       const level = dex.species.some((s) => (s.evo || []).some((d) => d.held === slug && kindOf(d) === "level"));
       if (level) return "Equípaselo: al subir de nivel puede hacerle evolucionar.";
-      if (trade) return "Para evolucionar por intercambio (llegará con el modo online).";
+      if (trade) return "Equípaselo e intercámbialo con otro jugador para que evolucione.";
       return "Objeto para equipar.";
     }
 
@@ -1906,6 +2273,7 @@
             <button type="button" class="pp-bag-tab" data-tab="berries">Bayas <em></em></button>
             <button type="button" class="pp-bag-tab" data-tab="use">Evolutivos <em></em></button>
             <button type="button" class="pp-bag-tab" data-tab="held">Para equipar <em></em></button>
+            <button type="button" class="pp-bag-tab" data-tab="other">Otros <em></em></button>
           </div>
           <div class="pp-bag-body"></div>
         </div>`,
@@ -1955,9 +2323,448 @@
     });
   }
 
+  // ------------------------------------------------------------ Tienda
+  // Se compran Poké Balls y objetos evolutivos; se venden bayas y objetos
+  // evolutivos (por la mitad de su precio, como en los juegos).
+  function shopStock() {
+    const evo = [...useItems, ...heldItems].filter((s) => !ITEM_BLOCKLIST.has(s) && buyPrice(s) > 0);
+    const rank = (s) => (STONE_SLUGS.has(s) ? 0 : heldItems.has(s) ? 1 : 2);
+    evo.sort((a, b) => rank(a) - rank(b) || buyPrice(a) - buyPrice(b) || itemName(a).localeCompare(itemName(b), "es"));
+    return ["poke-ball", ...evo];
+  }
+
+  function itemNote(slug) {
+    if (slug === "poke-ball") return "Para capturar Pokémon salvajes.";
+    if (isBerry(slug)) return BERRIES[slug].desc;
+    if (useItems.has(slug)) return "Objeto evolutivo: se gasta al usarlo.";
+    const trade = dex.species.some((s) => (s.evo || []).some((d) => d.held === slug && kindOf(d) === "trade"));
+    return trade ? "Equipado, hace evolucionar al intercambiar." : "Equipado, hace evolucionar al subir de nivel.";
+  }
+
+  function buy(slug, n = 1) {
+    const cost = buyPrice(slug) * n;
+    if (!cost || state.money < cost) return showNotification("No tienes Pokédólares suficientes.", "error");
+    state.money -= cost;
+    addToBag(slug, n);
+    window.Achievements?.track("purchases");
+    showNotification(`Has comprado ${n > 1 ? `${n} × ` : ""}${itemName(slug)} por ${fmtMoney(cost)}.`);
+    save();
+    render();
+  }
+
+  function sell(slug, n = 1) {
+    n = Math.min(n, state.bag[slug] || 0);
+    const gain = sellPrice(slug) * n;
+    if (!n || !gain) return;
+    takeFromBag(slug, n);
+    state.money += gain;
+    showNotification(`Has vendido ${n > 1 ? `${n} × ` : ""}${itemName(slug)} por ${fmtMoney(gain)}.`);
+    save();
+    render();
+  }
+
+  async function openShop() {
+    let tab = "buy";
+    function body(popup) {
+      popup.querySelectorAll(".pp-bag-tab").forEach((b) => b.classList.toggle("is-active", b.dataset.tab === tab));
+      popup.querySelector(".pp-shop-money").textContent = fmtMoney(state.money);
+      const box = popup.querySelector(".pp-bag-body");
+      if (tab === "buy") {
+        box.innerHTML = `<div class="pp-bag-list">${shopStock()
+          .map((slug) => {
+            const p = buyPrice(slug);
+            const have = state.bag[slug] || 0;
+            return `<div class="pp-bag-row">${itemImg(slug)}<span class="pp-bag-name"><b>${esc(itemName(slug))}</b><small>${esc(itemNote(slug))}${have ? ` Tienes ${have}.` : ""}</small></span>
+              <em class="pp-price">${fmtMoney(p)}</em>
+              <span class="pp-shop-btns">
+                <button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-shop="buy" data-slug="${slug}" data-n="1" ${state.money < p ? "disabled" : ""}>Comprar</button>
+                ${slug === "poke-ball" ? `<button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-shop="buy" data-slug="${slug}" data-n="10" ${state.money < p * 10 ? "disabled" : ""}>×10</button>` : ""}
+              </span></div>`;
+          })
+          .join("")}</div>`;
+        return;
+      }
+      const items = Object.entries(state.bag).filter(([s, n]) => n > 0 && sellPrice(s) > 0 && s !== "poke-ball");
+      items.sort(([a], [b]) => Number(!isBerry(a)) - Number(!isBerry(b)) || itemName(a).localeCompare(itemName(b), "es"));
+      box.innerHTML = items.length
+        ? `<div class="pp-bag-list">${items
+            .map(
+              ([slug, n]) => `<div class="pp-bag-row">${itemImg(slug)}<span class="pp-bag-name"><b>${esc(itemName(slug))}</b><small>Tienes ${n} · ${fmtMoney(sellPrice(slug))} cada una</small></span>
+                <em class="pp-price">+${fmtMoney(sellPrice(slug))}</em>
+                <span class="pp-shop-btns">
+                  <button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-shop="sell" data-slug="${slug}" data-n="1">Vender</button>
+                  ${n > 1 ? `<button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-shop="sell" data-slug="${slug}" data-n="${n}" title="Vender las ${n} por ${fmtMoney(sellPrice(slug) * n)}">Todas</button>` : ""}
+                </span></div>`
+            )
+            .join("")}</div>`
+        : `<p class="pp-bag-empty">No tienes nada que vender. Las bayas y los objetos evolutivos se venden por Pokédólares.</p>`;
+    }
+    await openModal({
+      eyebrow: "PokéPark",
+      title: "Tienda",
+      width: 600,
+      html: `
+        <div class="pp-bag pp-shop">
+          <div class="pp-shop-head">
+            <div class="pp-bag-tabs">
+              <button type="button" class="pp-bag-tab" data-tab="buy">Comprar</button>
+              <button type="button" class="pp-bag-tab" data-tab="sell">Vender</button>
+            </div>
+            <span class="pp-chip pp-shop-money" title="Tus Pokédólares"></span>
+          </div>
+          <div class="pp-bag-body"></div>
+        </div>`,
+      showConfirmButton: false,
+      showCloseButton: true,
+      customClass: { popup: "pp-bag-popup" },
+      didOpen: (popup) => {
+        body(popup);
+        popup.addEventListener("click", (e) => {
+          const tabBtn = e.target.closest(".pp-bag-tab");
+          if (tabBtn) {
+            tab = tabBtn.dataset.tab;
+            return body(popup);
+          }
+          const b = e.target.closest("[data-shop]");
+          if (!b) return;
+          if (b.dataset.shop === "buy") buy(b.dataset.slug, Number(b.dataset.n) || 1);
+          else sell(b.dataset.slug, Number(b.dataset.n) || 1);
+          body(popup);
+        });
+      },
+    });
+  }
+
+  // ------------------------------------------------------------ Intercambios
+  // Con la cuenta iniciada. Ofreces un Pokémon a otro jugador; si acepta, te
+  // da uno suyo a cambio. Mientras la oferta está pendiente el tuyo se queda
+  // en el parque pero "reservado" (no se puede liberar ni ofrecer otra vez).
+  // Al recibirlo se comprueban las evoluciones por intercambio.
+  const trades = { list: [], user: null, busy: false, rerender: null, loaded: false };
+
+  const cloudApi = (action, ...args) =>
+    window.electronAPI.cloud(action, ...args).catch(() => ({ ok: false, error: "No se puede conectar con el servidor." }));
+
+  function tradePayload(mon) {
+    return { uid: mon.uid, sp: mon.sp, nick: mon.nick || "", lv: mon.lv, exp: mon.exp, fr: mon.fr, g: mon.g, iv: mon.iv, held: mon.held, shiny: !!mon.shiny, ot: mon.ot || trades.user || "" };
+  }
+
+  // Cambia el Pokémon "idx" del equipo por el que llega del intercambio.
+  function receiveMon(idx, got, otherName, gaveSp) {
+    const old = state.party[idx];
+    const mon = {
+      uid: newUid("p"),
+      sp: got.sp,
+      nick: got.nick || "",
+      lv: got.lv,
+      exp: Math.max(got.exp || 0, expForLevel(got.lv)),
+      fr: START_FRIENDSHIP, // como en los juegos, la amistad vuelve a empezar
+      g: got.g || null,
+      iv: got.iv,
+      held: got.held || null,
+      shiny: !!got.shiny,
+      ot: got.ot || otherName,
+      traded: true,
+      at: now(),
+    };
+    state.party[idx] = mon;
+    if (selectedUid === old.uid) selectedUid = mon.uid;
+    window.Achievements?.track("trades");
+    showNotification(`¡Intercambio completado! ${displayName(old)} se ha ido con ${otherName} y ha llegado ${displayName(mon)}${mon.shiny ? " (variocolor)" : ""}.`);
+    const d = findEvolution(mon, "trade", gaveSp);
+    if (d) queueEvolution(mon, d);
+    return mon;
+  }
+
+  function applyTrades(list) {
+    let changed = false;
+    const pendingOut = new Set();
+    for (const t of list) {
+      if (t.status === "pending" && t.outgoing) {
+        pendingOut.add(t.id);
+        const mon = state.party.find((m) => m.uid === t.monFrom?.uid);
+        if (mon && mon.trade !== t.id) {
+          mon.trade = t.id;
+          changed = true;
+        }
+      }
+      if (t.status === "accepted" && !t.claimed) {
+        const gave = t.outgoing ? t.monFrom : t.monTo;
+        const got = t.outgoing ? t.monTo : t.monFrom;
+        const idx = state.party.findIndex((m) => m.uid === gave?.uid);
+        if (idx >= 0 && got) {
+          receiveMon(idx, got, t.outgoing ? t.to : t.from, gave.sp);
+          changed = true;
+        }
+        cloudApi("tradeClaim", t.id);
+        t.claimed = true;
+      }
+    }
+    // Ofertas canceladas o rechazadas: el Pokémon vuelve a estar libre.
+    if (!trades.busy) {
+      for (const m of state.party) {
+        if (m.trade && !pendingOut.has(m.trade)) {
+          delete m.trade;
+          changed = true;
+        }
+      }
+    }
+    // Aviso de ofertas nuevas (una sola vez por oferta).
+    const seen = new Set(state.tradeSeen || []);
+    for (const t of list) {
+      if (!t.outgoing && t.status === "pending" && !seen.has(t.id)) {
+        seen.add(t.id);
+        showNotification(`${t.from} te ofrece un intercambio: ${speciesName(t.monFrom.sp)}${t.monFrom.shiny ? " variocolor" : ""} (Nv. ${t.monFrom.lv}). Míralo en PokéPark > Intercambios.`);
+        changed = true;
+      }
+    }
+    state.tradeSeen = [...seen].slice(-100);
+    if (changed) {
+      save();
+      render();
+    }
+  }
+
+  let tradeSyncing = false;
+  let tradeResync = false;
+  async function syncTrades() {
+    if (!ready || trades.busy) return;
+    // Si ya hay una en marcha se repite al acabar (p. ej. justo tras iniciar sesión).
+    if (tradeSyncing) {
+      tradeResync = true;
+      return;
+    }
+    tradeSyncing = true;
+    tradeResync = false;
+    try {
+      const st = await cloudApi("status");
+      trades.user = st.ok ? st.user?.username || null : null;
+      if (!trades.user) {
+        trades.list = [];
+        return;
+      }
+      const res = await cloudApi("trades");
+      if (!res.ok) return;
+      trades.list = res.trades || [];
+      trades.loaded = true;
+      applyTrades(trades.list);
+    } finally {
+      tradeSyncing = false;
+      if (root) renderParkStatic();
+      trades.rerender?.();
+      if (tradeResync) syncTrades();
+    }
+  }
+
+  async function tradeAction(fn) {
+    if (trades.busy) return;
+    trades.busy = true;
+    trades.rerender?.();
+    try {
+      await fn();
+    } finally {
+      trades.busy = false;
+    }
+    await syncTrades();
+  }
+
+  function offerTrade(uid, to) {
+    return tradeAction(async () => {
+      const mon = state.party.find((m) => m.uid === uid);
+      if (!mon || mon.trade) return;
+      if (!to) return showNotification("Escribe el nombre del jugador.", "error");
+      const res = await cloudApi("tradeOffer", to, tradePayload(mon));
+      if (!res.ok) return showNotification(res.error, "error");
+      mon.trade = res.id;
+      showNotification(`Has ofrecido a ${displayName(mon)} a ${to}. Te avisaremos cuando responda.`);
+      save();
+      render();
+    });
+  }
+
+  function acceptTrade(t, uid) {
+    return tradeAction(async () => {
+      const idx = state.party.findIndex((m) => m.uid === uid);
+      const mine = state.party[idx];
+      if (!mine || mine.trade) return;
+      mine.trade = t.id; // reservado mientras responde el servidor
+      save();
+      const res = await cloudApi("tradeAccept", t.id, tradePayload(mine));
+      if (!res.ok) {
+        delete mine.trade;
+        save();
+        render();
+        return showNotification(res.error, "error");
+      }
+      const got = receiveMon(idx, res.monFrom, t.from, mine.sp);
+      await cloudApi("tradeClaim", t.id);
+      save();
+      render();
+      // Si evoluciona al llegar, se cierra la ventana para verlo.
+      if (evoQueue.some((q) => q.uid === got.uid)) Swal.close();
+    });
+  }
+
+  function closeTrade(t) {
+    return tradeAction(async () => {
+      const res = await cloudApi(t.outgoing ? "tradeCancel" : "tradeReject", t.id);
+      if (!res.ok) return showNotification(res.error, "error");
+      showNotification(t.outgoing ? "Oferta cancelada." : "Oferta rechazada.");
+    });
+  }
+
+  function monLine(m, extra = "") {
+    const s = species(m.sp);
+    return `<span class="pp-tr-mon">${thumbHtml(m)}<span><b>${m.shiny ? "✦ " : ""}${esc(m.nick || s?.n || "???")}</b><small>${m.nick ? `${esc(s?.n || "")} · ` : ""}Nv. ${m.lv}${m.held ? ` · ${esc(itemName(m.held))}` : ""}${extra}</small></span></span>`;
+  }
+
+  async function openTrades(preselect) {
+    let accepting = null; // oferta a la que se está eligiendo qué dar
+    const STATUS = { accepted: "Completado", rejected: "Rechazado", cancelled: "Cancelado" };
+
+    function body(popup) {
+      const box = popup.querySelector(".pp-trades");
+      if (!box) return;
+      if (!trades.user) {
+        box.innerHTML = `<div class="pp-tr-login"><p>Los intercambios son con otros jugadores, así que necesitas iniciar sesión con tu cuenta.</p>
+          <button type="button" class="sl-btn sl-btn-primary" data-tr="login">Iniciar sesión</button></div>`;
+        return;
+      }
+      const free = state.party.filter((m) => !m.trade);
+      if (accepting) {
+        box.innerHTML = `
+          <button type="button" class="pp-link pp-bag-back" data-tr="back">${icon("arrowUp", "pp-back-ic")}Volver</button>
+          <p class="pp-bag-q">${esc(accepting.from)} te da ${monLine(accepting.monFrom)} ¿Qué Pokémon le das a cambio?</p>
+          <div class="pp-bag-targets">${
+            free
+              .map(
+                (m) => `<button type="button" class="pp-target" data-tr="give" data-uid="${m.uid}" ${trades.busy ? "disabled" : ""}>
+                  ${thumbHtml(m)}<span><b>${m.shiny ? "✦ " : ""}${esc(displayName(m))}</b><small>Nv. ${m.lv}${m.held ? ` · lleva ${esc(itemName(m.held))}` : ""}</small></span></button>`
+              )
+              .join("") || `<p class="sl-hint">No tienes Pokémon libres para dar.</p>`
+          }</div>`;
+        return;
+      }
+      const incoming = trades.list.filter((t) => !t.outgoing && t.status === "pending");
+      const outgoing = trades.list.filter((t) => t.outgoing && t.status === "pending");
+      const history = trades.list.filter((t) => t.status !== "pending").slice(0, 8);
+      box.innerHTML = `
+        <section class="pp-tr-sec">
+          <h4>Nueva oferta</h4>
+          ${
+            free.length
+              ? `<div class="pp-tr-new">
+                  <select class="pp-tr-mon-sel">${free
+                    .map((m) => `<option value="${m.uid}" ${m.uid === preselect ? "selected" : ""}>${m.shiny ? "✦ " : ""}${esc(displayName(m))} · Nv. ${m.lv}</option>`)
+                    .join("")}</select>
+                  <input type="text" class="pp-tr-to" placeholder="Usuario del otro jugador" maxlength="20" spellcheck="false">
+                  <button type="button" class="sl-btn sl-btn-primary sl-btn-sm" data-tr="offer" ${trades.busy ? "disabled" : ""}>${TRADE_SVG}Ofrecer</button>
+                </div>
+                <p class="pp-tr-hint">Si acepta, te dará uno de los suyos a cambio. Su objeto equipado viaja con él, y algunos evolucionan al intercambiarlos.</p>`
+              : `<p class="sl-hint">Todos tus Pokémon están ya en alguna oferta.</p>`
+          }
+        </section>
+        <section class="pp-tr-sec">
+          <h4>Te ofrecen ${incoming.length ? `<em>${incoming.length}</em>` : ""}</h4>
+          ${
+            incoming
+              .map(
+                (t) => `<div class="pp-tr-row">${monLine(t.monFrom, ` · de <b>${esc(t.from)}</b>`)}
+                  <span class="pp-tr-btns">
+                    <button type="button" class="sl-btn sl-btn-primary sl-btn-sm" data-tr="accept" data-id="${t.id}" ${trades.busy ? "disabled" : ""}>Aceptar</button>
+                    <button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-tr="close" data-id="${t.id}" ${trades.busy ? "disabled" : ""}>Rechazar</button>
+                  </span></div>`
+              )
+              .join("") || `<p class="sl-hint">Nadie te ha ofrecido nada todavía.</p>`
+          }
+        </section>
+        <section class="pp-tr-sec">
+          <h4>Tus ofertas</h4>
+          ${
+            outgoing
+              .map(
+                (t) => `<div class="pp-tr-row">${monLine(t.monFrom, ` · para <b>${esc(t.to)}</b>`)}
+                  <span class="pp-tr-btns"><button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-tr="close" data-id="${t.id}" ${trades.busy ? "disabled" : ""}>Cancelar</button></span></div>`
+              )
+              .join("") || `<p class="sl-hint">No tienes ofertas pendientes.</p>`
+          }
+        </section>
+        ${
+          history.length
+            ? `<section class="pp-tr-sec"><h4>Últimos</h4>${history
+                .map((t) => {
+                  const mon = t.outgoing ? t.monFrom : t.monFrom;
+                  const who = t.outgoing ? `con ${esc(t.to)}` : `con ${esc(t.from)}`;
+                  const got = t.status === "accepted" ? (t.outgoing ? t.monTo : t.monFrom) : null;
+                  const gave = t.status === "accepted" ? (t.outgoing ? t.monFrom : t.monTo) : mon;
+                  return `<p class="pp-tr-hist"><span class="pp-tr-st is-${t.status}">${STATUS[t.status] || t.status}</span>${
+                    got ? `${esc(speciesName(gave.sp))} ⇄ ${esc(speciesName(got.sp))}` : esc(speciesName(gave.sp))
+                  } · ${who}</p>`;
+                })
+                .join("")}</section>`
+            : ""
+        }`;
+    }
+
+    await openModal({
+      eyebrow: "PokéPark",
+      title: "Intercambios",
+      width: 620,
+      html: `<div class="pp-trades"><p class="sl-hint">Cargando…</p></div>`,
+      showConfirmButton: false,
+      showCloseButton: true,
+      customClass: { popup: "pp-bag-popup pp-trades-popup" },
+      didOpen: (popup) => {
+        trades.rerender = () => {
+          const to = popup.querySelector(".pp-tr-to")?.value || "";
+          const sel = popup.querySelector(".pp-tr-mon-sel")?.value;
+          if (sel) preselect = sel;
+          body(popup);
+          const input = popup.querySelector(".pp-tr-to");
+          if (input) input.value = to;
+          hydrate(popup);
+        };
+        trades.rerender();
+        syncTrades();
+        popup.addEventListener("click", (e) => {
+          const b = e.target.closest("[data-tr]");
+          if (!b) return;
+          const k = b.dataset.tr;
+          const t = trades.list.find((x) => x.id === Number(b.dataset.id));
+          if (k === "login") {
+            Swal.close();
+            window.Community?.openAuth?.("login");
+          } else if (k === "offer") {
+            offerTrade(popup.querySelector(".pp-tr-mon-sel")?.value, popup.querySelector(".pp-tr-to")?.value.trim());
+          } else if (k === "accept" && t) {
+            accepting = t;
+            trades.rerender();
+          } else if (k === "back") {
+            accepting = null;
+            trades.rerender();
+          } else if (k === "give" && accepting) {
+            const t2 = accepting;
+            accepting = null;
+            acceptTrade(t2, b.dataset.uid);
+          } else if (k === "close" && t) closeTrade(t);
+        });
+      },
+      willClose: () => {
+        trades.rerender = null;
+      },
+    });
+  }
+
   // ------------------------------------------------------------ SVG
   const FS_SVG =
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>';
+  const TRADE_SVG =
+    '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg>';
+  const SHOP_SVG =
+    '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9 4.5 4h15L21 9"/><path d="M3 9h18v2a3 3 0 0 1-6 0 3 3 0 0 1-6 0 3 3 0 0 1-6 0Z"/><path d="M5 13v7h14v-7"/><path d="M10 20v-4h4v4"/></svg>';
+  const POKEBALL_SVG =
+    '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h6"/><path d="M15 12h6"/><circle cx="12" cy="12" r="3"/></svg>';
+  const POKEBALL_IMG = `<img src="assets/pokepark/items/poke-ball.png" alt="" draggable="false">`;
   const BAG_SVG =
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8h12l1 12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/><path d="M5 13h14"/><path d="M11 13v2h2v-2"/></svg>';
   const BERRY_SVG =
@@ -1991,15 +2798,15 @@
     heldItems = new Set([...heldItems].filter((s) => !ITEM_BLOCKLIST.has(s) && !useItems.has(s)));
 
     const saved = await window.electronAPI.pokeparkGet().catch(() => null);
-    state = saved && Array.isArray(saved.party) ? { ...newState(), ...saved } : newState();
-    state.bag ||= {};
-    state.ground ||= [];
-    state.legends ||= {};
-    state.visitor ||= null;
+    state = normalizeState(saved);
     ready = true;
     shell();
     checkVisitorLeave();
+    expireGround();
+    if (state.starter && state.party.length) refreshWild();
+    save();
     render();
+    syncTrades();
     setInterval(tick, TICK_MS);
     setInterval(updateClock, 30 * 1000);
   }
@@ -2017,22 +2824,20 @@
     onShow() {
       if (!ready) return;
       render();
+      syncTrades();
       if (state.visitor && !state.visitor.seen) setTimeout(announceVisitor, 400);
     },
     _spriteError: spriteError,
     snapshot() {
-      return ready ? { party: state.party, legends: state.legends || {} } : null;
+      return ready ? { party: state.party, legends: state.legends || {}, shinyCharm: !!state.shinyCharm } : null;
     },
     // La cuenta ha traído otro parque: se recarga desde disco.
     async reload() {
       if (!ready) return;
       const saved = await window.electronAPI.pokeparkGet().catch(() => null);
       if (!saved || !Array.isArray(saved.party)) return;
-      state = { ...newState(), ...saved };
-      state.bag ||= {};
-      state.ground ||= [];
-      state.legends ||= {};
-      state.visitor ||= null;
+      state = normalizeState(saved);
+      if (state.starter && state.party.length) refreshWild();
       selectedUid = null;
       for (const a of actors.values()) a.el.remove();
       actors.clear();
@@ -2057,6 +2862,11 @@
       if (state.visitor) state.visitor.leaves = 0;
       checkVisitorLeave();
     },
+    // Depuración / pruebas.
+    _state: () => state,
+    _openTrades: () => openTrades(),
+    _syncTrades: () => syncTrades(),
+    _trades: () => trades,
   };
 
   init();

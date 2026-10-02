@@ -725,22 +725,12 @@ body.in-pokepark .main-content {
   background: radial-gradient(circle, rgba(var(--red-500-rgb), 0.5), transparent 70%);
 }
 
-.pp-ground-item.is-taken {
-  animation: ppTake 0.3s ease-in forwards;
-}
-
 @keyframes ppItemBob {
   50% {
     transform: translate(-50%, calc(-50% - 5px));
   }
 }
 
-@keyframes ppTake {
-  to {
-    opacity: 0;
-    transform: translate(-50%, -120%) scale(1.4);
-  }
-}
 
 /* HUD */
 .pp-hud {
@@ -1677,4 +1667,374 @@ body.in-pokepark .main-content {
 
 .pp-ov-row.is-visitor .pp-ov-text em {
   background: linear-gradient(90deg, #d89b12, var(--pp-gold), #ffe082);
+}
+
+/* ===================================================== 2.5: salvajes, variocolor, tienda, intercambios */
+.pp-hud-right {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.pp-hud-btn {
+  pointer-events: auto;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  position: relative;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.pp-hud-btn:hover {
+  border-color: rgba(var(--red-500-rgb), 0.6);
+  background: rgba(var(--red-500-rgb), 0.25);
+}
+
+.pp-money {
+  font-variant-numeric: tabular-nums;
+  color: var(--pp-gold, #f4c542);
+}
+
+.pp-trade-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 18px;
+  text-align: center;
+  color: var(--on-accent);
+  background: var(--red-500);
+}
+
+/* Equipo */
+.pp-slot.is-empty.is-locked {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.pp-slot.is-empty.is-locked:hover {
+  transform: none;
+  border-color: var(--ink-700);
+}
+
+.pp-slot.is-trading {
+  border-style: dashed;
+  opacity: 0.7;
+}
+
+.pp-shiny-mark {
+  position: absolute;
+  top: 1px;
+  right: 3px;
+  font-size: 10px;
+  color: #ffd84d;
+  text-shadow: 0 0 4px rgba(255, 216, 77, 0.9), 0 1px 1px rgba(0, 0, 0, 0.6);
+}
+
+.pp-shiny-badge,
+.pp-wild-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  vertical-align: 1px;
+}
+
+.pp-shiny-badge {
+  color: #3a2a00;
+  background: linear-gradient(135deg, #fff3b0, #ffd84d);
+  box-shadow: 0 0 10px rgba(255, 216, 77, 0.45);
+}
+
+.pp-wild-badge {
+  color: var(--washi-100);
+  background: var(--ink-800);
+  border: 1px solid var(--ink-600);
+}
+
+.pp-portrait.is-shiny {
+  background: radial-gradient(ellipse 60% 22% at 50% 88%, rgba(0, 0, 0, 0.28), transparent 70%),
+    radial-gradient(circle at 50% 60%, rgba(255, 216, 77, 0.28), transparent 65%);
+}
+
+/* Liberar / intercambiar en la ficha */
+.pp-more {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--ink-800);
+}
+
+.pp-more-btns {
+  display: flex;
+  gap: 8px;
+}
+
+.pp-more-btns .sl-btn {
+  flex: 1;
+  justify-content: center;
+}
+
+.pp-trade-note {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  margin: 0 0 8px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--ink-300);
+}
+
+.pp-trade-note .i {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin-top: 1px;
+}
+
+/* En el parque: salvajes con el nombre en gris, variocolor con brillo */
+.pp-mon.is-wild .pp-mon-name {
+  background: rgba(var(--ink-900-rgb), 0.6);
+  color: var(--ink-200);
+}
+
+.pp-mon.is-shiny .pp-mon-img {
+  filter: drop-shadow(0 0 5px rgba(255, 216, 77, 0.65));
+}
+
+.pp-mon.is-shiny::after {
+  content: "✦";
+  position: absolute;
+  left: 20px;
+  top: -26px;
+  font-size: 13px;
+  color: #ffd84d;
+  text-shadow: 0 0 6px rgba(255, 216, 77, 0.9);
+  pointer-events: none;
+  animation: ppTwinkle 1.8s ease-in-out infinite;
+}
+
+@keyframes ppTwinkle {
+  50% {
+    opacity: 0.25;
+    transform: scale(0.7) rotate(20deg);
+  }
+}
+
+/* Captura: el Pokémon desaparece dentro de la Poké Ball, que se agita */
+.pp-mon-ball {
+  position: absolute;
+  left: -14px;
+  top: -30px;
+  width: 28px;
+  height: 28px;
+  display: none;
+  pointer-events: none;
+}
+
+.pp-mon-ball img {
+  width: 28px;
+  height: 28px;
+  image-rendering: pixelated;
+}
+
+.pp-mon.is-catching .pp-mon-img,
+.pp-mon.is-catching .pp-mon-name,
+.pp-mon.is-catching::after {
+  visibility: hidden;
+}
+
+.pp-mon.is-catching .pp-mon-ball {
+  display: block;
+  transform-origin: 50% 100%;
+  animation: ppBallShake 2.3s ease-in-out;
+}
+
+@keyframes ppBallShake {
+  0% { transform: translateY(-60px) scale(0.6); }
+  15% { transform: translateY(0) scale(1); }
+  25%, 45%, 65% { transform: rotate(0); }
+  30%, 50%, 70% { transform: rotate(-18deg); }
+  35%, 55%, 75% { transform: rotate(18deg); }
+  40%, 60%, 80% { transform: rotate(0); }
+  100% { transform: rotate(0); }
+}
+
+/* Tienda */
+.pp-shop-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pp-shop-head .pp-bag-tabs {
+  flex: 1;
+}
+
+.pp-shop-money {
+  flex: none;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--pp-gold, #f4c542);
+}
+
+.pp-bag-row .pp-price {
+  flex: none;
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--pp-gold, #f4c542);
+}
+
+.pp-shop-btns {
+  flex: none;
+  display: flex;
+  gap: 4px;
+}
+
+/* Intercambios */
+.pp-trades {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  text-align: left;
+}
+
+.pp-tr-sec h4 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-300);
+}
+
+.pp-tr-sec h4 em {
+  font-style: normal;
+  margin-left: 4px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  color: var(--on-accent);
+  background: var(--red-500);
+}
+
+.pp-tr-new {
+  display: flex;
+  gap: 8px;
+}
+
+.pp-tr-new select,
+.pp-tr-new input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--ink-700);
+  background: var(--ink-950);
+  color: var(--washi-100);
+  font: inherit;
+  font-size: 13px;
+}
+
+.pp-tr-new .sl-btn .i {
+  width: 14px;
+  height: 14px;
+}
+
+.pp-tr-hint {
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: var(--ink-300);
+}
+
+.pp-tr-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--ink-800);
+  margin-bottom: 4px;
+}
+
+.pp-tr-mon {
+  flex: 1;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pp-tr-mon img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.pp-tr-mon > span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.pp-tr-mon b {
+  font-size: 13px;
+}
+
+.pp-tr-mon small {
+  font-size: 11px;
+  color: var(--ink-300);
+}
+
+.pp-bag-q .pp-tr-mon {
+  display: flex;
+  margin: 8px 0;
+}
+
+.pp-tr-btns {
+  flex: none;
+  display: flex;
+  gap: 6px;
+}
+
+.pp-tr-hist {
+  margin: 0 0 4px;
+  font-size: 12px;
+  color: var(--ink-200);
+}
+
+.pp-tr-st {
+  display: inline-block;
+  min-width: 82px;
+  margin-right: 8px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-300);
+}
+
+.pp-tr-st.is-accepted {
+  color: #5cc98a;
+}
+
+.pp-tr-login {
+  padding: 20px 0;
+  text-align: center;
+  color: var(--ink-200);
+}
+
+.pp-tr-login p {
+  margin: 0 0 14px;
 }

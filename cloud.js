@@ -50,6 +50,12 @@ const MESSAGES = {
   invalid_config: "El servidor está mal configurado. Avisa al administrador.",
   db_connection_failed: "El servidor no puede conectar con la base de datos.",
   server_error: "El servidor ha tenido un error. Prueba otra vez en un rato.",
+  user_not_found: "No existe ningún usuario con ese nombre.",
+  trade_self: "No puedes intercambiar contigo mismo.",
+  too_many_trades: "Ya tienes 6 ofertas de intercambio pendientes. Cancela alguna antes.",
+  already_offered: "Ya has ofrecido ese Pokémon en otro intercambio.",
+  trade_unavailable: "Ese intercambio ya no está disponible.",
+  invalid_mon: "Ese Pokémon no se puede intercambiar.",
 };
 const describe = (err) => {
   if (MESSAGES[err?.code]) return MESSAGES[err.code];
@@ -307,6 +313,12 @@ function createCloud(hooks) {
     achievements: async () => api("achievements/list"),
     unlock: async (ids) => api("achievements/unlock", { body: { ids } }),
     profile: async (username) => api("users/profile", { query: { username }, auth: false }),
+    trades: async () => api("trades/list"),
+    tradeOffer: async (to, mon) => api("trades/offer", { body: { to, mon } }),
+    tradeAccept: async (id, mon) => api("trades/accept", { body: { id, mon } }),
+    tradeCancel: async (id) => api("trades/cancel", { body: { id } }),
+    tradeReject: async (id) => api("trades/reject", { body: { id } }),
+    tradeClaim: async (id) => api("trades/claim", { body: { id } }),
   };
 
   const ipc = Object.fromEntries(Object.entries(actions).map(([k, fn]) => [k, safe(fn)]));

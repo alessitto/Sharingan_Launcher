@@ -71,6 +71,12 @@
     { id: "pp_friend", cat: "pokepark", icon: "heart", name: "Mejores amigos", desc: "Llena la amistad de un Pokémon de tu equipo.", goal: () => [Math.max(0, ...park().party.map((m) => m.fr || 0)), FRIENDSHIP_MAX] },
     { id: "pp_legend", cat: "pokepark", icon: "crown", name: "Visita legendaria", desc: "Recibe la visita de un legendario.", goal: (st) => [Math.max(s("legends")(st), Object.keys(park().legends).length), 1] },
     { id: "pp_legend_friend", cat: "pokepark", icon: "crown", name: "Vínculo legendario", desc: "Llena la amistad de un legendario.", goal: () => [Math.max(0, ...Object.values(park().legends).map((l) => l.fr || 0)), FRIENDSHIP_MAX] },
+    { id: "pp_catch", cat: "pokepark", icon: "pokeball", name: "¡Atrapado!", desc: "Captura un Pokémon salvaje.", goal: (st) => [s("catches")(st), 1] },
+    { id: "pp_catch_10", cat: "pokepark", icon: "pokeball", name: "Cazador Pokémon", desc: "Captura 10 Pokémon salvajes.", goal: (st) => [s("catches")(st), 10] },
+    { id: "pp_shiny", cat: "pokepark", icon: "sparkles", name: "¡Brilla!", desc: "Ten un Pokémon variocolor en tu equipo.", goal: () => [park().party.some((m) => m.shiny) ? 1 : 0, 1] },
+    { id: "pp_charm", cat: "pokepark", icon: "gem", name: "Amuleto Iris", desc: "Encuentra el Amuleto Iris en el parque.", goal: (st) => [Math.max(s("shinyCharm")(st), park().shinyCharm ? 1 : 0), 1] },
+    { id: "pp_trade", cat: "pokepark", icon: "user", name: "Intercambio completado", desc: "Intercambia un Pokémon con otro jugador.", goal: (st) => [s("trades")(st), 1] },
+    { id: "pp_shop", cat: "pokepark", icon: "gem", name: "De compras", desc: "Compra algo en la tienda del PokéPark.", goal: (st) => [s("purchases")(st), 1] },
     { id: "pp_fullscreen", cat: "pokepark", icon: "maximize", name: "Salvapantallas", desc: "Pon el PokéPark a pantalla completa.", goal: (st) => [s("fullscreen")(st), 1] },
     // Comunidad
     { id: "account", cat: "community", icon: "user", name: "Uno más", desc: "Crea tu cuenta o inicia sesión.", goal: () => [loggedIn() ? 1 : 0, 1] },
