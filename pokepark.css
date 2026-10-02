@@ -712,7 +712,7 @@ body.in-pokepark .main-content {
   border-radius: 50%;
   background: radial-gradient(circle, rgba(255, 255, 255, 0.28), transparent 70%);
   cursor: pointer;
-  animation: ppItemBob 2.2s ease-in-out infinite;
+  transition: none;
 }
 
 .pp-ground-item .pp-item-img {
@@ -721,15 +721,16 @@ body.in-pokepark .main-content {
   filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.35));
 }
 
+/* Sin ningún efecto al pasar el ratón: anula el estilo general de los
+   botones (también el de Liquid Glass) */
+.pp-ground-item,
 .pp-ground-item:hover {
-  background: radial-gradient(circle, rgba(var(--red-500-rgb), 0.5), transparent 70%);
+  transform: translate(-50%, -50%) !important;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.28), transparent 70%) !important;
+  box-shadow: none !important;
+  transition: none !important;
 }
 
-@keyframes ppItemBob {
-  50% {
-    transform: translate(-50%, calc(-50% - 5px));
-  }
-}
 
 
 /* HUD */
@@ -1688,11 +1689,6 @@ body.in-pokepark .main-content {
 .pp-hud-btn:hover {
   border-color: rgba(var(--red-500-rgb), 0.6);
   background: rgba(var(--red-500-rgb), 0.25);
-}
-
-.pp-money {
-  font-variant-numeric: tabular-nums;
-  color: var(--pp-gold, #f4c542);
 }
 
 .pp-trade-badge {

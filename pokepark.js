@@ -982,8 +982,6 @@
         <div class="pp-hud">
           <span class="pp-chip pp-clock"></span>
           <span class="pp-hud-right">
-            <span class="pp-chip pp-count"></span>
-            <span class="pp-chip pp-money" title="Pokédólares"></span>
             <button type="button" class="pp-chip pp-hud-btn" data-pp="shop" title="Tienda: compra Poké Balls y objetos, vende lo que no quieras">${SHOP_SVG}<span>Tienda</span></button>
             <button type="button" class="pp-chip pp-hud-btn" data-pp="trades" title="Intercambios con otros jugadores">${TRADE_SVG}<span>Intercambios</span><em class="pp-trade-badge"></em></button>
             <button type="button" class="pp-chip pp-fs-btn" data-pp="fullscreen" title="Pantalla completa (Esc para salir)">${FS_SVG}<span>Pantalla completa</span></button>
@@ -1231,8 +1229,6 @@
   }
 
   function renderParkStatic() {
-    root.querySelector(".pp-count").textContent = `Equipo ${state.party.length}/${PARTY_MAX} · ${state.wild.length} salvajes`;
-    root.querySelector(".pp-money").textContent = fmtMoney(state.money);
     const incoming = trades.list.filter((t) => !t.outgoing && t.status === "pending").length;
     const badge = root.querySelector(".pp-trade-badge");
     badge.textContent = incoming || "";
