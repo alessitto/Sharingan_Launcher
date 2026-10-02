@@ -5,7 +5,7 @@
 //   - Color: solo dos colores (fondo y acento). El resto de la paleta sale
 //     de mezclarlos con blanco (fondo oscuro) o negro (fondo claro).
 //   - Estilo: un efecto que va por encima del color (Predeterminado,
-//     Retro, Liquid Glass).
+//     Retro, Liquid Glass, Y2K).
 // Lo usan la ventana (window.SLThemes) y main.js (require) para el color
 // de fondo de la ventana antes de cargar.
 (function (global) {
@@ -62,6 +62,7 @@
     { id: "default", name: "Predeterminado", desc: "Limpio, sin filtros." },
     { id: "retro", name: "Retro", desc: "Letra pixelada y aire de consola antigua." },
     { id: "glass", name: "Liquid Glass", desc: "Cristal líquido, como en iOS 26." },
+    { id: "y2k", name: "Y2K", desc: "Cromados y botones de gominola, como en el 2000." },
   ];
 
   const PALETTES = CATEGORIES.flatMap((c) => c.groups.flatMap((g) => g.items));

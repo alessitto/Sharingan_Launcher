@@ -774,11 +774,14 @@
   // La Poké Ball, las bayas y el cepillo se usan con el ratón dentro del
   // parque: el objeto va en la mano (sigue al cursor) y se lanza, se da o se
   // pasa sobre el Pokémon. Esc o clic derecho para soltarlo.
+  // Cada uno sale de su botón del parque (junto a la bolsa).
   //  - Poké Ball: se ve grande abajo (en tu mano) y se lanza al punto donde
   //    hagas clic; vuela haciéndose pequeña y solo atrapa si cae encima de un
   //    salvaje (que se siguen moviendo). Si fallas, la Poké Ball se pierde.
-  //  - Baya: haz clic sobre un Pokémon de tu equipo (o el visitante).
-  //  - Cepillo: mantén pulsado y frota sobre el Pokémon hasta llenar la barra.
+  //  - Baya: se elige en el menú y se le da con un clic a un Pokémon de tu
+  //    equipo (o al visitante).
+  //  - Cepillo: mantén pulsado y frota sobre cualquier Pokémon de tu equipo
+  //    hasta llenar la barra.
   const COMB_WORK = 1400; // píxeles de frotar para dejarlo reluciente
   let hand = null; // { kind, slug, target, el, hint, x, y, busy, work, down, last }
 
@@ -804,29 +807,29 @@
   }
 
   const HAND_HINTS = {
-    ball: "Arrastra la Poké Ball y suéltala con impulso hacia un Pokémon salvaje · Esc para guardarla",
+    ball: "Apunta a un Pokémon salvaje y haz clic para lanzar · Esc para guardarla",
     berry: "Haz clic en un Pokémon de tu equipo para darle la baya · Esc para guardarla",
-    comb: "Mantén pulsado y frota sobre el Pokémon para cepillarlo · Esc para dejarlo",
+    comb: "Mantén pulsado y frota sobre un Pokémon de tu equipo para cepillarlo · Esc para dejarlo",
   };
 
-  function startHand(kind, slug = null, target = null) {
+  function startHand(kind, slug = null) {
     cancelHand();
     const park = parkEl();
     if (!park) return;
     const el = document.createElement("div");
     el.className = `pp-hand is-${kind}`;
     el.innerHTML = kind === "comb" ? `<img src="${combSrc()}" alt="" draggable="false">` : itemImg(slug);
+    el.style.setProperty("--s", 2.2);
     const hint = document.createElement("div");
     hint.className = "pp-hand-hint";
     hint.innerHTML = `<span>${HAND_HINTS[kind]}</span>${kind === "comb" ? `<i><em></em></i>` : ""}`;
     park.append(el, hint);
     park.classList.add("is-aiming", `aim-${kind}`);
-    hand = { kind, slug, target, el, hint, x: park.clientWidth / 2, y: park.clientHeight - 70, work: 0, down: false, last: null, drag: false, samples: [] };
-    if (kind === "ball") restBall();
-    else moveHand(hand.x, hand.y);
+    hand = { kind, slug, target: null, el, hint, x: park.clientWidth / 2, y: park.clientHeight - 70, work: 0, down: false, last: null, warned: null };
+    moveHand(hand.x, hand.y);
   }
 
-  // Botón de la Poké Ball: la saca (o la guarda si ya la tienes en la mano).
+  // Botones del parque: sacan el objeto (o lo guardan si ya lo tienes).
   function toggleBall() {
     if (hand?.kind === "ball") return cancelHand();
     if (!(state.bag["poke-ball"] > 0)) return showNotification("No te quedan Poké Balls. Cómpralas en la tienda o búscalas por el parque.", "error");
@@ -834,20 +837,9 @@
     startHand("ball", "poke-ball");
   }
 
-  // Tamaño de la Poké Ball según lo lejos que está: grande abajo (en tu
-  // mano) y a su tamaño real cerca del horizonte.
-  function ballScale(y) {
-    const h = parkEl()?.clientHeight || 1;
-    return Math.max(0.9, Math.min(2.2, 0.6 + 1.6 * (y / h)));
-  }
-
-  // Posición de reposo: abajo en el centro, como si la tuvieras en la mano.
-  function restBall() {
-    const park = parkEl();
-    hand.x = park.clientWidth / 2;
-    hand.y = park.clientHeight - 64;
-    hand.el.style.transform = `translate(${hand.x}px, ${hand.y}px)`;
-    hand.el.style.setProperty("--s", ballScale(hand.y));
+  function toggleComb() {
+    if (hand?.kind === "comb") return cancelHand();
+    startHand("comb");
   }
 
   function cancelHand() {
@@ -863,11 +855,14 @@
   function moveHand(x, y) {
     if (!hand) return;
     const park = parkEl();
-    if (hand.kind === "ball" && !hand.drag) return;
-    hand.x = Math.max(0, Math.min(park.clientWidth, x));
-    hand.y = Math.max(0, Math.min(park.clientHeight, y));
+    if (hand.kind === "ball") {
+      hand.x = Math.max(40, Math.min(park.clientWidth - 40, x));
+      hand.y = park.clientHeight - 64;
+    } else {
+      hand.x = x;
+      hand.y = y;
+    }
     hand.el.style.transform = `translate(${hand.x}px, ${hand.y}px)`;
-    if (hand.kind === "ball") hand.el.style.setProperty("--s", ballScale(hand.y));
   }
 
   function parkPoint(e) {
@@ -877,38 +872,52 @@
     return { x: (e.clientX - r.left) * k, y: (e.clientY - r.top) * k };
   }
 
-  function onHandMove(e) {
-    if (!hand || hand.busy || (!hand.drag && !e.target.closest(".pp-park"))) return;
-    const p = parkPoint(e);
-    if (hand.kind === "ball" && hand.drag) {
-      hand.samples.push({ x: p.x, y: p.y, t: performance.now() });
-      if (hand.samples.length > 12) hand.samples.shift();
-    }
-    if (hand.kind === "comb" && hand.down) {
-      if (hand.last) {
-        const d = Math.hypot(p.x - hand.last.x, p.y - hand.last.y);
-        const mon = monByUid(hand.target);
-        if (mon && monAtPoint(e.clientX, e.clientY, (m) => m === mon)) {
-          hand.work += d;
-          if (Math.floor(hand.work / 220) !== Math.floor((hand.work - d) / 220)) sparkle(mon, 2);
-          hand.hint.querySelector("em").style.width = `${Math.min(100, (hand.work / COMB_WORK) * 100)}%`;
-          if (hand.work >= COMB_WORK) {
-            cancelHand();
-            clean(mon);
-            return;
-          }
-        }
+  // Cepillo: frota sobre cualquier Pokémon de tu equipo (o el visitante).
+  // Si cambias de Pokémon, la barra empieza de cero.
+  function combRub(e, p) {
+    const mon = monAtPoint(e.clientX, e.clientY, (m) => !m.wild);
+    if (!mon || !hand.last) return;
+    const wait = (mon.cleanedAt || 0) + CLEAN_COOLDOWN_MS - now();
+    if (wait > 0) {
+      if (hand.warned !== mon.uid) {
+        hand.warned = mon.uid;
+        showNotification(`${displayName(mon)} ya está cepillado. Vuelve en ${fmtDuration(wait)}.`, "error");
       }
-      hand.last = p;
+      return;
+    }
+    if (hand.target !== mon.uid) {
+      hand.target = mon.uid;
+      hand.work = 0;
+    }
+    const d = Math.hypot(p.x - hand.last.x, p.y - hand.last.y);
+    hand.work += d;
+    if (Math.floor(hand.work / 220) !== Math.floor((hand.work - d) / 220)) sparkle(mon, 2);
+    hand.hint.querySelector("em").style.width = `${Math.min(100, (hand.work / COMB_WORK) * 100)}%`;
+    if (hand.work >= COMB_WORK) {
+      hand.target = null;
+      hand.work = 0;
+      hand.down = false;
+      hand.hint.querySelector("em").style.width = "0%";
+      clean(mon);
+    }
+  }
+
+  function onHandMove(e) {
+    if (!hand || hand.busy || !e.target.closest(".pp-park")) return;
+    const p = parkPoint(e);
+    if (hand.kind === "comb" && hand.down) {
+      combRub(e, p);
+      if (hand) hand.last = p;
     }
     moveHand(p.x, p.y);
   }
 
   function onHandClick(e) {
-    if (!hand || !e.target.closest(".pp-park") || e.target.closest(".pp-hud, .pp-bag-btn, .pp-ball-btn")) return;
+    if (!hand || !e.target.closest(".pp-park") || e.target.closest(".pp-hud, .pp-bag-btn, .pp-tool-btn")) return;
     e.preventDefault();
     e.stopPropagation();
-    if (hand.kind === "ball") return; // se lanza arrastrando
+    if (hand.busy) return;
+    if (hand.kind === "ball") return throwAt(parkPoint(e), e.clientX, e.clientY);
     if (hand.kind === "berry") {
       const mon = monAtPoint(e.clientX, e.clientY, (m) => !m.wild);
       if (!mon) {
@@ -922,33 +931,8 @@
     }
   }
 
-  // Al soltar: la velocidad de los últimos ~90 ms decide hacia dónde y
-  // hasta dónde vuela. Si apenas se mueve, vuelve a la mano sin gastarse.
-  function releaseBall() {
-    const now2 = performance.now();
-    const pts = hand.samples.filter((s) => now2 - s.t < 90);
-    hand.drag = false;
-    hand.el.classList.remove("is-dragging");
-    const a = pts[0];
-    const b = pts[pts.length - 1];
-    const dt = a && b ? (b.t - a.t) / 1000 : 0;
-    const vx = dt > 0 ? (b.x - a.x) / dt : 0;
-    const vy = dt > 0 ? (b.y - a.y) / dt : 0;
-    if (Math.hypot(vx, vy) < 300) return restBall();
-    const park = parkEl();
-    const from = { x: hand.x, y: hand.y };
-    const to = {
-      x: Math.max(10, Math.min(park.clientWidth - 10, from.x + vx * 0.32)),
-      y: Math.max(10, Math.min(park.clientHeight - 10, from.y + vy * 0.32)),
-    };
-    const r = park.getBoundingClientRect();
-    const k = r.width / park.clientWidth || 1;
-    throwAt(from, to, r.left + to.x * k, r.top + to.y * k);
-  }
-
-  // Vuelo de la Poké Ball: curva desde donde se suelta hasta donde cae,
-  // haciéndose pequeña según se aleja.
-  function throwAt(from, to, cx, cy) {
+  // Vuelo de la Poké Ball: curva desde la mano al punto, encogiéndose.
+  function throwAt(to, cx, cy) {
     if (!(state.bag["poke-ball"] > 0)) {
       cancelHand();
       return showNotification("No te quedan Poké Balls. Cómpralas en la tienda o búscalas por el parque.", "error");
@@ -960,24 +944,22 @@
     takeFromBag("poke-ball");
     save();
     const park = parkEl();
+    const from = { x: hand.x, y: hand.y };
     hand.busy = true;
     hand.el.style.visibility = "hidden";
     const ball = document.createElement("img");
     ball.className = "pp-ball-fly";
     ball.src = ITEM_IMG("poke-ball");
     park.appendChild(ball);
-    const dist = Math.hypot(to.x - from.x, to.y - from.y);
-    const peak = { x: (from.x + to.x) / 2, y: Math.min(from.y, to.y) - 30 - dist * 0.18 };
-    const s0 = ballScale(from.y);
-    const s1 = ballScale(to.y) * 0.7;
+    const peak = { x: (from.x + to.x) / 2, y: Math.min(from.y, to.y) - 90 - Math.abs(from.x - to.x) * 0.1 };
     const frames = [];
     for (let i = 0; i <= 16; i++) {
       const t = i / 16;
       const x = (1 - t) ** 2 * from.x + 2 * (1 - t) * t * peak.x + t * t * to.x;
       const y = (1 - t) ** 2 * from.y + 2 * (1 - t) * t * peak.y + t * t * to.y;
-      frames.push({ transform: `translate(${x}px, ${y}px) translate(-50%, -50%) rotate(${t * 540}deg) scale(${s0 + (s1 - s0) * t})` });
+      frames.push({ transform: `translate(${x}px, ${y}px) translate(-50%, -50%) rotate(${t * 540}deg) scale(${2.2 - t * 1.2})` });
     }
-    const anim = ball.animate(frames, { duration: Math.max(350, Math.min(750, dist * 0.9)), easing: "linear", fill: "forwards" });
+    const anim = ball.animate(frames, { duration: 620, easing: "linear", fill: "forwards" });
     anim.onfinish = () => {
       const hit = monAtPoint(cx, cy, (m) => m.wild && !catching.has(m.uid));
       if (hit) {
@@ -990,9 +972,9 @@
       const end = `translate(${to.x}px, ${to.y}px) translate(-50%, -50%)`;
       ball.animate(
         [
-          { transform: `${end} scale(${s1})`, opacity: 1 },
-          { transform: `translate(${to.x + 14}px, ${to.y - 18}px) translate(-50%, -50%) rotate(90deg) scale(${s1})`, opacity: 1 },
-          { transform: `translate(${to.x + 24}px, ${to.y}px) translate(-50%, -50%) rotate(160deg) scale(${s1})`, opacity: 0 },
+          { transform: `${end} scale(1)`, opacity: 1 },
+          { transform: `translate(${to.x + 14}px, ${to.y - 18}px) translate(-50%, -50%) rotate(90deg) scale(1)`, opacity: 1 },
+          { transform: `translate(${to.x + 24}px, ${to.y}px) translate(-50%, -50%) rotate(160deg) scale(1)`, opacity: 0 },
         ],
         { duration: 500, easing: "ease-out", fill: "forwards" }
       ).onfinish = () => ball.remove();
@@ -1002,7 +984,6 @@
       if (!hand) return;
       hand.busy = false;
       hand.el.style.visibility = "";
-      restBall();
       if (!(state.bag["poke-ball"] > 0)) {
         cancelHand();
         showNotification("No te quedan Poké Balls.", "error");
@@ -1062,27 +1043,13 @@
     root.addEventListener("mousemove", onHandMove);
     root.addEventListener("mousedown", (e) => {
       if (!hand || e.button !== 0 || !e.target.closest(".pp-park")) return;
-      if (hand.kind === "comb") {
+      if (hand.kind === "comb" && !e.target.closest(".pp-tool-btn, .pp-bag-btn, .pp-hud")) {
         hand.down = true;
         hand.last = parkPoint(e);
         e.preventDefault();
-      } else if (hand.kind === "ball" && !hand.busy) {
-        // Hay que coger la Poké Ball (o pulsar muy cerca de ella).
-        const p = parkPoint(e);
-        if (Math.hypot(p.x - hand.x, p.y - hand.y) > 60) return;
-        e.preventDefault();
-        hand.drag = true;
-        hand.samples = [{ x: p.x, y: p.y, t: performance.now() }];
-        hand.el.classList.add("is-dragging");
-        moveHand(p.x, p.y);
       }
     });
-    window.addEventListener("mousemove", (e) => hand?.drag && !e.target.closest?.(".pp-park") && onHandMove(e));
-    window.addEventListener("mouseup", () => {
-      if (!hand) return;
-      hand.down = false;
-      if (hand.kind === "ball" && hand.drag) releaseBall();
-    });
+    window.addEventListener("mouseup", () => hand && (hand.down = false));
     root.addEventListener("contextmenu", (e) => {
       if (!hand) return;
       e.preventDefault();
@@ -1308,7 +1275,9 @@
           </span>
         </div>
         <div class="pp-empty"></div>
-        <button type="button" class="pp-ball-btn" data-pp="ball" title="Sacar una Poké Ball" aria-label="Sacar una Poké Ball">${POKEBALL_IMG}</button>
+        <button type="button" class="pp-tool-btn is-berry" data-pp="berries" title="Dar una baya" aria-label="Dar una baya">${itemImg("oran-berry")}</button>
+        <button type="button" class="pp-tool-btn is-comb" data-pp="comb" title="Cepillar" aria-label="Cepillar"><img src="${combSrc()}" alt="" draggable="false"></button>
+        <button type="button" class="pp-tool-btn pp-ball-btn" data-pp="ball" title="Sacar una Poké Ball" aria-label="Sacar una Poké Ball">${POKEBALL_IMG}</button>
         <button type="button" class="pp-bag-btn" title="Bolsa" aria-label="Abrir la bolsa">
           ${BAG_SVG}
         </button>
@@ -1421,14 +1390,6 @@
 
     det.innerHTML = `
       <div class="pp-card">
-        <div class="pp-actions">
-          <button type="button" class="sl-btn sl-btn-primary" data-pp="feed" ${fi.left ? "" : "disabled"}>
-            ${BERRY_SVG}<span>Dar de comer</span>
-          </button>
-          <button type="button" class="sl-btn sl-btn-ghost" data-pp="clean" ${cleanWait > 0 ? "disabled" : ""}>
-            ${icon("sparkles")}<span>Cepillar</span>
-          </button>
-        </div>
         <p class="pp-cooldowns">
           ${fi.left ? `Comidas con experiencia: ${fi.left}/${FEED_MAX}` : `Lleno · vuelve a tener hambre en ${fmtDuration(fi.resetIn)}`}
           ${cleanWait > 0 ? ` · Cepillado (${fmtDuration(cleanWait)})` : ""}
@@ -1951,7 +1912,7 @@
     const t = e.target.closest("[data-pp]");
     if (!t) {
       // Clic en el parque (no en un Pokémon/objeto/bolsa): sin selección.
-      if (e.target.closest(".pp-park") && !e.target.closest(".pp-bag-btn") && selectedUid) {
+      if (e.target.closest(".pp-park") && !e.target.closest(".pp-bag-btn, .pp-tool-btn") && selectedUid) {
         selectedUid = null;
         render();
       }
@@ -1980,16 +1941,17 @@
       render();
     } else if (act === "pick") openPicker();
     else if (act === "ball") toggleBall();
+    else if (act === "comb") toggleComb();
+    else if (act === "berries") {
+      if (hand?.kind === "berry" || document.querySelector(".pp-feed-menu")) {
+        cancelHand();
+        closeFeedMenu();
+      } else openFeedMenu(t);
+    }
     else if (act === "release" && mon && !mon.wild && !mon.visitor) release(mon);
     else if (act === "trade" && mon && !mon.wild && !mon.visitor) openTrades(mon.uid);
     else if (act === "trades") openTrades();
     else if (act === "shop") openShop();
-    else if (act === "feed" && mon && !mon.wild) openFeedMenu(mon, t);
-    else if (act === "clean" && mon && !mon.wild) {
-      const wait = (mon.cleanedAt || 0) + CLEAN_COOLDOWN_MS - now();
-      if (wait > 0) showNotification(`${displayName(mon)} ya está cepillado. Vuelve en ${fmtDuration(wait)}.`, "error");
-      else startHand("comb", null, mon.uid);
-    }
     else if (act === "unequip" && mon?.held) {
       addToBag(mon.held);
       showNotification(`Has guardado ${itemName(mon.held)} en la bolsa.`);
@@ -2016,7 +1978,7 @@
 
   document.addEventListener("click", (e) => {
     if (e.target.closest(".pp-bag-btn")) openBag();
-    if (!e.target.closest(".pp-feed-menu") && !e.target.closest('[data-pp="feed"]')) closeFeedMenu();
+    if (!e.target.closest(".pp-feed-menu") && !e.target.closest('[data-pp="berries"]')) closeFeedMenu();
   });
 
   // ------------------------------------------------------------ Dar de comer
@@ -2024,7 +1986,7 @@
     document.querySelector(".pp-feed-menu")?.remove();
   }
 
-  function openFeedMenu(mon, anchor) {
+  function openFeedMenu(anchor) {
     closeFeedMenu();
     const berries = Object.keys(BERRIES).filter((b) => state.bag[b] > 0);
     const menu = document.createElement("div");
@@ -2837,8 +2799,6 @@
   const POKEBALL_IMG = `<img src="assets/pokepark/items/poke-ball.png" alt="" draggable="false">`;
   const BAG_SVG =
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8h12l1 12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/><path d="M5 13h14"/><path d="M11 13v2h2v-2"/></svg>';
-  const BERRY_SVG =
-    '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="14" r="7"/><path d="M12 7c0-2 1-4 4-4"/><path d="M12 7c-1-1.5-3-2-5-1.5"/></svg>';
   const SUN_SVG =
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
   const MOON_SVG =

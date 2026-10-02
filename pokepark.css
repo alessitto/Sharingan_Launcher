@@ -1988,12 +1988,8 @@ body.in-pokepark .main-content {
   cursor: default;
 }
 
-.pp-park.aim-ball:has(.pp-hand.is-dragging),
-.pp-park.aim-ball:has(.pp-hand.is-dragging) * {
-  cursor: grabbing;
-}
-
-.pp-ball-btn {
+/* Herramientas del parque: Poké Ball, cepillo y bayas (junto a la bolsa) */
+.pp-tool-btn {
   position: absolute;
   right: 86px;
   bottom: 22px;
@@ -2013,18 +2009,40 @@ body.in-pokepark .main-content {
   transition: transform 0.2s var(--ease-smooth);
 }
 
-.pp-ball-btn:hover {
+.pp-tool-btn:hover {
   transform: translateY(-3px) scale(1.04);
   background: rgba(var(--ink-900-rgb), 0.75);
 }
 
-.pp-ball-btn img {
+.pp-tool-btn img {
   width: 40px;
   height: 40px;
   image-rendering: pixelated;
 }
 
-.pp-park.aim-ball .pp-ball-btn {
+.pp-tool-btn.is-comb {
+  right: 142px;
+}
+
+.pp-tool-btn.is-comb img {
+  width: 26px;
+  height: 26px;
+  transform: rotate(-25deg) scale(1.15);
+}
+
+.pp-tool-btn.is-berry {
+  right: 198px;
+}
+
+.pp-tool-btn.is-berry img {
+  width: 34px;
+  height: 34px;
+}
+
+/* El que tienes en la mano, marcado */
+.pp-park.aim-ball .pp-ball-btn,
+.pp-park.aim-comb .pp-tool-btn.is-comb,
+.pp-park.aim-berry .pp-tool-btn.is-berry {
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35), 0 0 0 3px var(--red-500);
 }
 

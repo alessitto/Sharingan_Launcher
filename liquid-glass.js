@@ -14,8 +14,13 @@
 //   3. Eso se guarda en un mapa de desplazamiento (R = eje X, G = eje Y,
 //      128 = sin desplazar) del tamaño exacto del elemento, y otro mapa con
 //      el brillo especular.
-//   4. Un filtro SVG (feDisplacementMap + aberración cromática + brillo)
-//      se aplica como backdrop-filter, que Chromium (Electron) sí admite.
+//   4. Un filtro SVG (feDisplacementMap + brillo) se aplica como
+//      backdrop-filter, que Chromium (Electron) sí admite.
+// Rendimiento: el filtro se recalcula cada vez que cambia lo de detrás,
+// así que solo va en superficies pequeñas o fijas (barra, índice, botón de
+// subir) y con una sola pasada (sin aberración cromática, que la triplicaba).
+// Lo que se mueve o va encima de cosas animadas (modales, avisos, menús,
+// el PokéPark) usa el desenfoque normal del CSS, que es mucho más barato.
 // El tamaño del filtro tiene que coincidir con el del elemento, así que se
 // regenera con un ResizeObserver (los mapas se cachean por tamaño).
 (() => {
@@ -30,14 +35,7 @@
   const TARGETS = [
     { sel: ".topnav", blur: 1, bezel: 24, depth: 1.9, sat: 1.7 },
     { sel: ".index-bar", blur: 3, bezel: 20, depth: 1.6, sat: 1.6 },
-    { sel: ".swal2-popup.sl-modal", blur: 22, bezel: 30, depth: 1, sat: 1.8 },
-    { sel: ".notification", blur: 12, bezel: 16, depth: 0.9, sat: 1.7 },
-    { sel: ".update-toast", blur: 16, bezel: 20, depth: 0.9, sat: 1.7 },
-    { sel: ".dropdown-content", blur: 18, bezel: 16, depth: 0.9, sat: 1.7 },
     { sel: ".scroll-top-btn", blur: 2, bezel: 18, depth: 1.6, sat: 1.5 },
-    { sel: ".pp-chip", blur: 2, bezel: 14, depth: 1.4, sat: 1.5 },
-    { sel: ".pp-bag-btn", blur: 2, bezel: 24, depth: 1.6, sat: 1.5 },
-    { sel: ".pp-feed-menu", blur: 18, bezel: 18, depth: 0.9, sat: 1.7 },
   ];
 
   // ------------------------------------------------------------ Óptica
@@ -185,16 +183,8 @@
     f.append(
       el("feGaussianBlur", { in: "SourceGraphic", stdDeviation: cfg.blur, edgeMode: "duplicate", result: "blur" }),
       el("feImage", { href: maps.disp, ...box, result: "map" }),
-      // Aberración cromática: cada canal se dobla un poco distinto.
-      el("feDisplacementMap", { in: "blur", in2: "map", scale: scale * 1.08, xChannelSelector: "R", yChannelSelector: "G", result: "dr" }),
-      el("feColorMatrix", { in: "dr", type: "matrix", values: "1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0", result: "r" }),
-      el("feDisplacementMap", { in: "blur", in2: "map", scale, xChannelSelector: "R", yChannelSelector: "G", result: "dg" }),
-      el("feColorMatrix", { in: "dg", type: "matrix", values: "0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 1 0", result: "g" }),
-      el("feDisplacementMap", { in: "blur", in2: "map", scale: scale * 0.92, xChannelSelector: "R", yChannelSelector: "G", result: "db" }),
-      el("feColorMatrix", { in: "db", type: "matrix", values: "0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 1 0", result: "b" }),
-      el("feComposite", { in: "r", in2: "g", operator: "arithmetic", k1: 0, k2: 1, k3: 1, k4: 0, result: "rg" }),
-      el("feComposite", { in: "rg", in2: "b", operator: "arithmetic", k1: 0, k2: 1, k3: 1, k4: 0, result: "rgb" }),
-      el("feColorMatrix", { in: "rgb", type: "saturate", values: cfg.sat, result: "sat" }),
+      el("feDisplacementMap", { in: "blur", in2: "map", scale, xChannelSelector: "R", yChannelSelector: "G", result: "disp" }),
+      el("feColorMatrix", { in: "disp", type: "saturate", values: cfg.sat, result: "sat" }),
       el("feImage", { href: maps.spec, ...box, result: "spec" }),
       el("feComposite", { in: "spec", in2: "sat", operator: "over" })
     );
@@ -275,14 +265,15 @@
     placeIndicator();
   }
 
-  let scanQueued = false;
+  // Los cambios del DOM llegan a ráfagas (el PokéPark repinta a menudo):
+  // se busca como mucho cada 300 ms.
+  let scanTimer = 0;
   const mo = new MutationObserver(() => {
-    if (scanQueued) return;
-    scanQueued = true;
-    requestAnimationFrame(() => {
-      scanQueued = false;
+    if (scanTimer) return;
+    scanTimer = setTimeout(() => {
+      scanTimer = 0;
       scan();
-    });
+    }, 300);
   });
 
   const navMo = new MutationObserver((records) => {
@@ -327,13 +318,22 @@
   // El cristal interactivo de iOS se ilumina donde está el dedo; aquí, donde
   // está el ratón (lo pinta el CSS con --lg-x / --lg-y).
   const GLOW_SEL = ".sl-btn, button, .topnav-item, .game-card, .pp-ov-row, .pp-slot, .pp-visit, .theme-swatch";
+  // Una vez por frame como mucho (el ratón manda eventos más rápido).
+  let lastPointer = null;
+  let pointerRaf = 0;
   function onPointer(e) {
     if (!active) return;
-    const t = e.target.closest?.(GLOW_SEL);
+    lastPointer = e;
+    if (!pointerRaf) pointerRaf = requestAnimationFrame(paintGlow);
+  }
+  function paintGlow() {
+    pointerRaf = 0;
+    const e = lastPointer;
+    const t = e?.target.closest?.(GLOW_SEL);
     if (!t) return;
     const r = t.getBoundingClientRect();
-    t.style.setProperty("--lg-x", `${e.clientX - r.left}px`);
-    t.style.setProperty("--lg-y", `${e.clientY - r.top}px`);
+    t.style.setProperty("--lg-x", `${Math.round(e.clientX - r.left)}px`);
+    t.style.setProperty("--lg-y", `${Math.round(e.clientY - r.top)}px`);
   }
 
   // ------------------------------------------------------------ Activar / desactivar
@@ -353,6 +353,8 @@
       document.fonts?.ready.then(() => active && placeIndicator());
     } else {
       mo.disconnect();
+      clearTimeout(scanTimer);
+      scanTimer = 0;
       navMo.disconnect();
       document.removeEventListener("pointermove", onPointer);
       window.removeEventListener("resize", placeIndicator);

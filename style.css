@@ -3593,7 +3593,7 @@ body:has(.update-toast.show) .scroll-top-btn {
   border-radius: 26px;
   background: var(--lg-sheet);
   box-shadow: var(--lg-rim), var(--lg-shadow);
-  backdrop-filter: blur(28px) saturate(180%);
+  backdrop-filter: blur(22px) saturate(170%);
 }
 
 :root[data-effect="glass"] .dropdown-content {
@@ -3601,7 +3601,7 @@ body:has(.update-toast.show) .scroll-top-btn {
   border-radius: 18px;
   background: var(--lg-sheet) !important;
   box-shadow: var(--lg-rim), 0 20px 50px rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(30px) saturate(180%);
+  backdrop-filter: blur(22px) saturate(170%);
 }
 
 :root[data-effect="glass"] .dropdown-item:hover {
@@ -3621,7 +3621,7 @@ body:has(.update-toast.show) .scroll-top-btn {
   border-radius: 34px;
   background: var(--lg-sheet) !important;
   box-shadow: var(--lg-rim), 0 30px 90px rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(30px) saturate(180%);
+  backdrop-filter: blur(22px) saturate(170%);
 }
 
 :root[data-effect="glass"] .swal2-popup.sl-modal::before {
@@ -3668,10 +3668,12 @@ body:has(.update-toast.show) .scroll-top-btn {
   box-shadow: var(--lg-rim), 0 14px 40px rgba(0, 0, 0, 0.3);
 }
 
-:root[data-effect="glass"] .pp-chip {
+:root[data-effect="glass"] .pp-chip,
+:root[data-effect="glass"] .pp-tool-btn {
   border: none;
   background: var(--lg-chrome);
   box-shadow: var(--lg-rim), 0 4px 14px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(8px) saturate(160%);
 }
 
 :root[data-effect="glass"] .pp-slot,
@@ -3692,7 +3694,7 @@ body:has(.update-toast.show) .scroll-top-btn {
   border-radius: 22px;
   background: var(--lg-sheet);
   box-shadow: var(--lg-rim), 0 20px 50px rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(30px) saturate(180%);
+  backdrop-filter: blur(22px) saturate(170%);
 }
 
 /* ===============================
@@ -4249,13 +4251,13 @@ body.pad-in-use {
    =====================================================================
    Va encima de cualquier color: letra pixelada, esquinas cuadradas, bordes
    gruesos con sombra dura (como las ventanas de los juegos de 8/16 bits) y
-   unas líneas de escaneo muy suaves por encima. */
+   unas líneas de escaneo muy suaves en el fondo. Todo estático: nada que
+   recalcular al moverse, va igual de fluido que el predeterminado. */
 :root[data-effect="retro"] {
   --retro-font: "Pixelify Sans", "Zen Kaku Gothic New", monospace;
   --retro-title: "Press Start 2P", "Pixelify Sans", monospace;
   --retro-line: rgba(var(--fg-rgb), 0.85);
   --retro-drop: rgba(0, 0, 0, 0.55);
-  --ease-smooth: steps(4, end);
 }
 
 :root[data-effect="retro"][data-tone="light"] {
@@ -4333,7 +4335,6 @@ body.pad-in-use {
 :root[data-effect="retro"] .scroll-top-btn {
   border: 2px solid var(--retro-line) !important;
   box-shadow: 3px 3px 0 var(--retro-drop) !important;
-  transition: none !important;
 }
 
 :root[data-effect="retro"] .sl-btn:active,
@@ -4367,14 +4368,9 @@ body.pad-in-use {
   border: 2px solid var(--retro-line);
 }
 
-/* Líneas de escaneo de pantalla antigua */
-:root[data-effect="retro"] body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 2147483000;
-  pointer-events: none;
-  background: repeating-linear-gradient(180deg, rgba(0, 0, 0, 0.07) 0 1px, transparent 1px 3px);
+/* Líneas de escaneo de pantalla antigua, solo en el fondo */
+:root[data-effect="retro"] .theme-bg {
+  background: repeating-linear-gradient(180deg, rgba(0, 0, 0, 0.08) 0 1px, transparent 1px 3px), var(--ink-950);
 }
 
 /* =====================================================================
@@ -4422,7 +4418,7 @@ body.pad-in-use {
 
 .tp-effects {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -4532,15 +4528,38 @@ body.pad-in-use {
   letter-spacing: -0.02em;
 }
 
-/* Las miniaturas de Predeterminado y Liquid Glass siguen redondeadas en Retro */
+/* Las miniaturas de los demás estilos siguen redondeadas en Retro */
 .theme-picker .tp-fx.tp-fx-default,
-.theme-picker .tp-fx.tp-fx-glass {
+.theme-picker .tp-fx.tp-fx-glass,
+.theme-picker .tp-fx.tp-fx-y2k {
   border-radius: 10px !important;
 }
 
 .theme-picker .tp-fx-default .tp-fx-pill,
-.theme-picker .tp-fx-glass .tp-fx-pill {
+.theme-picker .tp-fx-glass .tp-fx-pill,
+.theme-picker .tp-fx-y2k .tp-fx-pill {
   border-radius: 999px !important;
+}
+
+.tp-fx-y2k {
+  background:
+    radial-gradient(circle at 22% 28%, #fff 0 1px, transparent 2px),
+    radial-gradient(circle at 80% 22%, #fff 0 1.2px, transparent 2.2px),
+    radial-gradient(ellipse 70% 60% at 85% 0%, rgba(var(--red-500-rgb), 0.55), transparent 70%),
+    linear-gradient(rgba(var(--fg-rgb), 0.1) 1px, transparent 1px) 0 0 / 12px 12px,
+    linear-gradient(90deg, rgba(var(--fg-rgb), 0.1) 1px, transparent 1px) 0 0 / 12px 12px,
+    rgb(var(--bg-rgb));
+}
+
+.tp-fx-y2k .tp-fx-pill {
+  background: var(--y2k-gloss-mini), var(--red-500);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 0 10px rgba(var(--red-500-rgb), 0.7);
+}
+
+.theme-picker .tp-fx-y2k .tp-fx-text {
+  font-family: "Michroma", sans-serif !important;
+  font-size: 17px;
+  font-weight: 400;
 }
 
 .tp-soon {
@@ -4589,4 +4608,184 @@ body.pad-in-use {
   .theme-picker .theme-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+
+/* =====================================================================
+   Estilo Y2K
+   =====================================================================
+   El internet del 2000: cromados, botones de gominola con brillo, letra
+   futurista ancha, rejilla de fondo con destellos y halos del acento.
+   Solo degradados y sombras estáticas (nada de desenfoques ni filtros),
+   así que va igual de ligero que el predeterminado. */
+:root {
+  --y2k-gloss-mini: linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.15) 50%, rgba(255, 255, 255, 0) 51%);
+}
+
+:root[data-effect="y2k"] {
+  --y2k-font: "Exo 2", "Zen Kaku Gothic New", system-ui, sans-serif;
+  --y2k-title: "Michroma", "Exo 2", sans-serif;
+  /* Brillo de gominola: mitad de arriba clara y un reflejo abajo */
+  --y2k-gloss: linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0.16) 48%, rgba(255, 255, 255, 0) 52%, rgba(255, 255, 255, 0.14) 100%);
+  --y2k-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0) 38%);
+  --y2k-edge: inset 0 1px 0 rgba(255, 255, 255, 0.75), inset 0 -1px 0 rgba(0, 0, 0, 0.22), 0 0 0 1px rgba(var(--fg-rgb), 0.3);
+  --y2k-glow: 0 0 16px rgba(var(--red-500-rgb), 0.55);
+}
+
+:root[data-effect="y2k"] body,
+:root[data-effect="y2k"] body *,
+:root[data-effect="y2k"] .swal2-popup.sl-modal {
+  font-family: var(--y2k-font) !important;
+}
+
+:root[data-effect="y2k"] h1,
+:root[data-effect="y2k"] h2,
+:root[data-effect="y2k"] h3,
+:root[data-effect="y2k"] .topnav-title,
+:root[data-effect="y2k"] .section-title,
+:root[data-effect="y2k"] .sl-modal .sl-modal-title {
+  font-family: var(--y2k-title) !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.02em;
+}
+
+/* Títulos cromados: banda oscura en medio, como el metal de los logos del 2000 */
+:root[data-effect="y2k"] .section-title {
+  font-size: 28px;
+  color: transparent;
+  background: linear-gradient(180deg, rgb(var(--fg-rgb)) 0%, rgba(var(--fg-rgb), 0.92) 44%, rgba(var(--fg-rgb), 0.5) 52%, rgb(var(--fg-rgb)) 80%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  filter: drop-shadow(0 0 10px rgba(var(--red-500-rgb), 0.55));
+}
+
+:root[data-effect="y2k"] .topnav-title {
+  font-size: 14px;
+}
+
+:root[data-effect="y2k"] .sl-modal .sl-modal-title {
+  font-size: 20px !important;
+}
+
+:root[data-effect="y2k"] .section-eyebrow::before {
+  content: "✦ ";
+  color: var(--red-500);
+}
+
+/* Fondo: rejilla, destellos y halos del acento */
+:root[data-effect="y2k"] .theme-bg {
+  background:
+    radial-gradient(circle at 12% 18%, rgba(255, 255, 255, 0.9) 0 1.5px, transparent 2.5px),
+    radial-gradient(circle at 68% 9%, rgba(255, 255, 255, 0.8) 0 1.2px, transparent 2.2px),
+    radial-gradient(circle at 88% 64%, rgba(255, 255, 255, 0.85) 0 1.5px, transparent 2.5px),
+    radial-gradient(circle at 34% 82%, rgba(255, 255, 255, 0.7) 0 1.2px, transparent 2.2px),
+    radial-gradient(circle at 55% 45%, rgba(255, 255, 255, 0.6) 0 1px, transparent 2px),
+    radial-gradient(ellipse 55% 45% at 92% 0%, rgba(var(--red-500-rgb), 0.32), transparent 70%),
+    radial-gradient(ellipse 50% 40% at 0% 100%, rgba(var(--red-500-rgb), 0.24), transparent 70%),
+    linear-gradient(rgba(var(--fg-rgb), 0.05) 1px, transparent 1px) 0 0 / 44px 44px,
+    linear-gradient(90deg, rgba(var(--fg-rgb), 0.05) 1px, transparent 1px) 0 0 / 44px 44px,
+    var(--ink-950);
+}
+
+/* Barra superior cromada */
+:root[data-effect="y2k"] .topnav {
+  background: var(--y2k-gloss), rgb(var(--ink-900-rgb));
+  border-bottom: 1px solid rgba(var(--fg-rgb), 0.3);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 4px 18px rgba(0, 0, 0, 0.25);
+}
+
+:root[data-effect="y2k"] .topnav-item.active {
+  color: var(--on-accent);
+  background: var(--y2k-gloss), var(--red-500);
+  border-color: transparent;
+  box-shadow: var(--y2k-edge), var(--y2k-glow);
+}
+
+/* Botones de gominola */
+:root[data-effect="y2k"] button.primary,
+:root[data-effect="y2k"] .sl-btn-primary,
+:root[data-effect="y2k"] .scroll-top-btn,
+:root[data-effect="y2k"] .pp-bag-btn,
+:root[data-effect="y2k"] .index-btn.is-active {
+  color: var(--on-accent);
+  border-color: transparent;
+  border-radius: 999px;
+  background: var(--y2k-gloss), var(--red-500);
+  box-shadow: var(--y2k-edge), 0 4px 14px rgba(var(--red-500-rgb), 0.4);
+}
+
+:root[data-effect="y2k"] button.primary:hover,
+:root[data-effect="y2k"] .sl-btn-primary:hover {
+  box-shadow: var(--y2k-edge), var(--y2k-glow), 0 4px 14px rgba(var(--red-500-rgb), 0.45);
+}
+
+:root[data-effect="y2k"] .sl-btn-ghost,
+:root[data-effect="y2k"] .icon-btn,
+:root[data-effect="y2k"] .filter-btn,
+:root[data-effect="y2k"] .pp-tool-btn,
+:root[data-effect="y2k"] .pp-chip {
+  border-color: transparent;
+  border-radius: 999px;
+  background: var(--y2k-gloss), rgba(var(--fg-rgb), 0.1);
+  box-shadow: var(--y2k-edge);
+}
+
+:root[data-effect="y2k"] .sl-btn-ghost:hover,
+:root[data-effect="y2k"] .icon-btn:hover,
+:root[data-effect="y2k"] .filter-btn:hover {
+  background: var(--y2k-gloss), rgba(var(--fg-rgb), 0.16);
+}
+
+/* Tarjetas y ventanas: canto cromado y brillo arriba */
+:root[data-effect="y2k"] .game-card,
+:root[data-effect="y2k"] .empty-state,
+:root[data-effect="y2k"] .pp-team,
+:root[data-effect="y2k"] .pp-detail,
+:root[data-effect="y2k"] .pp-park,
+:root[data-effect="y2k"] .notification,
+:root[data-effect="y2k"] .update-toast,
+:root[data-effect="y2k"] .dropdown-content,
+:root[data-effect="y2k"] .index-bar {
+  border: 1px solid rgba(var(--fg-rgb), 0.28);
+  border-radius: 18px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 6px 18px rgba(0, 0, 0, 0.22);
+}
+
+:root[data-effect="y2k"] .game-card {
+  background: var(--y2k-sheen), var(--ink-900);
+}
+
+:root[data-effect="y2k"] .game-card:hover {
+  border-color: rgba(var(--red-500-rgb), 0.8);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), var(--y2k-glow), 0 10px 24px rgba(0, 0, 0, 0.28);
+}
+
+:root[data-effect="y2k"] .swal2-popup.sl-modal {
+  border: 1px solid rgba(var(--fg-rgb), 0.3);
+  border-radius: 24px;
+  background: var(--y2k-sheen), var(--ink-900) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 24px 60px rgba(0, 0, 0, 0.45), 0 0 40px rgba(var(--red-500-rgb), 0.18);
+}
+
+:root[data-effect="y2k"] input[type="text"],
+:root[data-effect="y2k"] .discover-toolbar select,
+:root[data-effect="y2k"] .swal2-input.sl-input {
+  border-radius: 999px;
+  border: 1px solid rgba(var(--fg-rgb), 0.3);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.25);
+}
+
+:root[data-effect="y2k"] .settings-slider::-webkit-slider-thumb {
+  background: var(--y2k-gloss), var(--red-500);
+  box-shadow: var(--y2k-edge), var(--y2k-glow);
+}
+
+:root[data-effect="y2k"] .tp-effect,
+:root[data-effect="y2k"] .theme-swatch {
+  border-radius: 14px;
+  background: var(--y2k-sheen), var(--ink-800);
+}
+
+:root[data-effect="y2k"] .tp-effect.is-selected,
+:root[data-effect="y2k"] .theme-swatch.is-selected {
+  box-shadow: 0 0 0 1px var(--red-500), var(--y2k-glow);
 }
