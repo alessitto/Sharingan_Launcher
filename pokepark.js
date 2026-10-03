@@ -2967,14 +2967,16 @@
     // La cuenta ha traído otro parque: se recarga desde disco.
     async reload() {
       if (!ready) return;
-      const saved = await window.electronAPI.pokeparkGet().catch(() => null);
-      if (!saved || !Array.isArray(saved.party)) return;
-      state = normalizeState(saved);
+      const saved = await window.electronAPI.pokeparkGet().catch(() => undefined);
+      if (saved === undefined) return;
+      // Sin parque guardado (otra cuenta que aún no tiene): parque nuevo.
+      state = normalizeState(saved && Array.isArray(saved.party) ? saved : null);
       if (state.starter && state.party.length) refreshWild();
       selectedUid = null;
       for (const a of actors.values()) a.el.remove();
       actors.clear();
       render();
+      syncTrades(); // los intercambios también son de la cuenta
     },
     // Depuración: traer un visitante (id de especie opcional) o que se vaya ya.
     _summon(sp) {

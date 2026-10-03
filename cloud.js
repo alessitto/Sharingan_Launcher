@@ -7,9 +7,13 @@
 // se guarda cifrado con el almacén seguro de Windows.
 //
 // Reglas de sincronización:
-//  - Primera vez que este PC entra en una cuenta: si una de las dos partes
-//    está vacía se usa la otra; si las dos tienen datos se combinan (nada
-//    se pierde) y el resultado se sube.
+//  - Los datos del PC son de otra cuenta (settings.cloudDataOwner, que no
+//    se borra al cerrar sesión): se sustituyen por los de la cuenta nueva
+//    (y si es nueva, se empieza de cero). Nunca se mezclan dos usuarios.
+//  - Primera vez que este PC entra en una cuenta (o vuelve a entrar la
+//    misma tras cerrar sesión): si una de las dos partes está vacía se usa
+//    la otra; si las dos tienen datos se combinan (nada se pierde) y el
+//    resultado se sube.
 //  - Después: si hay cambios locales sin subir (p. ej. sin conexión) se
 //    combinan con los de la nube; si no, se baja la versión de la nube si
 //    es más nueva que la última sincronización.
@@ -67,6 +71,7 @@ function createCloud(hooks) {
   const { safeStorage, settings, saveSettings, notify } = hooks;
   let pushTimer = null;
   let pushing = false;
+  let entering = false; // entrando en una cuenta: no se marca ni se sube nada hasta acabar
   const dirty = new Set(settings.cloudDirty || []);
 
   // ------------------------------------------------------------ Sesión
@@ -89,6 +94,13 @@ function createCloud(hooks) {
   }
 
   const user = () => (token() ? settings.cloudUser || null : null);
+
+  // Lo que hay en el PC es de otra cuenta (p. ej. falló la red al cambiar):
+  // no se sube hasta que se sustituya por lo de la cuenta actual.
+  const foreignData = () => {
+    const owner = settings.cloudDataOwner ?? settings.cloudLinkedUser ?? null;
+    return owner != null && owner !== settings.cloudUser?.id;
+  };
 
   function status() {
     return {
@@ -188,13 +200,22 @@ function createCloud(hooks) {
     const me = settings.cloudUser?.id;
     const firstTime = settings.cloudLinkedUser !== me;
     const remoteNewer = remote.updatedAt && (!settings.cloudLastSync || remote.updatedAt > settings.cloudLastSync);
+    const owner = settings.cloudDataOwner ?? settings.cloudLinkedUser ?? null;
+    const foreign = owner != null && owner !== me;
 
     let library = local.library;
     let pokepark = local.pokepark;
     let stats = local.stats;
     const changedLocal = { library: false, pokepark: false };
 
-    if (firstTime || dirty.size) {
+    if (foreign) {
+      // Lo del PC es de otro usuario: se cambia entero por lo de esta cuenta.
+      library = remote.library || { games: [], completedGames: [], sagas: [] };
+      pokepark = remote.pokepark || null;
+      stats = remote.stats || {};
+      changedLocal.library = changedLocal.pokepark = true;
+      hooks.onSwitch?.();
+    } else if (firstTime || dirty.size) {
       if (isEmptyLibrary(remote.library)) library = local.library;
       else if (isEmptyLibrary(local.library)) (library = remote.library), (changedLocal.library = true);
       else (library = mergeLibrary(local.library, remote.library)), (changedLocal.library = true);
@@ -210,10 +231,13 @@ function createCloud(hooks) {
     if (changedLocal.library) hooks.setLibrary(library);
     if (changedLocal.pokepark) hooks.setPokepark(pokepark);
     hooks.setStats(stats);
-    if (changedLocal.library || changedLocal.pokepark) notify("cloud:dataChanged", changedLocal);
+    if (changedLocal.library || changedLocal.pokepark) notify("cloud:dataChanged", { ...changedLocal, switched: foreign });
 
-    // Se sube el resultado si había algo local que la nube no tiene.
-    if (firstTime || dirty.size || !remote.updatedAt) {
+    // Se sube el resultado si había algo local que la nube no tiene (lo de
+    // otro usuario nunca se sube).
+    if (foreign) {
+      settings.cloudLastSync = remote.updatedAt || null;
+    } else if (firstTime || dirty.size || !remote.updatedAt) {
       const res = await api("sync", { body: { library, pokepark, stats } });
       settings.cloudLastSync = res.updatedAt;
     } else if (remote.updatedAt) {
@@ -222,12 +246,13 @@ function createCloud(hooks) {
     dirty.clear();
     settings.cloudDirty = [];
     settings.cloudLinkedUser = me;
+    settings.cloudDataOwner = me;
     saveSettings();
     notify("cloud:status", status());
   }
 
   function markDirty(what) {
-    if (!token()) return;
+    if (!token() || entering || foreignData()) return;
     dirty.add(what);
     settings.cloudDirty = [...dirty];
     clearTimeout(pushTimer);
@@ -236,7 +261,7 @@ function createCloud(hooks) {
 
   async function push() {
     clearTimeout(pushTimer);
-    if (!token() || !dirty.size || pushing) return;
+    if (!token() || !dirty.size || pushing || entering || foreignData()) return;
     pushing = true;
     const what = [...dirty];
     const body = {};
@@ -262,8 +287,14 @@ function createCloud(hooks) {
   // ------------------------------------------------------------ Acciones
   async function enter(route, username, password) {
     const res = await api(route, { body: { username, password }, auth: false });
-    setSession(res.token, res.user);
-    await reconcile();
+    clearTimeout(pushTimer);
+    entering = true;
+    try {
+      setSession(res.token, res.user);
+      await reconcile();
+    } finally {
+      entering = false;
+    }
     return { user: res.user };
   }
 

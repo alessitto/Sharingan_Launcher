@@ -1190,7 +1190,13 @@ function readJson(file) {
   }
 }
 
+// Al cambiar de cuenta, la ventana aún puede guardar lo del usuario anterior
+// durante un momento (hasta que recarga): esos guardados se ignoran.
+let switchedAt = 0;
+const justSwitched = () => Date.now() - switchedAt < 4000;
+
 ipcMain.handle("pokepark:save", (_e, state) => {
+  if (justSwitched()) return true;
   try {
     writeJsonAtomic(pokeparkFilePath, state);
     cloud?.markDirty("pokepark");
@@ -1207,6 +1213,7 @@ ipcMain.handle("pokepark:save", (_e, state) => {
 const statsFilePath = path.join(app.getPath("userData"), "stats.json");
 ipcMain.handle("stats:get", () => readJson(statsFilePath) || {});
 ipcMain.handle("stats:save", (_e, stats) => {
+  if (justSwitched()) return true;
   try {
     writeJsonAtomic(statsFilePath, stats && typeof stats === "object" ? stats : {});
     cloud?.markDirty("stats");
@@ -1237,7 +1244,9 @@ function setupCloud() {
       writeLibraryFile();
     },
     getPokepark: () => readJson(pokeparkFilePath),
-    setPokepark: (state) => state && writeJsonAtomic(pokeparkFilePath, state),
+    // Sin parque (cuenta nueva tras cambiar de usuario): se empieza de cero.
+    setPokepark: (state) => (state ? writeJsonAtomic(pokeparkFilePath, state) : fs.rmSync(pokeparkFilePath, { force: true })),
+    onSwitch: () => (switchedAt = Date.now()),
     getStats: () => readJson(statsFilePath) || {},
     setStats: (stats) => writeJsonAtomic(statsFilePath, stats || {}),
   });
