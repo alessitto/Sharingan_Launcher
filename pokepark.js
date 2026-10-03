@@ -88,9 +88,12 @@
   const fmtMoney = (n) => `${Math.floor(n).toLocaleString("es-ES")} ₽`;
 
   // Visitas: legendarios, singulares y ultraentes llegan al azar, se quedan
-  // 24 h y su amistad se conserva entre visitas. Cuanta más amistad, más
+  // 8 h y su amistad se conserva entre visitas. Cuanta más amistad, más
   // posibilidades de que sea ese el que vuelva.
-  const VISIT_MS = 24 * 60 * 60 * 1000;
+  const VISIT_MS = 8 * 60 * 60 * 1000;
+  // Al expulsarlo se va molesto: su amistad queda un pelín por debajo de la
+  // de un legendario nuevo (peso 0,99 frente a 1), así vuelve algo menos.
+  const EXPEL_FRIENDSHIP = -0.2;
   const VISIT_CHANCE = 1 / 720; // por minuto con la app abierta (~12 h de media)
   const VISIT_LEVEL = 100;
   const VISIT_START_FRIENDSHIP = 0;
@@ -1137,7 +1140,7 @@
       nick: "",
       lv: VISIT_LEVEL,
       exp: expForLevel(VISIT_LEVEL),
-      fr: memo.fr,
+      fr: Math.max(0, memo.fr),
       g: s.g === -1 ? null : Math.random() * 8 < s.g ? "f" : "m",
       // Como en los juegos: al menos tres estadísticas perfectas.
       iv: Array.from({ length: 6 }, (_, i) => (i < 3 ? 31 : Math.floor(Math.random() * 32))).sort(() => Math.random() - 0.5),
@@ -1153,9 +1156,11 @@
     announceVisitor();
   }
 
-  // Si ya pasaron sus 24 h (aunque la app estuviera cerrada), se marcha.
+  // Si ya pasaron sus 8 h (aunque la app estuviera cerrada), se marcha.
   function checkVisitorLeave() {
     const v = state.visitor;
+    // Los que llegaron cuando las visitas duraban 24 h se quedan 8 como mucho.
+    if (v && v.arrived && v.leaves > v.arrived + VISIT_MS) v.leaves = v.arrived + VISIT_MS;
     if (!v || now() < v.leaves) return false;
     (state.legends[v.sp] ||= { fr: 0, visits: 1 }).fr = v.fr;
     state.visitor = null;
@@ -1165,6 +1170,30 @@
     save();
     render();
     return true;
+  }
+
+  // Expulsar al legendario: se marcha ya, molesto, y pierde la amistad.
+  async function expelVisitor() {
+    const v = state.visitor;
+    if (!v) return;
+    const name = speciesName(v.sp);
+    const ok = await confirmDialog({
+      title: `¿Expulsar a ${name}?`,
+      text: `Se marchará del parque molesto: perderá toda la amistad que tenía contigo y será un poco menos probable que vuelva que el resto de legendarios.`,
+      confirmText: "Expulsar",
+      danger: true,
+      iconName: "x",
+    });
+    if (!ok || state.visitor !== v) return;
+    const memo = (state.legends[v.sp] ||= { fr: 0, visits: 1 });
+    memo.fr = EXPEL_FRIENDSHIP;
+    memo.expelled = (memo.expelled || 0) + 1;
+    state.visitor = null;
+    if (selectedUid === v.uid) selectedUid = null;
+    refreshWild();
+    showNotification(`${name} se ha marchado del parque muy molesto.`, "error");
+    save();
+    render();
   }
 
   // Presentación a pantalla: si el PokéPark no está a la vista se avisa con
@@ -1200,7 +1229,7 @@
           <h3 class="pp-evo-title">¡${esc(s.n)} ha venido de visita!</h3>
           <p class="pp-evo-text">${
             memo.visits > 1 ? `Es su visita número ${memo.visits}: parece que le gusta tu parque.` : "Es la primera vez que viene a tu parque."
-          } Se quedará 24 horas con tus Pokémon. Dale de comer y límpialo para ganarte su amistad: cuanta más tenga, más veces volverá.</p>
+          } Se quedará 8 horas con tus Pokémon. Dale bayas y cepíllalo para ganarte su amistad: cuanta más tenga, más veces volverá.</p>
           <button type="button" class="sl-btn sl-btn-primary" data-close>¡Bienvenido!</button>
         </div>`,
       showConfirmButton: false,
@@ -1353,7 +1382,7 @@
            <span><small>De visita · ${legendKind(species(v.sp))}</small><b>${esc(displayName(v))}</b></span>
            <em>${fmtDuration(v.leaves - now())}</em>
          </button>`
-      : `<p class="pp-visit is-empty" title="Legendarios, singulares y ultraentes vienen de visita al azar y se quedan 24 horas.">Ningún legendario de visita</p>`;
+      : `<p class="pp-visit is-empty" title="Legendarios, singulares y ultraentes vienen de visita al azar y se quedan 8 horas.">Ningún legendario de visita</p>`;
     team.innerHTML = `
       <div class="pp-team-head"><span class="section-eyebrow">PokéPark</span><span class="pp-team-count">${state.party.length}/${PARTY_MAX}</span></div>
       <div class="pp-slots">${slots.join("")}</div>
@@ -1483,7 +1512,11 @@
 
         ${
           sel.visitor
-            ? ""
+            ? `<div class="pp-more">
+                 <div class="pp-more-btns">
+                   <button type="button" class="sl-btn sl-btn-danger-ghost sl-btn-sm" data-pp="expel">${icon("x")}Expulsar</button>
+                 </div>
+               </div>`
             : `<div class="pp-more">
                  ${sel.trade ? `<p class="pp-trade-note">${TRADE_SVG}En una oferta de intercambio. Cancélala en «Intercambios» si quieres recuperarlo del todo.</p>` : ""}
                  <div class="pp-more-btns">
@@ -1970,6 +2003,7 @@
       } else openFeedMenu(t);
     }
     else if (act === "release" && mon && !mon.wild && !mon.visitor) release(mon);
+    else if (act === "expel" && mon?.visitor) expelVisitor();
     else if (act === "trade" && mon && !mon.wild && !mon.visitor) openTrades(mon.uid);
     else if (act === "trades") openTrades();
     else if (act === "shop") openShop();

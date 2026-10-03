@@ -1692,8 +1692,10 @@
       // ===============================
       // Notificaciones
       // ===============================
+      // Solo una a la vez: la nueva sustituye a la que hubiera.
       function showNotification(message, type = "success") {
         const container = document.getElementById("notification-container");
+        container.replaceChildren();
         const notification = document.createElement("div");
         notification.className = `notification ${type}`;
         notification.innerText = message;
