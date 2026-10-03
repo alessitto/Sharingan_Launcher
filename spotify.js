@@ -244,7 +244,9 @@ function createSpotify(hooks) {
       canSeek: !p.actions?.disallows?.seeking,
       item: it
         ? {
+            id: it.id || it.uri || it.name,
             name: it.name,
+            artist: it.artists?.[0]?.name || it.show?.name || "",
             artists: (it.artists || []).map((a) => a.name).join(", ") || it.show?.name || "",
             album: it.album?.name || it.show?.name || "",
             durationMs: it.duration_ms || 0,
@@ -265,6 +267,55 @@ function createSpotify(hooks) {
     supportsVolume: d.supports_volume !== false && d.volume_percent !== null,
     restricted: !!d.is_restricted,
   });
+
+  // ------------------------------------------------------------ Letras
+  // Spotify no da letras por su API: salen de LRCLIB (lrclib.net, abierta y
+  // sin clave), con tiempos por línea cuando los tiene.
+  const lyricsCache = new Map();
+
+  function parseLrc(lrc) {
+    const lines = [];
+    for (const raw of String(lrc || "").split(/\r?\n/)) {
+      const stamps = [...raw.matchAll(/\[(\d+):(\d+(?:\.\d+)?)\]/g)];
+      if (!stamps.length) continue;
+      const text = raw.replace(/\[[^\]]*\]/g, "").trim();
+      for (const m of stamps) lines.push({ t: Math.round((Number(m[1]) * 60 + Number(m[2])) * 1000), text });
+    }
+    return lines.sort((a, b) => a.t - b.t);
+  }
+
+  async function lrclib(path, query) {
+    const url = new URL(`https://lrclib.net/api/${path}`);
+    for (const [k, v] of Object.entries(query)) if (v) url.searchParams.set(k, String(v));
+    let res;
+    try {
+      res = await fetch(url, { headers: { "User-Agent": hooks.userAgent || "Sharingan Launcher" }, signal: AbortSignal.timeout(10000) });
+    } catch {
+      throw new SpotifyError("network", 0);
+    }
+    if (res.status === 404) return null;
+    if (!res.ok) throw new SpotifyError(`http_${res.status}`, res.status);
+    return res.json();
+  }
+
+  async function findLyrics({ name, artist, album, durationMs }) {
+    const duration = Math.round((durationMs || 0) / 1000);
+    let hit = await lrclib("get", { track_name: name, artist_name: artist, album_name: album, duration });
+    if (!hit?.syncedLyrics) {
+      // Sin coincidencia exacta: se busca y se queda la de duración más parecida.
+      const list = (await lrclib("search", { track_name: name, artist_name: artist })) || [];
+      const close = list
+        .filter((x) => x.syncedLyrics || x.plainLyrics || x.instrumental)
+        .filter((x) => !duration || Math.abs((x.duration || 0) - duration) <= 4)
+        .sort((a, b) => Number(!a.syncedLyrics) - Number(!b.syncedLyrics) || Math.abs(a.duration - duration) - Math.abs(b.duration - duration));
+      if (close[0] && (!hit || close[0].syncedLyrics)) hit = close[0];
+    }
+    if (!hit) return { kind: "none" };
+    if (hit.instrumental) return { kind: "instrumental" };
+    if (hit.syncedLyrics) return { kind: "synced", lines: parseLrc(hit.syncedLyrics) };
+    if (hit.plainLyrics) return { kind: "plain", lines: hit.plainLyrics.split(/\r?\n/).map((text) => ({ text: text.trim() })) };
+    return { kind: "none" };
+  }
 
   const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, Math.round(Number(n) || 0)));
 
@@ -307,6 +358,19 @@ function createSpotify(hooks) {
       const state = ["off", "context", "track"].includes(mode) ? mode : "off";
       await call("PUT", "/me/player/repeat", { query: { state } });
       return {};
+    },
+    lyrics: async (track = {}) => {
+      const key = String(track.id || `${track.artist}|${track.name}`);
+      if (!track.name) return { lyrics: { kind: "none" } };
+      if (!lyricsCache.has(key)) {
+        const job = findLyrics(track).catch((err) => {
+          lyricsCache.delete(key); // si falla la red, se reintenta otra vez
+          throw err;
+        });
+        lyricsCache.set(key, job);
+        if (lyricsCache.size > 50) lyricsCache.delete(lyricsCache.keys().next().value);
+      }
+      return { lyrics: await lyricsCache.get(key) };
     },
     transfer: async (deviceId, play) => (await call("PUT", "/me/player", { body: { device_ids: [String(deviceId)], play: !!play } }), {}),
   };

@@ -20,7 +20,7 @@
 
   const CHANNELS = [
     { id: "general", name: "General", desc: "De todo un poco" },
-    { id: "juegos", name: "Juegos", desc: "Qué estás jugando, recomendaciones y opiniones" },
+    { id: "juegos", name: "Juegos", desc: "Qué estás jugando" },
     { id: "pokepark", name: "PokéPark", desc: "Tus Pokémon, evoluciones y legendarios" },
     { id: "ayuda", name: "Ayuda", desc: "Dudas rápidas sobre la app" },
   ];
@@ -106,11 +106,7 @@
         <label class="cm-field"><span>Usuario</span><input type="text" class="cm-in-user" maxlength="20" autocomplete="username" spellcheck="false"></label>
         <label class="cm-field"><span>Contraseña</span><input type="password" class="cm-in-pass" maxlength="200" autocomplete="${current === "login" ? "current-password" : "new-password"}"></label>
         ${current === "register" ? `<label class="cm-field"><span>Repite la contraseña</span><input type="password" class="cm-in-pass2" maxlength="200" autocomplete="new-password"></label>` : ""}
-        <p class="cm-auth-hint">${
-          current === "register"
-            ? "De 3 a 20 caracteres (letras, números, . - _) y una contraseña de al menos 8. Tu biblioteca, tu PokéPark y tus logros se guardarán en tu cuenta."
-            : "Al entrar, tu biblioteca y tu PokéPark se sincronizan con tu cuenta."
-        }</p>
+        ${current === "register" ? `<p class="cm-auth-hint">Usuario de 3 a 20 caracteres y contraseña de 8 o más.</p>` : ""}
         <p class="cm-auth-error" hidden></p>
         <button type="button" class="sl-btn sl-btn-primary cm-auth-go">${current === "register" ? "Crear cuenta" : "Entrar"}</button>
       </div>`;
@@ -214,7 +210,7 @@
           } else if (b.dataset.p === "logout") {
             const ok = await confirmDialog({
               title: "¿Cerrar sesión?",
-              text: "Lo que tienes en este PC se queda aquí. Tu cuenta conserva todo para cuando vuelvas a entrar.",
+              text: "Tus datos se quedan en este PC y en tu cuenta.",
               confirmText: "Cerrar sesión",
             });
             if (!ok) return;
@@ -312,7 +308,7 @@
     if (!box) return;
     if (!me) {
       box.innerHTML = `<button type="button" class="sl-btn sl-btn-primary sl-btn-sm" data-login>${icon("user")}Inicia sesión para escribir</button>`;
-      box.querySelector("[data-login]").onclick = () => openAuth("login", "Para escribir en el chat necesitas una cuenta.");
+      box.querySelector("[data-login]").onclick = () => openAuth("login", "Inicia sesión para escribir.");
       return;
     }
     box.innerHTML = `
@@ -376,7 +372,7 @@
     const st = chatState.get(channel);
     const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
     if (!st || !st.list.length) {
-      box.innerHTML = `<p class="cm-empty-chat">${st ? "Todavía no hay mensajes en este canal. ¡Rompe el hielo!" : "Cargando…"}</p>`;
+      box.innerHTML = `<p class="cm-empty-chat">${st ? "Aún no hay mensajes. ¡Rompe el hielo!" : "Cargando…"}</p>`;
       return;
     }
     let prev = null;
@@ -488,9 +484,9 @@
       cancelButtonText: "Cancelar",
       didOpen: (popup) => {
         const help = {
-          bug: "Cuenta qué hacías, qué esperabas que pasara y qué pasó. Se adjunta tu versión de la app.",
-          suggestion: "¿Qué echas en falta? Cuanto más concreta, más fácil de aceptar.",
-          question: "Cualquiera de la comunidad puede responderte.",
+          bug: "Qué hacías y qué pasó.",
+          suggestion: "¿Qué echas en falta?",
+          question: "",
         };
         const setType = (t) => {
           type = t;
@@ -630,7 +626,7 @@
         <div class="cm-ach-summary">
           <div>
             <b>${got} de ${list.length} logros</b>
-            <span>${A.isTester() ? "Modo tester: pulsa Dar o Quitar en cualquier logro." : me ? "Prueba todo lo que hace la app para conseguirlos." : "Tu progreso ya se está contando, pero los logros solo se desbloquean con cuenta."}</span>
+            <span>${A.isTester() ? "Modo tester" : me ? "" : "Inicia sesión para desbloquearlos."}</span>
           </div>
           ${me ? "" : `<button type="button" class="sl-btn sl-btn-primary sl-btn-sm" data-login>${icon("user")}Entrar o crear cuenta</button>`}
           <i class="cm-ach-bar"><em style="width:${(got / list.length) * 100}%"></em></i>

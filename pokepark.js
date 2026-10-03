@@ -182,6 +182,7 @@
       starter: false,
       shinyCharm: false,
       releases: { m: "", n: 0 },
+      closed: false, // parque cerrado: sin salvajes ni visitas (salvo amistad máxima)
     };
   }
 
@@ -687,7 +688,7 @@
 
   // ------------------------------------------------------------ Salvajes
   const wildPool = () => dex.species.filter(isPickable);
-  const wildMax = () => WILD_MAX - (state.visitor ? 1 : 0);
+  const wildMax = () => (state.closed ? 0 : WILD_MAX - (state.visitor ? 1 : 0));
 
   function spawnWild() {
     const pool = wildPool();
@@ -822,9 +823,9 @@
   }
 
   const HAND_HINTS = {
-    ball: "Apunta a un Pokémon salvaje y haz clic para lanzar (puedes lanzar seguidas) · Esc para guardarla",
-    berry: "Haz clic en tus Pokémon para darles la baya (puedes dar varias seguidas) · Esc para guardarla",
-    comb: "Mantén pulsado y frota sobre un Pokémon de tu equipo para cepillarlo · Esc para dejarlo",
+    ball: "Apunta y haz clic para lanzar · Esc para guardarla",
+    berry: "Haz clic en tus Pokémon para darles la baya · Esc para guardarla",
+    comb: "Frota sobre un Pokémon para cepillarlo · Esc para dejarlo",
   };
 
   function startHand(kind, slug = null) {
@@ -854,8 +855,8 @@
   // Botones del parque: sacan el objeto (o lo guardan si ya lo tienes).
   function toggleBall() {
     if (hand?.kind === "ball") return cancelHand();
-    if (!(have("poke-ball") > 0)) return showNotification("No te quedan Poké Balls. Cómpralas en la tienda o búscalas por el parque.", "error");
-    if (state.party.length >= PARTY_MAX) return showNotification(`Tu equipo está lleno (${PARTY_MAX}). Libera a alguno para hacerle hueco.`, "error");
+    if (!(have("poke-ball") > 0)) return showNotification("No te quedan Poké Balls.", "error");
+    if (state.party.length >= PARTY_MAX) return showNotification(`Tu equipo está lleno (${PARTY_MAX}).`, "error");
     startHand("ball", "poke-ball");
   }
 
@@ -962,11 +963,11 @@
   function throwAt(to, cx, cy) {
     if (!(have("poke-ball") > 0)) {
       cancelHand();
-      return showNotification("No te quedan Poké Balls. Cómpralas en la tienda o búscalas por el parque.", "error");
+      return showNotification("No te quedan Poké Balls.", "error");
     }
     if (state.party.length >= PARTY_MAX) {
       cancelHand();
-      return showNotification(`Tu equipo está lleno (${PARTY_MAX}). Libera a alguno para hacerle hueco.`, "error");
+      return showNotification(`Tu equipo está lleno (${PARTY_MAX}).`, "error");
     }
     takeFromBag("poke-ball");
     save();
@@ -1125,8 +1126,28 @@
     return dex.species.filter(isLegendary);
   }
 
+  // Con el parque cerrado solo entran los legendarios con la amistad al máximo.
+  const closedPool = () => legendPool().filter((x) => (state.legends[x.id]?.fr || 0) >= FRIENDSHIP_MAX);
+
+  function toggleClosed() {
+    state.closed = !state.closed;
+    if (state.closed) {
+      const v = state.visitor;
+      if (v && v.fr < FRIENDSHIP_MAX) {
+        v.leaves = 0;
+        checkVisitorLeave();
+      }
+      if (selectedUid && monByUid(selectedUid)?.wild) selectedUid = null;
+    }
+    refreshWild();
+    showNotification(state.closed ? "Parque cerrado: solo están tus Pokémon." : "Parque abierto.");
+    save();
+    render();
+  }
+
   function summonVisitor(sp) {
-    const pool = legendPool();
+    const pool = state.closed ? closedPool() : legendPool();
+    if (!pool.length && !species(sp)) return;
     const s =
       species(sp) && isLegendary(species(sp))
         ? species(sp)
@@ -1179,7 +1200,7 @@
     const name = speciesName(v.sp);
     const ok = await confirmDialog({
       title: `¿Expulsar a ${name}?`,
-      text: `Se marchará del parque molesto: perderá toda la amistad que tenía contigo y será un poco menos probable que vuelva que el resto de legendarios.`,
+      text: `Se irá molesto y perderá toda su amistad contigo.`,
       confirmText: "Expulsar",
       danger: true,
       iconName: "x",
@@ -1228,7 +1249,7 @@
           <span class="pp-legend-badge">${legendKind(s)}</span>
           <h3 class="pp-evo-title">¡${esc(s.n)} ha venido de visita!</h3>
           <p class="pp-evo-text">${
-            memo.visits > 1 ? `Es su visita número ${memo.visits}: parece que le gusta tu parque.` : "Es la primera vez que viene a tu parque."
+            memo.visits > 1 ? `Es su visita número ${memo.visits}.` : "Es la primera vez que viene a tu parque."
           } Se quedará 8 horas con tus Pokémon. Dale bayas y cepíllalo para ganarte su amistad: cuanta más tenga, más veces volverá.</p>
           <button type="button" class="sl-btn sl-btn-primary" data-close>¡Bienvenido!</button>
         </div>`,
@@ -1261,7 +1282,7 @@
     if (tickCount % 2 === 0) syncTrades();
 
     // Visita al azar (solo una a la vez y con algún Pokémon en el parque)
-    if (!state.visitor && Math.random() < VISIT_CHANCE) {
+    if (!state.visitor && Math.random() < VISIT_CHANCE && (!state.closed || closedPool().length)) {
       summonVisitor();
       return;
     }
@@ -1319,7 +1340,8 @@
         <div class="pp-hud">
           <span class="pp-chip pp-clock"></span>
           <span class="pp-hud-right">
-            <button type="button" class="pp-chip pp-hud-btn" data-pp="shop" title="Tienda: compra Poké Balls y objetos, vende lo que no quieras">${SHOP_SVG}<span>Tienda</span></button>
+            <button type="button" class="pp-chip pp-hud-btn pp-gate-btn" data-pp="gate"></button>
+            <button type="button" class="pp-chip pp-hud-btn" data-pp="shop" title="Tienda">${SHOP_SVG}<span>Tienda</span></button>
             <button type="button" class="pp-chip pp-hud-btn" data-pp="trades" title="Intercambios con otros jugadores">${TRADE_SVG}<span>Intercambios</span><em class="pp-trade-badge"></em></button>
             <button type="button" class="pp-chip pp-fs-btn" data-pp="fullscreen" title="Pantalla completa (Esc para salir)">${FS_SVG}<span>Pantalla completa</span></button>
           </span>
@@ -1371,7 +1393,7 @@
                <span class="pp-slot-lv">Nv.${m.lv}</span>
              </button>`
           : state.starter && !unlimited()
-            ? `<span class="pp-slot is-empty is-locked" title="Hueco libre: captura un Pokémon salvaje con una Poké Ball">${POKEBALL_SVG}</span>`
+            ? `<span class="pp-slot is-empty is-locked" title="Hueco libre">${POKEBALL_SVG}</span>`
             : `<button type="button" class="pp-slot is-empty" data-pp="pick" title="Elegir tu Pokémon inicial">${icon("plus")}</button>`
       );
     }
@@ -1382,7 +1404,9 @@
            <span><small>De visita · ${legendKind(species(v.sp))}</small><b>${esc(displayName(v))}</b></span>
            <em>${fmtDuration(v.leaves - now())}</em>
          </button>`
-      : `<p class="pp-visit is-empty" title="Legendarios, singulares y ultraentes vienen de visita al azar y se quedan 8 horas.">Ningún legendario de visita</p>`;
+      : state.closed
+        ? `<p class="pp-visit is-empty" title="Solo entran legendarios con la amistad al máximo">Parque cerrado</p>`
+        : `<p class="pp-visit is-empty" title="Vienen de visita al azar durante 8 horas">Ningún legendario de visita</p>`;
     team.innerHTML = `
       <div class="pp-team-head"><span class="section-eyebrow">PokéPark</span><span class="pp-team-count">${state.party.length}/${PARTY_MAX}</span></div>
       <div class="pp-slots">${slots.join("")}</div>
@@ -1418,7 +1442,7 @@
       det.innerHTML = `
         <div class="pp-welcome">
           <h3>Tu parque está vacío</h3>
-          <p>Elige a tu compañero. Ganará experiencia mientras tengas la app abierta, podrás darle bayas, cepillarlo y verlo evolucionar.</p>
+          <p>Elige a tu compañero.</p>
           <button type="button" class="sl-btn sl-btn-primary" data-pp="pick">${icon("plus")}Elegir Pokémon</button>
         </div>`;
       return;
@@ -1463,7 +1487,7 @@
             ? `<div class="pp-visit-info">
                  <div class="pp-level"><span class="pp-lv">De visita</span><span class="pp-exp-text">Se marcha en ${fmtDuration(sel.leaves - now())}</span></div>
                  <div class="pp-exp pp-visit-bar"><span style="width:${Math.max(0, Math.min(100, ((sel.leaves - now()) / VISIT_MS) * 100))}%"></span></div>
-                 <p class="pp-visit-note">Visita nº ${state.legends[sel.sp]?.visits || 1}. Su amistad se guarda para la próxima vez: cuanta más tenga, más fácil es que vuelva.</p>
+                 <p class="pp-visit-note">Visita nº ${state.legends[sel.sp]?.visits || 1}.</p>
                </div>`
             : ""
         }
@@ -1518,7 +1542,7 @@
                  </div>
                </div>`
             : `<div class="pp-more">
-                 ${sel.trade ? `<p class="pp-trade-note">${TRADE_SVG}En una oferta de intercambio. Cancélala en «Intercambios» si quieres recuperarlo del todo.</p>` : ""}
+                 ${sel.trade ? `<p class="pp-trade-note">${TRADE_SVG}En una oferta de intercambio.</p>` : ""}
                  <div class="pp-more-btns">
                    <button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-pp="trade" ${sel.trade ? "disabled" : ""}>${TRADE_SVG}Intercambiar</button>
                    <button type="button" class="sl-btn sl-btn-danger-ghost sl-btn-sm" data-pp="release" ${sel.trade || (state.party.length <= 1 && !unlimited()) || !releasesLeft() ? "disabled" : ""}
@@ -1534,6 +1558,11 @@
     const badge = root.querySelector(".pp-trade-badge");
     badge.textContent = incoming || "";
     badge.style.display = incoming ? "" : "none";
+    const gate = root.querySelector(".pp-gate-btn");
+    gate.innerHTML = `${state.closed ? LOCK_SVG : UNLOCK_SVG}<span>${state.closed ? "Abrir parque" : "Cerrar parque"}</span>`;
+    gate.title = state.closed ? "Volverán los Pokémon salvajes" : "Sin salvajes ni visitas: solo tus Pokémon";
+    gate.classList.toggle("is-closed", !!state.closed);
+    root.querySelector(".pp-park").classList.toggle("is-closed", !!state.closed);
     const empty = root.querySelector(".pp-empty");
     empty.innerHTML = state.party.length
       ? ""
@@ -2007,6 +2036,7 @@
     else if (act === "trade" && mon && !mon.wild && !mon.visitor) openTrades(mon.uid);
     else if (act === "trades") openTrades();
     else if (act === "shop") openShop();
+    else if (act === "gate") toggleClosed();
     else if (act === "unequip" && mon?.held) {
       addToBag(mon.held);
       showNotification(`Has guardado ${itemName(mon.held)} en la bolsa.`);
@@ -2021,7 +2051,7 @@
       if (g.slug === "shiny-charm") {
         state.shinyCharm = true;
         window.Achievements?.track("shinyCharm");
-        showNotification("¡Has encontrado el Amuleto Iris! Desde ahora es más fácil encontrar Pokémon variocolor.");
+        showNotification("¡Has encontrado el Amuleto Iris!");
       } else {
         addToBag(g.slug);
         showNotification(`Has recogido ${itemName(g.slug)}.`);
@@ -2055,7 +2085,7 @@
              </button>`
            )
            .join("")}`
-      : `<p class="pp-feed-title">No tienes bayas</p><p class="pp-feed-empty">Aparecen por el parque de vez en cuando, y a veces tus Pokémon las encuentran.</p>`;
+      : `<p class="pp-feed-title">No tienes bayas</p>`;
     document.body.appendChild(menu);
     const r = anchor.getBoundingClientRect();
     const mh = menu.offsetHeight;
@@ -2074,7 +2104,7 @@
     // Los testers pueden elegir otro inicial siempre que haya hueco.
     if (unlimited() && state.party.length >= PARTY_MAX) return showNotification(`Tu equipo está lleno (${PARTY_MAX}).`, "error");
     if (state.starter && !unlimited()) {
-      showNotification("Ya elegiste tu inicial. Los demás Pokémon se capturan en el parque.", "error");
+      showNotification("Ya elegiste tu inicial.", "error");
       return;
     }
     const list = STARTERS.map(species).filter(Boolean);
@@ -2125,7 +2155,7 @@
               .map((g) => `<option value="${g}">${g}ª generación</option>`)
               .join("")}</select>
           </div>
-          <p class="pp-pick-note"><span class="pp-pick-count"></span> · Elige uno de los iniciales de cualquier generación. Es el único que se elige: el resto tendrás que capturarlo con Poké Balls entre los Pokémon salvajes que vayan apareciendo por el parque.</p>
+          <p class="pp-pick-note"><span class="pp-pick-count"></span> · El resto se captura en el parque.</p>
           <div class="pp-pick-grid"></div>
         </div>`,
       showConfirmButton: false,
@@ -2161,7 +2191,7 @@
     const left = PARTY_MAX - state.party.length - 1;
     const ok = await confirmDialog({
       title: `¿Elegir a ${s.n}?`,
-      text: `Será tu Pokémon inicial y no se puede cambiar. Los otros ${left} huecos del equipo se llenan capturando Pokémon salvajes.`,
+      text: `Será tu inicial y no se puede cambiar.`,
       confirmText: `Elegir a ${s.n}`,
       iconName: "sparkles",
     });
@@ -2188,7 +2218,7 @@
     save();
     render();
     hop(mon.uid);
-    showNotification(`¡${s.n}${mon.shiny ? " variocolor" : ""} se ha unido a tu parque! Han aparecido Pokémon salvajes: captúralos con Poké Balls.`);
+    showNotification(`¡${s.n}${mon.shiny ? " variocolor" : ""} se ha unido a tu parque!`);
   }
 
   // ------------------------------------------------------------ Bolsa
@@ -2244,10 +2274,10 @@
 
       const list = g[tab];
       const empty = {
-        berries: "No tienes bayas. Aparecen por el parque y tus Pokémon las encuentran de vez en cuando.",
-        use: "No tienes objetos evolutivos. Las piedras y demás aparecen por el parque o las encuentra algún Pokémon.",
+        berries: "No tienes bayas.",
+        use: "No tienes objetos evolutivos.",
         held: "No tienes objetos para equipar.",
-        other: "No tienes Poké Balls. Cómpralas en la tienda o búscalas por el parque.",
+        other: "No tienes Poké Balls.",
       };
       box.innerHTML = list.length
         ? `<div class="pp-bag-list">${list
@@ -2262,9 +2292,9 @@
                     : `<button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-bag="equip" data-slug="${slug}">Equipar</button>`;
               const sub =
                 slug === "poke-ball"
-                  ? "Lánzala a un Pokémon salvaje para capturarlo."
+                  ? "Para capturar Pokémon salvajes."
                   : slug === "shiny-charm"
-                    ? "Triplica la probabilidad de encontrar Pokémon variocolor."
+                    ? "Triplica los variocolores."
                     : tab === "berries"
                   ? BERRIES[slug].desc
                   : tab === "use"
@@ -2279,8 +2309,8 @@
     function heldNote(slug) {
       const trade = dex.species.some((s) => (s.evo || []).some((d) => d.held === slug && kindOf(d) === "trade"));
       const level = dex.species.some((s) => (s.evo || []).some((d) => d.held === slug && kindOf(d) === "level"));
-      if (level) return "Equípaselo: al subir de nivel puede hacerle evolucionar.";
-      if (trade) return "Equípaselo e intercámbialo con otro jugador para que evolucione.";
+      if (level) return "Equipado, evoluciona al subir de nivel.";
+      if (trade) return "Equipado, evoluciona al intercambiarlo.";
       return "Objeto para equipar.";
     }
 
@@ -2418,7 +2448,7 @@
                 </span></div>`
             )
             .join("")}</div>`
-        : `<p class="pp-bag-empty">No tienes nada que vender. Las bayas y los objetos evolutivos se venden por Pokédólares.</p>`;
+        : `<p class="pp-bag-empty">No tienes nada que vender.</p>`;
     }
     await openModal({
       eyebrow: "PokéPark",
@@ -2674,7 +2704,7 @@
       const res = await cloudApi("tradeOffer", to, tradePayload(mon));
       if (!res.ok) return showNotification(res.error, "error");
       mon.trade = res.id;
-      showNotification(`Has ofrecido a ${displayName(mon)} a ${to}. Te avisaremos cuando responda.`);
+      showNotification(`Has ofrecido a ${displayName(mon)} a ${to}.`);
       save();
       render();
     });
@@ -2724,7 +2754,7 @@
       const box = popup.querySelector(".pp-trades");
       if (!box) return;
       if (!trades.user) {
-        box.innerHTML = `<div class="pp-tr-login"><p>Los intercambios son con otros jugadores, así que necesitas iniciar sesión con tu cuenta.</p>
+        box.innerHTML = `<div class="pp-tr-login"><p>Inicia sesión para intercambiar.</p>
           <button type="button" class="sl-btn sl-btn-primary" data-tr="login">Iniciar sesión</button></div>`;
         return;
       }
@@ -2758,7 +2788,7 @@
                   <input type="text" class="pp-tr-to" placeholder="Usuario del otro jugador" maxlength="20" spellcheck="false">
                   <button type="button" class="sl-btn sl-btn-primary sl-btn-sm" data-tr="offer" ${trades.busy ? "disabled" : ""}>${TRADE_SVG}Ofrecer</button>
                 </div>
-                <p class="pp-tr-hint">Si acepta, te dará uno de los suyos a cambio. Su objeto equipado viaja con él, y algunos evolucionan al intercambiarlos.</p>`
+                <p class="pp-tr-hint">Su objeto equipado viaja con él.</p>`
               : `<p class="sl-hint">Todos tus Pokémon están ya en alguna oferta.</p>`
           }
         </section>
@@ -2858,6 +2888,10 @@
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>';
   const TRADE_SVG =
     '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg>';
+  const LOCK_SVG =
+    '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
+  const UNLOCK_SVG =
+    '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.9-1"/></svg>';
   const SHOP_SVG =
     '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9 4.5 4h15L21 9"/><path d="M3 9h18v2a3 3 0 0 1-6 0 3 3 0 0 1-6 0 3 3 0 0 1-6 0Z"/><path d="M5 13v7h14v-7"/><path d="M10 20v-4h4v4"/></svg>';
   const POKEBALL_SVG =

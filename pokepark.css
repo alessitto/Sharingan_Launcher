@@ -2239,3 +2239,13 @@ body.in-pokepark .main-content {
   font-weight: 700;
   opacity: 0.85;
 }
+
+/* Parque cerrado: sin salvajes, así que la Poké Ball sobra */
+.pp-park.is-closed .pp-ball-btn {
+  display: none;
+}
+
+.pp-gate-btn.is-closed {
+  border-color: rgba(var(--red-500-rgb), 0.7);
+  background: rgba(var(--red-500-rgb), 0.3);
+}

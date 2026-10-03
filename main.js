@@ -1251,6 +1251,7 @@ function setupSpotify() {
     settings: appSettings,
     saveSettings,
     shell,
+    userAgent: `Sharingan Launcher/${app.getVersion()} (https://alejandrodev.es/sharingan_launcher/)`,
     isAllowed: () => {
       const u = cloud?.loggedIn() ? appSettings.cloudUser : null;
       return !!u?.admin && !u.tester;

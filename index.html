@@ -77,7 +77,7 @@
               placeholder="Buscar juegos..."
               oninput="onSearchInput()"
             />
-            <button type="button" id="jarvisBtn" class="jarvis-btn" onclick="openJarvis()" title="Jarvis elige juegos para ti según tu biblioteca, tus pasados y tus platinos">
+            <button type="button" id="jarvisBtn" class="jarvis-btn" onclick="openJarvis()" title="Recomendaciones según tu biblioteca">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9Z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9Z"/></svg>
               <span>Recomendación por Jarvis</span>
             </button>
@@ -678,7 +678,7 @@
         if (!status.configured) {
           const go = await confirmDialog({
             title: "Jarvis necesita tu clave de IA",
-            text: "Las recomendaciones las hace Claude con tu propia clave de API. Añádela en Ajustes, en «Inteligencia artificial».",
+            text: "Añade tu clave de API en Ajustes › Inteligencia artificial.",
             confirmText: "Ir a Ajustes",
             iconName: "sparkles",
           });
@@ -698,7 +698,7 @@
         document.getElementById("gamesList").innerHTML = `
           <div class="jarvis-loading">
             <span class="jarvis-orb"></span>
-            <p><b>Jarvis está mirando tu biblioteca</b>Tus platinos y tus pasados pesan más. Puede tardar un poco.</p>
+            <p><b>Jarvis está mirando tu biblioteca</b>Puede tardar un poco.</p>
           </div>`;
 
         try {
@@ -732,8 +732,8 @@
             card.querySelector(".card-cover")?.appendChild(rank);
           });
           document.getElementById("jarvisBarText").textContent = items.length
-            ? `${items.length} juegos elegidos para ti, de más a menos recomendable.`
-            : "No ha encontrado nada nuevo que no tengas ya. Prueba otra tanda.";
+            ? `${items.length} juegos para ti`
+            : "Nada nuevo. Prueba otra tanda.";
           updateGamepadFocus(true);
         } finally {
           jarvisBusy = false;
@@ -838,15 +838,15 @@
             ? `Nada para «${query}»`
             : "No hay juegos con estos filtros";
         const text = failed
-          ? "Revisa tu conexión a internet y vuelve a intentarlo."
+          ? "Revisa tu conexión."
           : query
-            ? "Prueba con otro nombre, en inglés o con menos palabras."
-            : "Cambia el género o el orden para ver más juegos.";
+            ? "Prueba con otro nombre o en inglés."
+            : "";
         grid.innerHTML = `
           <div class="empty-state">
             <span class="empty-icon">${icon(failed ? "alert" : "searchX")}</span>
             <p class="empty-title">${escapeHtml(title)}</p>
-            <p class="empty-text">${escapeHtml(text)}</p>
+            ${text ? `<p class="empty-text">${escapeHtml(text)}</p>` : ""}
             <button class="primary" data-empty-act>${failed ? "Reintentar" : query || filtered ? "Ver todo el catálogo" : "Recargar"}</button>
           </div>`;
         grid.querySelector("[data-empty-act]").onclick = () => {
@@ -954,7 +954,7 @@
             <div class="empty-state">
               <span class="empty-icon">${icon("trophy")}</span>
               <p class="empty-title">Aún no has completado ningún juego</p>
-              <p class="empty-text">Cuando termines uno, márcalo como pasado desde su menú (···) en tu biblioteca.</p>
+              <p class="empty-text">Márcalos desde el menú (···) de cada juego.</p>
               <button class="primary" onclick="showSection('library', document.querySelectorAll('.topnav-item')[1])">
                 Ir a mi biblioteca
               </button>
@@ -1230,8 +1230,8 @@
           setLaunchState(
             "ok",
             viaLauncher(g)
-              ? `Si no aparece en unos segundos, revisa ${CLIENT_NAMES[g.platform]}.`
-              : "Si no aparece en unos segundos, revisa que el ejecutable sea el correcto.",
+              ? `Si no aparece, revisa ${CLIENT_NAMES[g.platform]}.`
+              : "Si no aparece, revisa el ejecutable.",
             "check"
           );
           setTimeout(() => currentLaunch === null && Swal.isVisible() && document.querySelector(".sl-launch") && Swal.close(), 3500);
@@ -1253,7 +1253,7 @@
         const game = [...libraryGamesCache, ...completedGamesCache].find((g) => String(g.id) === String(id));
         const ok = await confirmDialog({
           title: game ? `¿Quitar "${game.name}"?` : "¿Quitar de la biblioteca?",
-          text: "Se borra de Sharingan Launcher (no se desinstala nada). No se puede deshacer.",
+          text: "No se desinstala. No se puede deshacer.",
           confirmText: "Quitar",
           danger: true,
         });
@@ -1594,8 +1594,8 @@
               <p class="empty-title">${showOnlyLinked && libraryGamesCache.length ? "Ningún juego se puede lanzar todavía" : "Tu biblioteca está vacía"}</p>
               <p class="empty-text">${
                 showOnlyLinked && libraryGamesCache.length
-                  ? "Vincula el ejecutable de algún juego o quita el filtro «Jugables»."
-                  : "Importa los juegos que ya tienes instalados o busca en Descubrir y añádelos."
+                  ? "Ningún juego tiene su .exe vinculado."
+                  : "Importa tus juegos o añádelos desde Descubrir."
               }</p>
               <div class="empty-actions">${
                 showOnlyLinked && libraryGamesCache.length
@@ -1733,7 +1733,7 @@
       async function confirmUnlink(id) {
         const ok = await confirmDialog({
           title: "¿Desvincular el ejecutable?",
-          text: "El juego sigue en tu biblioteca; solo se olvida qué .exe lanzar.",
+          text: "El juego sigue en tu biblioteca.",
           confirmText: "Desvincular",
           iconName: "link",
         });
@@ -1775,7 +1775,7 @@
           <div class="sortkey-modal">
             <img src="${coverOf(game)}" alt="${escapeHtml(name)}" class="sortkey-cover">
             <p>${escapeHtml(name)}</p>
-            <span class="sl-hint">Se usa para colocarlo en el orden alfabético (por ejemplo, "Witcher 3" en vez de "The Witcher 3").</span>
+            <span class="sl-hint">Ej.: "Witcher 3" en vez de "The Witcher 3".</span>
           </div>
         `,
           input: "text",
@@ -1867,7 +1867,7 @@
               </li>`
                 )
                 .join("")
-            : `<li class="sg-list-empty">Aún no tienes sagas. Escribe un nombre arriba para crear la primera.</li>`;
+            : `<li class="sg-list-empty">Aún no tienes sagas.</li>`;
           root.querySelector(".sg-side-hint").style.display = sagas.length > 1 ? "" : "none";
         }
 
@@ -1879,7 +1879,7 @@
               <div class="sg-blank">
                 <span class="sg-blank-icon">${icon("layers")}</span>
                 <h3>Agrupa tus juegos por saga</h3>
-                <p>Crea una saga (por ejemplo, <em>Dark Souls</em>) y añádele sus juegos. Se ordenan solos por fecha de lanzamiento y en la biblioteca aparecen juntos, siempre en ese orden.</p>
+                <p>Se ordenan solos por fecha de lanzamiento.</p>
               </div>`;
             return;
           }
@@ -1899,8 +1899,8 @@
                 ${icon("pencil", "sg-name-icon")}
               </div>
               <div class="sg-head-actions">
-                ${confirmingDelete ? "" : `<button type="button" class="sl-btn sl-btn-ghost sl-btn-sm ${aiThinking ? "is-loading" : ""}" data-act="ai-sort" title="Claude propone el orden cronológico de la historia; tú decides si aplicarlo" ${aiThinking ? "disabled" : ""}>${icon("sparkles")}<span>${aiThinking ? "Pensando…" : "Orden con IA"}</span></button>`}
-                ${confirmingDelete ? "" : `<button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-act="sort" title="Vuelve a colocar los juegos por fecha de lanzamiento">${icon("calendar")}<span>Ordenar por lanzamiento</span></button>`}
+                ${confirmingDelete ? "" : `<button type="button" class="sl-btn sl-btn-ghost sl-btn-sm ${aiThinking ? "is-loading" : ""}" data-act="ai-sort" title="Ordenar por historia con IA" ${aiThinking ? "disabled" : ""}>${icon("sparkles")}<span>${aiThinking ? "Pensando…" : "Orden con IA"}</span></button>`}
+                ${confirmingDelete ? "" : `<button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-act="sort" title="Ordenar por fecha de lanzamiento">${icon("calendar")}<span>Ordenar por lanzamiento</span></button>`}
                 ${deleteHtml}
               </div>
             </div>
@@ -1975,7 +1975,7 @@
                 </li>`;
                 })
                 .join("")
-            : `<li class="sg-games-empty">${icon("plus")}<span>Esta saga está vacía. Busca abajo sus juegos y pulsa en ellos para añadirlos; se colocan solos en orden de lanzamiento.</span></li>`;
+            : `<li class="sg-games-empty">${icon("plus")}<span>Saga vacía. Añade sus juegos desde abajo.</span></li>`;
         }
 
         function renderResults() {
@@ -2004,7 +2004,7 @@
           if (!list.length) {
             box.innerHTML = q
               ? `<p class="sg-results-empty">Ningún juego de tu biblioteca coincide con "${esc(query)}".</p>`
-              : `<p class="sg-results-empty">Escribe para buscar entre los juegos de tu biblioteca.</p>`;
+              : "";
             return;
           }
 
@@ -2196,7 +2196,7 @@
                 window.Achievements?.track("aiSagas");
                 renderList();
                 renderGames();
-                showNotification(`"${s.name}" ordenada en orden cronológico. Puedes seguir moviéndolos a mano.`);
+                showNotification(`"${s.name}" ordenada en orden cronológico.`);
               });
             } else if (act === "sort") {
               btn.classList.add("is-loading");
@@ -2449,7 +2449,7 @@
           available: {
             icon: "download",
             title: "Nueva versión disponible",
-            text: `La ${v} ya está publicada. ¿Quieres actualizar ahora? La app se reiniciará sola.`,
+            text: `La ${v} ya está disponible. La app se reiniciará.`,
             actions: `
               <button type="button" class="sl-btn sl-btn-ghost" data-act="later">Más tarde</button>
               <button type="button" class="sl-btn sl-btn-primary" data-act="install">Actualizar</button>`,
@@ -2462,12 +2462,12 @@
           installing: {
             icon: "sparkles",
             title: "Instalando actualización",
-            text: "La app se cerrará y volverá a abrirse ya actualizada.",
+            text: "La app se reiniciará.",
           },
           error: {
             icon: "alert",
             title: "No se pudo actualizar",
-            text: "Revisa la conexión e inténtalo de nuevo.",
+            text: "Revisa tu conexión.",
             actions: `
               <button type="button" class="sl-btn sl-btn-ghost" data-act="later">Cerrar</button>
               <button type="button" class="sl-btn sl-btn-primary" data-act="install">Reintentar</button>`,
@@ -2552,7 +2552,7 @@
         if (!root || !root.isConnected) return;
 
         if (!releases.length) {
-          root.innerHTML = `<p class="sl-hint cl-empty">No se ha podido cargar el historial (necesita conexión a internet).</p>`;
+          root.innerHTML = `<p class="sl-hint cl-empty">No se ha podido cargar el historial.</p>`;
           return;
         }
 
@@ -2782,7 +2782,7 @@
               <div class="settings-section">
                 <span class="section-eyebrow">Inteligencia artificial</span>
                 <div class="settings-ai" id="settingsAi">
-                  <p class="settings-update-text">Jarvis (recomendaciones en Descubrir) y el orden cronológico de las sagas usan Claude con tu propia clave de API. Se guarda cifrada en este PC.</p>
+                  <p class="settings-update-text">Para Jarvis y el orden de las sagas. Se guarda cifrada.</p>
                   <div class="settings-ai-row" id="settingsAiRow"></div>
                   <p class="settings-ai-msg" id="settingsAiMsg"></p>
                 </div>
@@ -2796,14 +2796,13 @@
                   <div class="settings-data-row">
                     <div>
                       <p class="settings-data-title">Copia de partidas</p>
-                      <p class="settings-update-text">Busca dónde guarda cada juego sus partidas y las copia a la carpeta que elijas.</p>
                     </div>
                     <button type="button" id="settingsBackupBtn" class="sl-btn sl-btn-ghost">${icon("save")}Hacer copia</button>
                   </div>
                   <div class="settings-data-row">
                     <div>
                       <p class="settings-data-title">Borrar todos los datos</p>
-                      <p class="settings-update-text">Juegos, pasados, platinos y sagas. Los ajustes se mantienen.</p>
+                      <p class="settings-update-text">Biblioteca, pasados y sagas.</p>
                     </div>
                     <button type="button" id="settingsWipeBtn" class="sl-btn sl-btn-danger-ghost">${icon("trash")}Borrar todo</button>
                   </div>
@@ -2845,12 +2844,12 @@
               updateDismissedVersion = null;
               const res = (await window.electronAPI.checkForUpdates().catch(() => null)) || { status: "error" };
               const messages = {
-                available: `Hay una versión nueva (v${res.version}). Tienes el aviso abajo a la derecha para instalarla.`,
+                available: `Versión nueva disponible (v${res.version}).`,
                 downloading: "Ya se está descargando la actualización.",
                 installing: "Instalando la actualización, la app se reiniciará.",
                 latest: `Ya tienes la última versión (v${res.version}).`,
                 dev: "Las actualizaciones solo funcionan en la app instalada.",
-                error: "No se pudo comprobar. Revisa la conexión e inténtalo de nuevo.",
+                error: "No se pudo comprobar. Revisa tu conexión.",
               };
               updateText.textContent = messages[res.status] || messages.error;
               updateBtn.disabled = false;
@@ -2871,7 +2870,7 @@
       async function wipeAllData() {
         const ok = await confirmDialog({
           title: "¿Borrar todos los datos?",
-          text: "Se borrarán tu biblioteca, los juegos pasados, los platinos y todas las sagas. Si tienes la sesión iniciada, también se borran de tu cuenta. No se puede deshacer.",
+          text: "Se borra todo, también de tu cuenta. No se puede deshacer.",
           confirmText: "Borrar todo",
           danger: true,
         });
@@ -2914,7 +2913,7 @@
       async function openBackupModal() {
         loadingModal(
           "Buscando partidas guardadas",
-          "La primera vez descarga la base de datos de rutas de guardado (unos 17 MB)."
+          "La primera vez tarda un poco más."
         );
         let scan;
         try {
@@ -2942,7 +2941,7 @@
           await openModal({
             width: 440,
             html: `<div class="sl-confirm"><span class="sl-confirm-icon">${icon("save")}</span>
-              <h3 class="sl-confirm-title">No tienes juegos</h3><p class="sl-confirm-text">Añade o importa juegos a tu biblioteca para poder hacer copia de sus partidas.</p></div>`,
+              <h3 class="sl-confirm-title">No tienes juegos</h3><p class="sl-confirm-text">Añade juegos a tu biblioteca primero.</p></div>`,
             confirmButtonText: "Entendido",
             customClass: { popup: "sl-modal-sm" },
           });
@@ -2971,7 +2970,7 @@
                       <button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-bk="none">Deseleccionar todo</button>
                     </div>
                     <div class="bk-list">${found.map((g) => row(g, true)).join("")}</div>`
-                  : `<p class="sl-hint">No se han encontrado partidas guardadas de ninguno de tus juegos en este equipo.</p>`
+                  : `<p class="sl-hint">No se han encontrado partidas.</p>`
               }
               ${
                 missing.length
@@ -3072,7 +3071,7 @@
               }
               ${
                 missing.length
-                  ? `<p class="sl-hint">Además, ${missing.length} ${missing.length === 1 ? "juego no tenía" : "juegos no tenían"} partidas localizadas en este equipo.</p>`
+                  ? `<p class="sl-hint">${missing.length} sin partidas en este equipo.</p>`
                   : ""
               }
             </div>`,
@@ -3095,13 +3094,13 @@
         steam: {
           label: "Steam",
           key: "steamRoot",
-          pickTitle: "Carpeta de Steam o de una biblioteca de Steam (p. ej. D:\\SteamLibrary)",
+          pickTitle: "Carpeta de Steam o de una biblioteca de Steam",
           notFound: "No se ha encontrado Steam en este equipo.",
         },
         epic: {
           label: "Epic Games",
           key: "epicManifestsDir",
-          pickTitle: "Carpeta Manifests de Epic (C:\\ProgramData\\Epic\\EpicGamesLauncher\\Data\\Manifests)",
+          pickTitle: "Carpeta Manifests de Epic",
           notFound: "No se ha encontrado Epic Games Launcher.",
         },
         gog: {
@@ -3113,7 +3112,7 @@
         none: {
           label: "Sin launcher",
           key: "noneRoot",
-          pickTitle: "Carpeta con tus juegos sin launcher (una subcarpeta por juego)",
+          pickTitle: "Carpeta de juegos sin launcher",
           notFound: "",
         },
       };
@@ -3236,7 +3235,7 @@
           return `
             <div class="imp-nolaunch">
               <div class="imp-section-title">${icon("alert")}Falta el ejecutable de ${list.length === 1 ? "1 juego" : `${list.length} juegos`}</div>
-              <p class="sl-hint">Ya están en tu biblioteca, pero no se ha encontrado cómo lanzarlos. Elige su .exe ahora o más tarde desde su card.</p>
+              <p class="sl-hint">No se ha encontrado su .exe. Elígelo ahora o más tarde.</p>
               ${list
                 .map(
                   (g) => `
@@ -3273,7 +3272,7 @@
               ${icon("folderPlus")}
               <span>
                 <b>Añadir una carpeta de juegos sin launcher</b>
-                <small>Juegos que no son de Steam, Epic ni GOG, con una subcarpeta por juego.</small>
+                <small>Una subcarpeta por juego.</small>
               </span>
             </button>`;
         }

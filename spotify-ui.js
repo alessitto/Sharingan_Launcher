@@ -1,9 +1,9 @@
 // =====================================================================
-// Spotify: botón en la barra de arriba + panel del reproductor
+// Spotify: botón en la barra de arriba + reproductor a pantalla completa
 // =====================================================================
 // Solo existe para los admins que no son testers: para el resto el botón
 // sigue oculto y no se hace ninguna petición. Todo pasa por main.js
-// (spotify.js), que es quien habla con Spotify.
+// (spotify.js), que es quien habla con Spotify y con LRCLIB (letras).
 //
 // Usa de index.html: escapeHtml y showNotification.
 (() => {
@@ -16,6 +16,7 @@
   const POLL_CLOSED_MS = 5000;
   const POLL_HIDDEN_MS = 20000;
   const POLL_LIMITED_MS = 15000;
+  const LYRICS_LEAD_MS = 250; // la línea se enciende un pelín antes de cantarse
 
   // ------------------------------------------------------------ Iconos
   const SPOTIFY_LOGO =
@@ -41,6 +42,9 @@
     refresh: '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
     music: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
     check: '<path d="M20 6 9 17l-5-5"/>',
+    close: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+    expand: '<path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="m21 3-7 7"/><path d="m3 21 7-7"/>',
+    shrink: '<path d="m14 10 7-7"/><path d="M20 10h-6V4"/><path d="m3 21 7-7"/><path d="M4 14h6v6"/>',
   };
   const ic = (name, cls = "") => `<svg class="sp-i ${cls}" viewBox="0 0 24 24" aria-hidden="true">${PATHS[name] || ""}</svg>`;
   const deviceIcon = (type) =>
@@ -62,19 +66,40 @@
   let volumeHoldUntil = 0; // tras mover el volumen, no se pisa con lo que diga Spotify
   let volumeTimer = null;
   let lastVolume = 50;
-  let mode = ""; // qué esqueleto tiene pintado el panel
+  let mode = ""; // qué esqueleto tiene pintado el reproductor
   let btnKey = "";
   let errorTimer = null;
+  let lastCover = null;
+  // Letras
+  let lyricsKey = null; // canción de la que son las letras pintadas
+  let lyrics = null; // null = cargando
+  let lyricIdx = -2;
+  let manualScrollUntil = 0;
+  let fsExitAt = 0;
 
   const btn = document.getElementById("spotifyBtn");
-  const panel = document.createElement("div");
-  // Es un .dropdown-content para heredar el marco de cada estilo, pero se
-  // abre con su propia clase: index.html quita .show a todos los
-  // .dropdown-content con cualquier clic.
-  panel.className = "dropdown-content sp-panel";
-  panel.setAttribute("role", "dialog");
-  panel.setAttribute("aria-label", "Spotify");
-  document.body.appendChild(panel);
+  const view = document.createElement("div");
+  view.className = "sp-full";
+  view.setAttribute("role", "dialog");
+  view.setAttribute("aria-modal", "true");
+  view.setAttribute("aria-label", "Spotify");
+  view.tabIndex = -1;
+  view.innerHTML = `
+    <div class="sp-full-bg" aria-hidden="true"></div>
+    <div class="sp-full-shade" aria-hidden="true"></div>
+    <header class="sp-full-top">
+      <span class="sp-brand">${SPOTIFY_LOGO}<span>Spotify</span></span>
+      <div class="sp-full-actions">
+        <button type="button" class="sp-link sp-open" data-act="open" hidden>${ic("external")}Abrir en Spotify</button>
+        <button type="button" class="sp-icon-btn" data-act="fullscreen" title="Pantalla completa (F)">${ic("expand")}</button>
+        <button type="button" class="sp-icon-btn" data-act="close" title="Cerrar (Esc)">${ic("close")}</button>
+      </div>
+    </header>
+    <div class="sp-full-body"></div>`;
+  document.body.appendChild(view);
+  const body = view.querySelector(".sp-full-body");
+  const bg = view.querySelector(".sp-full-bg");
+  const q = (s) => view.querySelector(s);
 
   // ------------------------------------------------------------ Utilidades
   const fmt = (ms) => {
@@ -105,15 +130,13 @@
       render();
     }
     if (res.code === "rate_limited") limitedUntil = Date.now() + POLL_LIMITED_MS;
-    if (open) {
-      const el = panel.querySelector(".sp-error");
-      if (el) {
-        el.textContent = res.error;
-        el.hidden = false;
-        clearTimeout(errorTimer);
-        errorTimer = setTimeout(() => (el.hidden = true), 5000);
-        return;
-      }
+    const el = open && q(".sp-error");
+    if (el) {
+      el.textContent = res.error;
+      el.hidden = false;
+      clearTimeout(errorTimer);
+      errorTimer = setTimeout(() => (el.hidden = true), 5000);
+      return;
     }
     showNotification(res.error, "error");
   }
@@ -184,19 +207,10 @@
       : SPOTIFY_LOGO;
   }
 
-  // ------------------------------------------------------------ Panel
-  const head = (extra = "") => `
-    <header class="sp-head">
-      <span class="sp-brand">${SPOTIFY_LOGO}<span>Spotify</span></span>
-      ${extra}
-    </header>`;
-  const foot = () => `
-    <p class="sp-error" role="alert" hidden></p>
-    <footer class="sp-foot"><button type="button" class="sp-link" data-act="disconnect">Desconectar Spotify</button></footer>`;
-
+  // ------------------------------------------------------------ Reproductor
   function devicesList() {
-    if (!devices) return `<p class="sp-muted">Buscando dispositivos…</p>`;
-    if (!devices.length) return `<p class="sp-muted">No hay ningún dispositivo con Spotify abierto. Ábrelo en el PC o en el móvil y pulsa actualizar.</p>`;
+    if (!devices) return `<p class="sp-muted sp-dev-msg">Buscando dispositivos…</p>`;
+    if (!devices.length) return `<p class="sp-muted sp-dev-msg">Abre Spotify en algún dispositivo.</p>`;
     return devices
       .map(
         (d) => `
@@ -207,92 +221,96 @@
       .join("");
   }
 
+  const errorLine = `<p class="sp-error" role="alert" hidden></p>`;
+
   function skeleton(next) {
     mode = next;
+    view.dataset.mode = next;
+    lastCover = null;
+    if (next !== "player") {
+      bg.style.backgroundImage = "";
+      q(".sp-open").hidden = true;
+    }
     if (next === "off") {
-      panel.innerHTML = `${head()}
-        <div class="sp-empty">
-          <p class="sp-empty-title">Tu música, sin salir del launcher</p>
-          <p class="sp-muted">Conecta tu cuenta de Spotify para ver qué suena y controlarlo desde aquí.</p>
-          <button type="button" class="sl-btn sl-btn-primary sp-connect" data-act="connect">${SPOTIFY_LOGO}Conectar con Spotify</button>
-        </div>
-        <p class="sp-error" role="alert" hidden></p>`;
+      body.innerHTML = `
+        <div class="sp-center">
+          <span class="sp-center-logo">${SPOTIFY_LOGO}</span>
+          <p class="sp-center-title">Conecta tu Spotify</p>
+          <button type="button" class="sl-btn sl-btn-primary sp-connect" data-act="connect">${SPOTIFY_LOGO}Conectar</button>
+          ${errorLine}
+        </div>`;
     } else if (next === "connecting") {
-      panel.innerHTML = `${head()}
-        <div class="sp-empty">
+      body.innerHTML = `
+        <div class="sp-center">
           <span class="sp-wait" aria-hidden="true"><i></i><i></i><i></i></span>
-          <p class="sp-empty-title">Esperando a Spotify…</p>
-          <p class="sp-muted">Autoriza el acceso en el navegador que se ha abierto y vuelve aquí.</p>
+          <p class="sp-center-title">Autoriza en el navegador</p>
           <button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-act="cancel">Cancelar</button>
         </div>`;
     } else if (next === "idle") {
-      panel.innerHTML = `${head(`<button type="button" class="sp-icon-btn" data-act="refresh" title="Actualizar">${ic("refresh")}</button>`)}
-        <div class="sp-idle">
-          <p class="sp-empty-title">No suena nada ahora mismo</p>
-          <p class="sp-muted">Elige dónde quieres escuchar:</p>
+      body.innerHTML = `
+        <div class="sp-center sp-idle">
+          <p class="sp-center-title">No suena nada</p>
+          <div class="sp-idle-head"><span class="sp-muted">Elige dónde escuchar</span><button type="button" class="sp-icon-btn" data-act="refresh" title="Actualizar">${ic("refresh")}</button></div>
           <div class="sp-devices"></div>
-        </div>
-        ${foot()}`;
+          ${errorLine}
+          <button type="button" class="sp-link" data-act="disconnect">Desconectar Spotify</button>
+        </div>`;
     } else {
-      panel.innerHTML = `${head(`<button type="button" class="sp-link sp-open" data-act="open">${ic("external")}Abrir en Spotify</button>`)}
-        <div class="sp-now">
+      body.innerHTML = `
+        <section class="sp-player">
           <div class="sp-cover"></div>
           <div class="sp-meta">
             <p class="sp-title"></p>
             <p class="sp-artist"></p>
-            <p class="sp-album"></p>
           </div>
-        </div>
-        <div class="sp-seek">
-          <input type="range" class="sp-range sp-progress" min="0" max="1" step="1000" value="0" aria-label="Posición">
-          <div class="sp-times"><span class="sp-pos">0:00</span><span class="sp-dur">0:00</span></div>
-        </div>
-        <div class="sp-controls">
-          <button type="button" class="sp-ctl sp-toggle" data-act="shuffle" title="Aleatorio">${ic("shuffle")}</button>
-          <button type="button" class="sp-ctl" data-act="previous" title="Anterior">${ic("previous")}</button>
-          <button type="button" class="sp-play" data-act="toggle"></button>
-          <button type="button" class="sp-ctl" data-act="next" title="Siguiente">${ic("next")}</button>
-          <button type="button" class="sp-ctl sp-toggle sp-repeat" data-act="repeat">${ic("repeat")}<span class="sp-one">1</span></button>
-        </div>
-        <div class="sp-volume">
-          <button type="button" class="sp-ctl sp-mute" data-act="mute"></button>
-          <input type="range" class="sp-range sp-vol" min="0" max="100" step="1" value="50" aria-label="Volumen">
-          <span class="sp-vol-val">50</span>
-        </div>
-        <div class="sp-device">
-          <button type="button" class="sp-device-btn" data-act="devices" aria-expanded="false">
-            <span class="sp-device-ic"></span>
-            <span class="sp-device-text"><small>Sonando en</small><b></b></span>
-            ${ic("chevron", "sp-chev")}
-          </button>
-          <div class="sp-devices" hidden></div>
-        </div>
-        ${foot()}`;
-      lastCover = null;
+          <div class="sp-seek">
+            <input type="range" class="sp-range sp-progress" min="0" max="1" step="1000" value="0" aria-label="Posición">
+            <div class="sp-times"><span class="sp-pos">0:00</span><span class="sp-dur">0:00</span></div>
+          </div>
+          <div class="sp-controls">
+            <button type="button" class="sp-ctl sp-toggle" data-act="shuffle" title="Aleatorio">${ic("shuffle")}</button>
+            <button type="button" class="sp-ctl" data-act="previous" title="Anterior">${ic("previous")}</button>
+            <button type="button" class="sp-play" data-act="toggle"></button>
+            <button type="button" class="sp-ctl" data-act="next" title="Siguiente">${ic("next")}</button>
+            <button type="button" class="sp-ctl sp-toggle sp-repeat" data-act="repeat">${ic("repeat")}<span class="sp-one">1</span></button>
+          </div>
+          <div class="sp-bottom">
+            <div class="sp-volume">
+              <button type="button" class="sp-ctl sp-mute" data-act="mute"></button>
+              <input type="range" class="sp-range sp-vol" min="0" max="100" step="1" value="50" aria-label="Volumen">
+            </div>
+            <div class="sp-device">
+              <button type="button" class="sp-device-btn" data-act="devices" aria-expanded="false" title="Elegir dispositivo">
+                <span class="sp-device-ic"></span><b></b>${ic("chevron", "sp-chev")}
+              </button>
+              <div class="dropdown-content sp-dev-pop"></div>
+            </div>
+          </div>
+          ${errorLine}
+        </section>
+        <section class="sp-lyrics" aria-label="Letra"></section>`;
     }
   }
 
-  let lastCover = null;
   function fillPlayer() {
     const it = state.item;
-    const q = (s) => panel.querySelector(s);
     if (it) {
       const coverKey = it.cover || "none";
       if (coverKey !== lastCover) {
         lastCover = coverKey;
         q(".sp-cover").innerHTML = it.cover ? `<img src="${esc(it.cover)}" alt="">` : `<span class="is-empty">${ic("music")}</span>`;
+        bg.style.backgroundImage = it.cover ? `url("${it.cover.replace(/"/g, "%22")}")` : "";
       }
       q(".sp-title").textContent = it.name;
       q(".sp-title").title = it.name;
-      q(".sp-artist").textContent = it.artists;
-      q(".sp-album").textContent = it.album;
+      q(".sp-artist").textContent = [it.artists, it.album].filter(Boolean).join(" · ");
       q(".sp-open").hidden = !it.url;
     } else {
       q(".sp-cover").innerHTML = `<span class="is-empty">${ic("music")}</span>`;
       lastCover = null;
-      q(".sp-title").textContent = "Contenido sin datos";
+      bg.style.backgroundImage = "";
+      q(".sp-title").textContent = "Sin datos";
       q(".sp-artist").textContent = "";
-      q(".sp-album").textContent = "";
       q(".sp-open").hidden = true;
     }
 
@@ -313,7 +331,7 @@
     const repeat = q('[data-act="repeat"]');
     repeat.classList.toggle("is-on", state.repeat !== "off");
     repeat.classList.toggle("is-track", state.repeat === "track");
-    repeat.title = { off: "Repetir: no", context: "Repetir: todo", track: "Repetir: esta canción" }[state.repeat];
+    repeat.title = { off: "Repetir", context: "Repetir: todo", track: "Repetir: esta canción" }[state.repeat];
     repeat.setAttribute("aria-pressed", String(state.repeat !== "off"));
 
     const dev = state.device;
@@ -329,30 +347,34 @@
     paintVolume(Number(vol.value), canVol);
 
     q(".sp-device-ic").innerHTML = deviceIcon(dev?.type);
-    q(".sp-device-text b").textContent = dev?.name || "Ningún dispositivo";
-    const list = q(".sp-devices");
-    list.hidden = !devicesOpen;
+    q(".sp-device-btn b").textContent = dev?.name || "Ningún dispositivo";
+    const pop = q(".sp-dev-pop");
+    pop.classList.toggle("is-shown", devicesOpen);
     q(".sp-device-btn").setAttribute("aria-expanded", String(devicesOpen));
     q(".sp-device").classList.toggle("is-open", devicesOpen);
-    if (devicesOpen) list.innerHTML = devicesList();
+    if (devicesOpen) pop.innerHTML = devicesList();
+
+    loadLyrics();
   }
 
   function paintVolume(v, canVol = true) {
-    const mute = panel.querySelector(".sp-mute");
+    const mute = q(".sp-mute");
     if (!mute) return;
     mute.innerHTML = ic(v === 0 ? "mute" : v < 50 ? "volumeLow" : "volume");
-    mute.title = v === 0 ? "Activar sonido" : "Silenciar";
-    panel.querySelector(".sp-vol-val").textContent = canVol ? String(v) : "—";
+    mute.title = !canVol ? "Este dispositivo no deja cambiar el volumen" : v === 0 ? "Activar sonido" : `Volumen ${v}%`;
   }
 
-  // Barra de progreso entre consultas (sin pedir nada a Spotify).
+  // Barra de progreso y letra entre consultas (sin pedir nada a Spotify).
   function tick() {
-    const progress = panel.querySelector(".sp-progress");
-    if (!progress || seeking || !state?.item) return;
+    const progress = q(".sp-progress");
+    if (!progress || !state?.item) return;
     const pos = position();
-    progress.value = String(pos);
-    setFill(progress);
-    panel.querySelector(".sp-pos").textContent = fmt(pos);
+    if (!seeking) {
+      progress.value = String(pos);
+      setFill(progress);
+      q(".sp-pos").textContent = fmt(pos);
+    }
+    syncLyrics(pos);
     // Se ha acabado la canción: se pregunta ya qué viene.
     if (state.isPlaying && pos >= state.item.durationMs && performance.now() - fetchedAt > 800) {
       fetchedAt = performance.now();
@@ -360,23 +382,76 @@
     }
   }
 
+  // ------------------------------------------------------------ Letras
+  async function loadLyrics() {
+    const it = state?.item;
+    const box = q(".sp-lyrics");
+    if (!box) return;
+    const key = it && state.type !== "episode" ? String(it.id || `${it.artist}|${it.name}`) : "";
+    if (key === lyricsKey) return;
+    lyricsKey = key;
+    lyrics = null;
+    lyricIdx = -2;
+    if (!key) return paintLyrics({ kind: "none" });
+    paintLyrics(null);
+    const res = await sp("lyrics", { id: it.id, name: it.name, artist: it.artist, album: it.album, durationMs: it.durationMs });
+    if (lyricsKey !== key) return; // ha cambiado de canción mientras tanto
+    paintLyrics(res.ok ? res.lyrics : { kind: "error" });
+  }
+
+  function paintLyrics(l) {
+    lyrics = l;
+    lyricIdx = -2;
+    const box = q(".sp-lyrics");
+    if (!box) return;
+    const msg = (icon, text) => `<div class="sp-lyrics-msg">${ic(icon)}<p>${text}</p></div>`;
+    box.classList.remove("is-synced", "is-plain");
+    box.scrollTop = 0;
+    if (!l) return (box.innerHTML = `<div class="sp-lyrics-msg is-loading"><span class="sp-wait"><i></i><i></i><i></i></span></div>`);
+    if (l.kind === "instrumental") return (box.innerHTML = msg("music", "Instrumental"));
+    if (l.kind === "error") return (box.innerHTML = msg("music", "No se ha podido cargar la letra"));
+    if (!l.lines?.length) return (box.innerHTML = msg("music", "Sin letra"));
+    const synced = l.kind === "synced";
+    box.classList.add(synced ? "is-synced" : "is-plain");
+    box.innerHTML = `<div class="sp-lines">${l.lines
+      .map((x, i) => `<p class="sp-line${x.text ? "" : " is-gap"}" data-i="${i}"${synced ? ` data-t="${x.t}"` : ""}>${x.text ? esc(x.text) : "♪"}</p>`)
+      .join("")}</div><p class="sp-lyrics-src">Letra: LRCLIB</p>`;
+    if (synced) syncLyrics(position(), true);
+  }
+
+  function syncLyrics(pos, instant = false) {
+    if (lyrics?.kind !== "synced" || !open) return;
+    const lines = lyrics.lines;
+    const t = pos + LYRICS_LEAD_MS;
+    let idx = -1;
+    for (let i = 0; i < lines.length && lines[i].t <= t; i++) idx = i;
+    if (idx === lyricIdx) return;
+    lyricIdx = idx;
+    const box = q(".sp-lyrics");
+    const els = box.querySelectorAll(".sp-line");
+    els.forEach((el, i) => {
+      el.classList.toggle("is-current", i === idx);
+      el.classList.toggle("is-past", i < idx);
+    });
+    if (Date.now() < manualScrollUntil) return;
+    const cur = els[Math.max(0, idx)];
+    if (cur) box.scrollTo({ top: cur.offsetTop - box.clientHeight * 0.38 + cur.offsetHeight / 2, behavior: instant ? "auto" : "smooth" });
+  }
+
+  // ------------------------------------------------------------ Pintar
   function render() {
     renderButton();
-    if (!allowed) return;
-    if (!open) return;
+    if (!allowed || !open) return;
     const next = !connected ? (connecting ? "connecting" : "off") : state ? "player" : "idle";
-    if (next !== mode) skeleton(next);
+    if (next !== mode) {
+      skeleton(next);
+      if (next === "player") lyricsKey = null; // se vuelve a pintar la letra
+    }
     if (next === "player") fillPlayer();
-    if (next === "idle") panel.querySelector(".sp-devices").innerHTML = devicesList();
+    if (next === "idle") q(".sp-devices").innerHTML = devicesList();
   }
 
   // ------------------------------------------------------------ Abrir / cerrar
-  function place() {
-    const r = btn.getBoundingClientRect();
-    panel.style.top = `${Math.round(r.bottom + 10)}px`;
-    panel.style.right = `${Math.max(12, Math.round(window.innerWidth - r.right))}px`;
-  }
-
   function setOpen(on) {
     if (on === open) return;
     open = on;
@@ -384,38 +459,94 @@
     mode = "";
     clearInterval(tickTimer);
     if (open) {
-      place();
       render();
-      panel.classList.add("is-shown");
-      tickTimer = setInterval(tick, 250);
+      view.classList.add("is-shown");
+      document.documentElement.classList.add("sp-full-open");
+      tickTimer = setInterval(tick, 100);
       if (connected) {
         poll();
         if (!state) loadDevices();
       }
+      view.focus({ preventScroll: true });
     } else {
-      panel.classList.remove("is-shown");
+      view.classList.remove("is-shown");
+      document.documentElement.classList.remove("sp-full-open");
+      if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
       renderButton();
       schedule();
     }
   }
 
+  function toggleFullscreen() {
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    else view.requestFullscreen?.().catch(() => {});
+  }
+
+  document.addEventListener("fullscreenchange", () => {
+    const fs = document.fullscreenElement === view;
+    if (!fs) fsExitAt = performance.now();
+    const b = q('[data-act="fullscreen"]');
+    b.innerHTML = ic(fs ? "shrink" : "expand");
+    b.title = fs ? "Salir de pantalla completa (F)" : "Pantalla completa (F)";
+  });
+
   btn.addEventListener("click", () => setOpen(!open));
-  document.addEventListener("pointerdown", (e) => {
-    if (open && !panel.contains(e.target) && !btn.contains(e.target)) setOpen(false);
-  });
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && open) setOpen(false);
+    if (!open || e.ctrlKey || e.altKey || e.metaKey) return;
+    if (e.key === "Escape") {
+      if (devicesOpen) {
+        devicesOpen = false;
+        render();
+      } else if (!document.fullscreenElement && performance.now() - fsExitAt > 400) setOpen(false);
+      return;
+    }
+    if (e.target.closest?.("button, input")) return;
+    if (e.key === "f" || e.key === "F") toggleFullscreen();
+    else if (e.key === " " && state) {
+      e.preventDefault();
+      q('[data-act="toggle"]')?.click();
+    }
   });
-  window.addEventListener("resize", () => open && place());
+  window.addEventListener("resize", () => {
+    if (open && lyrics?.kind === "synced") {
+      lyricIdx = -2;
+      syncLyrics(position(), true);
+    }
+  });
   document.addEventListener("visibilitychange", () => (document.hidden ? schedule() : connected && allowed && schedule(0)));
 
+  // Si se mueve la letra a mano, se deja de seguir un rato.
+  view.addEventListener("wheel", (e) => e.target.closest(".sp-lyrics") && (manualScrollUntil = Date.now() + 4000), { passive: true });
+
+  // Cerrar la lista de dispositivos al pulsar fuera de ella.
+  view.addEventListener("pointerdown", (e) => {
+    if (devicesOpen && !e.target.closest(".sp-device")) {
+      devicesOpen = false;
+      render();
+    }
+  });
+
   // ------------------------------------------------------------ Acciones
-  panel.addEventListener("click", async (e) => {
+  view.addEventListener("click", async (e) => {
+    const line = e.target.closest(".sp-line[data-t]");
+    if (line && state?.item) {
+      const ms = Math.max(0, Number(line.dataset.t) - 100);
+      state.progressMs = ms;
+      fetchedAt = performance.now();
+      manualScrollUntil = 0;
+      tick();
+      await run("seek", ms);
+      return;
+    }
     const el = e.target.closest("[data-act]");
     if (!el || el.disabled) return;
     const act = el.dataset.act;
 
-    if (act === "connect") {
+    if (act === "close") {
+      setOpen(false);
+    } else if (act === "fullscreen") {
+      toggleFullscreen();
+    } else if (act === "connect") {
       connecting = true;
       render();
       const res = await sp("connect");
@@ -465,7 +596,7 @@
       render();
       await run("repeat", state.repeat);
     } else if (act === "mute") {
-      const vol = panel.querySelector(".sp-vol");
+      const vol = q(".sp-vol");
       const now = Number(vol.value);
       const target = now === 0 ? lastVolume || 50 : 0;
       if (now > 0) lastVolume = now;
@@ -480,12 +611,8 @@
       if (devicesOpen) loadDevices();
     } else if (act === "transfer") {
       const id = el.dataset.id;
-      if (state?.device?.id === id) {
-        devicesOpen = false;
-        render();
-        return;
-      }
       devicesOpen = false;
+      if (state?.device?.id === id) return render();
       if (state?.device) {
         const d = devices?.find((x) => x.id === id);
         if (d) state.device = { ...d, active: true };
@@ -498,11 +625,11 @@
   });
 
   // Posición: se mueve la barra a mano y se manda al soltar.
-  panel.addEventListener("input", (e) => {
+  view.addEventListener("input", (e) => {
     if (e.target.classList.contains("sp-progress")) {
       seeking = true;
       setFill(e.target);
-      panel.querySelector(".sp-pos").textContent = fmt(Number(e.target.value));
+      q(".sp-pos").textContent = fmt(Number(e.target.value));
     } else if (e.target.classList.contains("sp-vol")) {
       const v = Number(e.target.value);
       setFill(e.target);
@@ -511,7 +638,7 @@
     }
   });
 
-  panel.addEventListener("change", async (e) => {
+  view.addEventListener("change", async (e) => {
     if (!e.target.classList.contains("sp-progress")) return;
     const ms = Number(e.target.value);
     if (state) {
@@ -519,6 +646,8 @@
       fetchedAt = performance.now();
     }
     seeking = false;
+    manualScrollUntil = 0;
+    lyricIdx = -2;
     await run("seek", ms);
   });
 
