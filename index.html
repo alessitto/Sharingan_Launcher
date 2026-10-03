@@ -34,31 +34,32 @@
       <!-- Navegación superior -->
       <nav class="topnav">
         <span class="topnav-title">Sharingan Launcher</span>
-        <div class="topnav-item active" onclick="showSection('popular', this)">
+        <!-- Solo iconos: el nombre se despliega al pasar el ratón -->
+        <div class="topnav-item active" role="button" tabindex="0" aria-label="Descubrir" onclick="showSection('popular', this)">
           <svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
-          Descubrir
+          <span class="topnav-label">Descubrir</span>
         </div>
-        <div class="topnav-item" onclick="showSection('library', this)">
+        <div class="topnav-item" role="button" tabindex="0" aria-label="Mi biblioteca" onclick="showSection('library', this)">
           <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-          Mi biblioteca
+          <span class="topnav-label">Mi biblioteca</span>
         </div>
-        <div class="topnav-item" onclick="showSection('completed', this)">
+        <div class="topnav-item" role="button" tabindex="0" aria-label="Juegos pasados" onclick="showSection('completed', this)">
           <svg viewBox="0 0 24 24"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0V4Z"/><path d="M7 6H4a2 2 0 0 0 0 4h1"/><path d="M17 6h3a2 2 0 0 1 0 4h-1"/></svg>
-          Juegos pasados
+          <span class="topnav-label">Juegos pasados</span>
         </div>
-        <div class="topnav-item" onclick="showSection('pokepark', this)">
+        <div class="topnav-item" role="button" tabindex="0" aria-label="PokéPark" onclick="showSection('pokepark', this)">
           <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h6"/><path d="M15 12h6"/><circle cx="12" cy="12" r="3"/></svg>
-          PokéPark
+          <span class="topnav-label">PokéPark</span>
         </div>
-        <div class="topnav-item" data-section="community" onclick="showSection('community', this)">
+        <div class="topnav-item" data-section="community" role="button" tabindex="0" aria-label="Comunidad" onclick="showSection('community', this)">
           <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          Comunidad
+          <span class="topnav-label">Comunidad</span>
         </div>
 
-        <span id="versionLink" class="version-link" onclick="openChangelogModal()" title="Historial de versiones"></span>
+        <span class="topnav-spacer"></span>
         <!-- Spotify: solo lo ven los admins (spotify-ui.js) -->
         <button type="button" id="spotifyBtn" class="sp-btn" hidden aria-haspopup="dialog" aria-expanded="false"></button>
-        <button type="button" id="accountBtn" class="account-btn" title="Inicia sesión o crea una cuenta"></button>
+        <!-- La cuenta y la versión están dentro de Ajustes -->
         <button class="icon-btn settings-btn" onclick="openSettingsModal()" title="Ajustes" aria-label="Ajustes">
           <svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
         </button>
@@ -390,6 +391,15 @@
       // ===============================
       // Navegación lateral
       // ===============================
+      // Las pestañas de arriba son solo iconos: también se abren con teclado.
+      document.addEventListener("keydown", (e) => {
+        const item = e.target.closest?.(".topnav-item");
+        if (item && (e.key === "Enter" || e.key === " ")) {
+          e.preventDefault();
+          item.click();
+        }
+      });
+
       function showSection(id, el) {
         document
           .querySelectorAll(".section")
@@ -2415,11 +2425,12 @@
       // ===============================
       // Historial de versiones
       // ===============================
+      // Versión instalada (se enseña en Ajustes > Actualizaciones).
+      window.appVersion = "";
       async function loadAppVersion() {
         try {
           const version = await window.electronAPI.getAppVersion();
-          const el = document.getElementById("versionLink");
-          if (el && version) el.textContent = `v${version}`;
+          if (version) window.appVersion = version;
         } catch (err) {
           console.error("No se pudo leer la versión de la app", err);
         }
@@ -2530,7 +2541,7 @@
       }
 
       async function openChangelogModal() {
-        const version = (document.getElementById("versionLink")?.textContent || "").replace(/^v/, "");
+        const version = window.appVersion;
         let root = null;
 
         openModal({
@@ -2620,79 +2631,6 @@
           </div>`;
       }
 
-      // Selector de tema: arriba el color (por categorías), abajo el estilo.
-      // Se aplica al momento, igual que el resto de ajustes.
-      async function openThemeModal() {
-        const T = window.SLThemes;
-        const colors = T.CATEGORIES.map(
-          (cat) => `
-            <div class="tp-cat">
-              <p class="tp-cat-title">${cat.name}</p>
-              ${cat.groups
-                .map(
-                  (g) => `
-                    ${g.name ? `<p class="tp-sub">${g.name}</p>` : ""}
-                    <div class="theme-grid">${g.items.map((p) => themeSwatchHtml(p, p.id === themeState.palette)).join("")}</div>`
-                )
-                .join("")}
-            </div>`
-        ).join("");
-        const effects = T.EFFECTS.map(
-          (e) => `
-            <div class="tp-effect${e.id === themeState.effect ? " is-selected" : ""}" data-effect-id="${e.id}">
-              <span class="tp-fx tp-fx-${e.id}" aria-hidden="true"><span class="tp-fx-pill"></span><span class="tp-fx-text">Aa</span></span>
-              <span class="tp-effect-name">${e.name}</span>
-              <span class="tp-effect-desc">${e.desc}</span>
-            </div>`
-        ).join("");
-
-        await openModal({
-          eyebrow: "Ajustes",
-          title: "Tema",
-          showConfirmButton: false,
-          showCloseButton: true,
-          allowEscapeKey: true,
-          allowOutsideClick: true,
-          width: 720,
-          html: `
-            <div class="settings-panel theme-picker">
-              <div class="settings-section">
-                <span class="section-eyebrow">Color</span>
-                <div id="themeColors">${colors}</div>
-              </div>
-              <div class="settings-divider"></div>
-              <div class="settings-section">
-                <span class="section-eyebrow">Estilo</span>
-                <div class="tp-effects" id="themeEffects">${effects}</div>
-              </div>
-              <p class="tp-soon">${icon("sparkles")}Más colores y estilos llegarán en próximas actualizaciones.</p>
-            </div>
-          `,
-          didOpen: () => {
-            const colorsEl = document.getElementById("themeColors");
-            const effectsEl = document.getElementById("themeEffects");
-            colorsEl?.addEventListener("click", (e) => {
-              const sw = e.target.closest(".theme-swatch");
-              if (!sw) return;
-              const theme = sw.dataset.themeId;
-              colorsEl.querySelectorAll(".theme-swatch").forEach((el) => el.classList.toggle("is-selected", el === sw));
-              applyTheme({ theme, themeEffect: themeState.effect });
-              persistSetting({ theme });
-            });
-            effectsEl?.addEventListener("click", (e) => {
-              const card = e.target.closest(".tp-effect");
-              if (!card) return;
-              const themeEffect = card.dataset.effectId;
-              effectsEl.querySelectorAll(".tp-effect").forEach((el) => el.classList.toggle("is-selected", el === card));
-              applyTheme({ theme: themeState.palette, themeEffect });
-              persistSetting({ themeEffect });
-            });
-          },
-        });
-        // Al cerrar se vuelve a los ajustes, que es de donde se ha venido.
-        openSettingsModal();
-      }
-
       // Cada ajuste se aplica y se guarda al momento (como un panel de
       // ajustes de Linear/Notion) - no hay Guardar/Cancelar, solo cerrar
       // con la × o Esc, porque no queda nada pendiente de confirmar.
@@ -2704,162 +2642,210 @@
         }
       }
 
-      async function openSettingsModal() {
+      // Ajustes por páginas: menú a la izquierda y una página a la derecha,
+      // sin scroll. Se vuelve a la última página que se miró.
+      const SETTINGS_PAGES = [
+        { id: "account", name: "Cuenta", icon: "user" },
+        { id: "color", name: "Color", icon: "palette" },
+        { id: "style", name: "Estilo", icon: "sparkles" },
+        { id: "discover", name: "Descubrir", icon: "grid" },
+        { id: "ai", name: "Inteligencia artificial", icon: "lightbulb" },
+        { id: "data", name: "Datos", icon: "save" },
+        { id: "updates", name: "Actualizaciones", icon: "download" },
+      ];
+      let settingsPage = "account";
+
+      const settingsPageHtml = {
+        account: () => `<div class="st-account"></div>`,
+        color: () => {
+          const T = window.SLThemes;
+          return `
+            <div class="st-colors" id="themeColors">${T.CATEGORIES.map(
+              (cat) => `
+                <div class="tp-cat">
+                  <p class="tp-cat-title">${cat.name}</p>
+                  ${cat.groups
+                    .map(
+                      (g) => `
+                        ${g.name ? `<p class="tp-sub">${g.name}</p>` : ""}
+                        <div class="theme-grid">${g.items.map((p) => themeSwatchHtml(p, p.id === themeState.palette)).join("")}</div>`
+                    )
+                    .join("")}
+                </div>`
+            ).join("")}</div>
+            <p class="tp-soon">${icon("sparkles")}Más colores y estilos llegarán en próximas actualizaciones.</p>`;
+        },
+        style: () => `
+          <div class="tp-effects" id="themeEffects">${window.SLThemes.EFFECTS.map(
+            (e) => `
+              <div class="tp-effect${e.id === themeState.effect ? " is-selected" : ""}" data-effect-id="${e.id}">
+                <span class="tp-fx tp-fx-${e.id}" aria-hidden="true"><span class="tp-fx-pill"></span><span class="tp-fx-text">Aa</span></span>
+                <span class="tp-effect-name">${e.name}</span>
+                <span class="tp-effect-desc">${e.desc}</span>
+              </div>`
+          ).join("")}</div>`,
+        discover: (s) => `
+          <div class="st-field">
+            <div class="settings-row-head">
+              <label for="settingsGamesPerPage">Juegos por página</label>
+              <span id="settingsGamesPerPageValue" class="settings-value">${s.gamesPerPage}</span>
+            </div>
+            <input id="settingsGamesPerPage" class="settings-slider" type="range" min="12" max="200" step="1" value="${s.gamesPerPage}" />
+            <div class="settings-row-ends"><span>12</span><span>200</span></div>
+          </div>
+          <div class="st-field">
+            <div class="settings-row-head">
+              <label for="settingsGridColumns">Juegos por fila</label>
+              <span id="settingsGridColumnsValue" class="settings-value">${s.gridColumns}</span>
+            </div>
+            <input id="settingsGridColumns" class="settings-slider" type="range" min="3" max="10" step="1" value="${s.gridColumns}" />
+            <div class="settings-row-ends"><span>3</span><span>10</span></div>
+          </div>`,
+        ai: () => `
+          <div class="settings-ai" id="settingsAi">
+            <p class="settings-update-text">Para Jarvis y el orden de las sagas. Se guarda cifrada.</p>
+            <div class="settings-ai-row" id="settingsAiRow"></div>
+            <p class="settings-ai-msg" id="settingsAiMsg"></p>
+          </div>`,
+        data: () => `
+          <div class="settings-data">
+            <div class="settings-data-row">
+              <div><p class="settings-data-title">Copia de partidas</p></div>
+              <button type="button" id="settingsBackupBtn" class="sl-btn sl-btn-ghost">${icon("save")}Hacer copia</button>
+            </div>
+            <div class="settings-data-row">
+              <div>
+                <p class="settings-data-title">Borrar todos los datos</p>
+                <p class="settings-update-text">Biblioteca, pasados y sagas.</p>
+              </div>
+              <button type="button" id="settingsWipeBtn" class="sl-btn sl-btn-danger-ghost">${icon("trash")}Borrar todo</button>
+            </div>
+          </div>`,
+        updates: () => `
+          <div class="st-version">
+            <span class="st-version-num">v${escapeHtml(window.appVersion || "")}</span>
+            <p id="settingsUpdateText" class="settings-update-text">Versión instalada</p>
+          </div>
+          <div class="st-actions">
+            <button type="button" id="settingsUpdateBtn" class="sl-btn sl-btn-primary">${icon("download")}Buscar actualizaciones</button>
+            <button type="button" id="settingsNotesBtn" class="sl-btn sl-btn-ghost">${icon("calendar")}Historial de versiones</button>
+          </div>`,
+      };
+
+      function bindSettingsPage(id, page) {
+        if (id === "account") {
+          window.Community?.renderAccount(page.querySelector(".st-account"), () => openSettingsModal("account"));
+        } else if (id === "color") {
+          const colorsEl = page.querySelector("#themeColors");
+          colorsEl.addEventListener("click", (e) => {
+            const sw = e.target.closest(".theme-swatch");
+            if (!sw) return;
+            const theme = sw.dataset.themeId;
+            colorsEl.querySelectorAll(".theme-swatch").forEach((el) => el.classList.toggle("is-selected", el === sw));
+            applyTheme({ theme, themeEffect: themeState.effect });
+            persistSetting({ theme });
+          });
+        } else if (id === "style") {
+          const effectsEl = page.querySelector("#themeEffects");
+          effectsEl.addEventListener("click", (e) => {
+            const card = e.target.closest(".tp-effect");
+            if (!card) return;
+            const themeEffect = card.dataset.effectId;
+            effectsEl.querySelectorAll(".tp-effect").forEach((el) => el.classList.toggle("is-selected", el === card));
+            applyTheme({ theme: themeState.palette, themeEffect });
+            persistSetting({ themeEffect });
+          });
+        } else if (id === "discover") {
+          const pageInput = page.querySelector("#settingsGamesPerPage");
+          const pageValue = page.querySelector("#settingsGamesPerPageValue");
+          pageInput.addEventListener("input", () => (pageValue.textContent = pageInput.value));
+          pageInput.addEventListener("change", async () => {
+            const saved = await persistSetting({ gamesPerPage: Math.round(Number(pageInput.value)) });
+            if (saved) DISCOVER_PAGE_SIZE = saved.gamesPerPage;
+            if (document.getElementById("popular")?.classList.contains("active")) await loadDiscoverGames();
+          });
+          const colsInput = page.querySelector("#settingsGridColumns");
+          const colsValue = page.querySelector("#settingsGridColumnsValue");
+          colsInput.addEventListener("input", () => {
+            colsValue.textContent = colsInput.value;
+            applyGridColumns(colsInput.value);
+          });
+          colsInput.addEventListener("change", () => persistSetting({ gridColumns: Math.round(Number(colsInput.value)) }));
+        } else if (id === "ai") {
+          setupAiSettings();
+        } else if (id === "data") {
+          page.querySelector("#settingsBackupBtn").addEventListener("click", () => openBackupModal());
+          page.querySelector("#settingsWipeBtn").addEventListener("click", () => wipeAllData());
+        } else if (id === "updates") {
+          const updateBtn = page.querySelector("#settingsUpdateBtn");
+          const updateText = page.querySelector("#settingsUpdateText");
+          page.querySelector("#settingsNotesBtn").addEventListener("click", () => openChangelogModal());
+          updateBtn.addEventListener("click", async () => {
+            updateBtn.disabled = true;
+            updateText.textContent = "Buscando actualizaciones…";
+            // Si había un aviso descartado con "Más tarde", que vuelva a salir.
+            updateDismissedVersion = null;
+            const res = (await window.electronAPI.checkForUpdates().catch(() => null)) || { status: "error" };
+            const messages = {
+              available: `Versión nueva disponible (v${res.version}).`,
+              downloading: "Ya se está descargando la actualización.",
+              installing: "Instalando la actualización, la app se reiniciará.",
+              latest: "Ya tienes la última versión.",
+              dev: "Las actualizaciones solo funcionan en la app instalada.",
+              error: "No se pudo comprobar. Revisa tu conexión.",
+            };
+            updateText.textContent = messages[res.status] || messages.error;
+            updateBtn.disabled = false;
+          });
+        }
+      }
+
+      async function openSettingsModal(start) {
+        if (start) settingsPage = start;
         const settings = (await window.electronAPI.getSettings()) || {};
-        const currentGamesPerPage = settings.gamesPerPage || DISCOVER_PAGE_SIZE || 60;
-        const currentGridColumns =
-          Number(getComputedStyle(document.documentElement).getPropertyValue("--grid-cols")) ||
-          settings.gridColumns ||
-          5;
-        const curPalette = window.SLThemes.paletteById(themeState.palette);
-        const curEffect = window.SLThemes.EFFECTS.find((e) => e.id === themeState.effect);
+        const values = {
+          gamesPerPage: settings.gamesPerPage || DISCOVER_PAGE_SIZE || 60,
+          gridColumns: Number(getComputedStyle(document.documentElement).getPropertyValue("--grid-cols")) || settings.gridColumns || 5,
+        };
 
         await openModal({
-          eyebrow: "Sharingan Launcher",
-          title: "Ajustes",
           showConfirmButton: false,
           showCloseButton: true,
           allowEscapeKey: true,
           allowOutsideClick: true,
-          width: 560,
+          width: 880,
+          customClass: { popup: "st-modal" },
           html: `
-            <div class="settings-panel">
-              <div class="settings-section">
-                <span class="section-eyebrow">Tema</span>
-                <div class="settings-data-row theme-current">
-                  <span class="theme-swatch-preview" style="background:${curPalette.bg};">
-                    <span class="theme-swatch-accent" style="background:${curPalette.accent};"></span>
-                  </span>
-                  <div>
-                    <p class="settings-data-title">${escapeHtml(curPalette.name)}</p>
-                    <p class="settings-update-text">Estilo ${escapeHtml(curEffect?.name || "")}</p>
-                  </div>
-                  <button type="button" id="settingsThemeBtn" class="sl-btn sl-btn-ghost">${icon("palette")}Cambiar tema</button>
-                </div>
-              </div>
-
-              <div class="settings-divider"></div>
-
-              <div class="settings-section">
-                <span class="section-eyebrow">Descubrir</span>
-                <div class="settings-cols-2">
-                  <div>
-                    <div class="settings-row-head">
-                      <label for="settingsGamesPerPage">Juegos por página</label>
-                      <span id="settingsGamesPerPageValue" class="settings-value">${currentGamesPerPage}</span>
-                    </div>
-                    <input id="settingsGamesPerPage" class="settings-slider" type="range" min="12" max="200" step="1" value="${currentGamesPerPage}" />
-                    <div class="settings-row-ends"><span>12</span><span>200</span></div>
-                  </div>
-
-                  <div>
-                    <div class="settings-row-head">
-                      <label for="settingsGridColumns">Juegos por fila en el grid</label>
-                      <span id="settingsGridColumnsValue" class="settings-value">${currentGridColumns}</span>
-                    </div>
-                    <input id="settingsGridColumns" class="settings-slider" type="range" min="3" max="10" step="1" value="${currentGridColumns}" />
-                    <div class="settings-row-ends"><span>3</span><span>10</span></div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="settings-divider"></div>
-
-              <div class="settings-section">
-                <span class="section-eyebrow">Actualizaciones</span>
-                <div class="settings-update">
-                  <p id="settingsUpdateText" class="settings-update-text">
-                    Versión instalada: ${escapeHtml(document.getElementById("versionLink")?.textContent || "")}
-                  </p>
-                  <button type="button" id="settingsUpdateBtn" class="sl-btn sl-btn-ghost">
-                    ${icon("download")}Buscar actualizaciones
-                  </button>
-                </div>
-              </div>
-
-              <div class="settings-divider"></div>
-
-              <div class="settings-section">
-                <span class="section-eyebrow">Inteligencia artificial</span>
-                <div class="settings-ai" id="settingsAi">
-                  <p class="settings-update-text">Para Jarvis y el orden de las sagas. Se guarda cifrada.</p>
-                  <div class="settings-ai-row" id="settingsAiRow"></div>
-                  <p class="settings-ai-msg" id="settingsAiMsg"></p>
-                </div>
-              </div>
-
-              <div class="settings-divider"></div>
-
-              <div class="settings-section">
-                <span class="section-eyebrow">Datos</span>
-                <div class="settings-data">
-                  <div class="settings-data-row">
-                    <div>
-                      <p class="settings-data-title">Copia de partidas</p>
-                    </div>
-                    <button type="button" id="settingsBackupBtn" class="sl-btn sl-btn-ghost">${icon("save")}Hacer copia</button>
-                  </div>
-                  <div class="settings-data-row">
-                    <div>
-                      <p class="settings-data-title">Borrar todos los datos</p>
-                      <p class="settings-update-text">Biblioteca, pasados y sagas.</p>
-                    </div>
-                    <button type="button" id="settingsWipeBtn" class="sl-btn sl-btn-danger-ghost">${icon("trash")}Borrar todo</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          `,
-          didOpen: () => {
-            const pageInput = document.getElementById("settingsGamesPerPage");
-            const pageValue = document.getElementById("settingsGamesPerPageValue");
-            pageInput?.addEventListener("input", () => {
-              pageValue.textContent = pageInput.value;
+            <div class="st settings-panel theme-picker">
+              <nav class="st-nav" aria-label="Secciones de ajustes">
+                <p class="st-nav-title">Ajustes</p>
+                ${SETTINGS_PAGES.map(
+                  (p) => `<button type="button" class="st-tab" data-page="${p.id}">${icon(p.icon)}<span>${p.name}</span></button>`
+                ).join("")}
+              </nav>
+              <section class="st-page" aria-live="polite"></section>
+            </div>`,
+          didOpen: (popup) => {
+            const pageEl = popup.querySelector(".st-page");
+            const show = (id) => {
+              const def = SETTINGS_PAGES.find((p) => p.id === id) || SETTINGS_PAGES[0];
+              settingsPage = def.id;
+              popup.querySelectorAll(".st-tab").forEach((t) => {
+                const on = t.dataset.page === def.id;
+                t.classList.toggle("is-active", on);
+                t.setAttribute("aria-current", on ? "page" : "false");
+              });
+              pageEl.innerHTML = `<h3 class="st-title">${def.name}</h3><div class="st-body st-${def.id}-page">${settingsPageHtml[def.id](values)}</div>`;
+              pageEl.classList.remove("is-entering");
+              void pageEl.offsetWidth;
+              pageEl.classList.add("is-entering");
+              bindSettingsPage(def.id, pageEl);
+            };
+            popup.querySelector(".st-nav").addEventListener("click", (e) => {
+              const tab = e.target.closest(".st-tab");
+              if (tab && tab.dataset.page !== settingsPage) show(tab.dataset.page);
             });
-            pageInput?.addEventListener("change", async () => {
-              const n = Math.round(Number(pageInput.value));
-              const saved = await persistSetting({ gamesPerPage: n });
-              if (saved) DISCOVER_PAGE_SIZE = saved.gamesPerPage;
-              if (document.getElementById("popular")?.classList.contains("active")) {
-                await loadDiscoverGames();
-              }
-            });
-
-            const colsInput = document.getElementById("settingsGridColumns");
-            const colsValue = document.getElementById("settingsGridColumnsValue");
-            colsInput?.addEventListener("input", () => {
-              colsValue.textContent = colsInput.value;
-              applyGridColumns(colsInput.value);
-            });
-            colsInput?.addEventListener("change", () => {
-              persistSetting({ gridColumns: Math.round(Number(colsInput.value)) });
-            });
-
-            const updateBtn = document.getElementById("settingsUpdateBtn");
-            const updateText = document.getElementById("settingsUpdateText");
-            updateBtn?.addEventListener("click", async () => {
-              updateBtn.disabled = true;
-              updateText.textContent = "Buscando actualizaciones…";
-              // Si había un aviso descartado con "Más tarde", que vuelva a salir.
-              updateDismissedVersion = null;
-              const res = (await window.electronAPI.checkForUpdates().catch(() => null)) || { status: "error" };
-              const messages = {
-                available: `Versión nueva disponible (v${res.version}).`,
-                downloading: "Ya se está descargando la actualización.",
-                installing: "Instalando la actualización, la app se reiniciará.",
-                latest: `Ya tienes la última versión (v${res.version}).`,
-                dev: "Las actualizaciones solo funcionan en la app instalada.",
-                error: "No se pudo comprobar. Revisa tu conexión.",
-              };
-              updateText.textContent = messages[res.status] || messages.error;
-              updateBtn.disabled = false;
-            });
-
-            setupAiSettings();
-            document.getElementById("settingsBackupBtn")?.addEventListener("click", () => openBackupModal());
-            document.getElementById("settingsWipeBtn")?.addEventListener("click", () => wipeAllData());
-
-            document.getElementById("settingsThemeBtn")?.addEventListener("click", () => openThemeModal());
+            show(settingsPage);
           },
         });
       }

@@ -45,6 +45,7 @@
     close: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
     expand: '<path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="m21 3-7 7"/><path d="m3 21 7-7"/>',
     shrink: '<path d="m14 10 7-7"/><path d="M20 10h-6V4"/><path d="m3 21 7-7"/><path d="M4 14h6v6"/>',
+    lyrics: '<path d="M17 6H3"/><path d="M21 12H8"/><path d="M21 18H8"/><path d="M3 12v6"/>',
   };
   const ic = (name, cls = "") => `<svg class="sp-i ${cls}" viewBox="0 0 24 24" aria-hidden="true">${PATHS[name] || ""}</svg>`;
   const deviceIcon = (type) =>
@@ -76,6 +77,14 @@
   let lyricIdx = -2;
   let manualScrollUntil = 0;
   let fsExitAt = 0;
+  // Ver la letra o no (se recuerda; de serie, no).
+  let lyricsOn = (() => {
+    try {
+      return localStorage.getItem("spLyrics") === "1";
+    } catch {
+      return false;
+    }
+  })();
 
   const btn = document.getElementById("spotifyBtn");
   const view = document.createElement("div");
@@ -91,6 +100,7 @@
       <span class="sp-brand">${SPOTIFY_LOGO}<span>Spotify</span></span>
       <div class="sp-full-actions">
         <button type="button" class="sp-link sp-open" data-act="open" hidden>${ic("external")}Abrir en Spotify</button>
+        <button type="button" class="sp-pill sp-lyrics-btn" data-act="lyrics" aria-pressed="false" hidden>${ic("lyrics")}<span>Letra</span></button>
         <button type="button" class="sp-icon-btn" data-act="fullscreen" title="Pantalla completa (F)">${ic("expand")}</button>
         <button type="button" class="sp-icon-btn" data-act="close" title="Cerrar (Esc)">${ic("close")}</button>
       </div>
@@ -199,12 +209,13 @@
     btnKey = key;
     btn.classList.toggle("has-track", !!it);
     btn.classList.toggle("is-playing", !!state?.isPlaying);
-    btn.title = it ? `${it.name} · ${it.artists}` : "Spotify";
+    btn.title = it ? "" : "Spotify";
+    // Sonando: solo la carátula girando; el nombre sale al pasar el ratón.
     btn.innerHTML = it
       ? `${it.thumb ? `<img class="sp-btn-cover" src="${esc(it.thumb)}" alt="">` : `<span class="sp-btn-cover is-empty">${ic("music")}</span>`}
-         <span class="sp-btn-text"><b>${esc(it.name)}</b><small>${esc(it.artists)}</small></span>
-         <span class="sp-eq" aria-hidden="true"><i></i><i></i><i></i></span>`
+         <span class="sp-btn-text"><b>${esc(it.name)}</b><small>${esc(it.artists)}</small></span>`
       : SPOTIFY_LOGO;
+    btn.setAttribute("aria-label", it ? `Spotify: ${it.name} · ${it.artists}` : "Spotify");
   }
 
   // ------------------------------------------------------------ Reproductor
@@ -231,6 +242,8 @@
       bg.style.backgroundImage = "";
       q(".sp-open").hidden = true;
     }
+    q(".sp-lyrics-btn").hidden = next !== "player";
+    view.classList.remove("lyrics-on");
     if (next === "off") {
       body.innerHTML = `
         <div class="sp-center">
@@ -383,10 +396,43 @@
   }
 
   // ------------------------------------------------------------ Letras
+  // La letra se abre a la derecha solo si se quiere ver y la canción la
+  // tiene; si no, el reproductor se queda centrado.
+  function lyricsLayout() {
+    const has = !!lyrics?.lines?.length;
+    view.classList.toggle("lyrics-on", lyricsOn && has && mode === "player");
+    const b = q(".sp-lyrics-btn");
+    b.classList.toggle("is-on", lyricsOn);
+    b.classList.toggle("is-empty", lyricsOn && !!lyrics && !has);
+    b.setAttribute("aria-pressed", String(lyricsOn));
+    b.title = !lyricsOn ? "Ver la letra" : lyrics && !has ? (lyrics.kind === "instrumental" ? "Instrumental" : "Esta canción no tiene letra") : "Ocultar la letra";
+  }
+
+  function toggleLyrics() {
+    lyricsOn = !lyricsOn;
+    try {
+      localStorage.setItem("spLyrics", lyricsOn ? "1" : "0");
+    } catch {}
+    if (lyricsOn) {
+      lyricsKey = null; // se busca la de la canción que suena
+      manualScrollUntil = 0;
+      loadLyrics();
+    }
+    lyricsLayout();
+  }
+
+  // Al terminar de abrirse, la línea actual se coloca en su sitio.
+  view.addEventListener("transitionend", (e) => {
+    if (e.target.classList?.contains("sp-lyrics") && e.propertyName === "flex-basis" && view.classList.contains("lyrics-on")) {
+      lyricIdx = -2;
+      syncLyrics(position(), true);
+    }
+  });
+
   async function loadLyrics() {
     const it = state?.item;
     const box = q(".sp-lyrics");
-    if (!box) return;
+    if (!box || !lyricsOn) return;
     const key = it && state.type !== "episode" ? String(it.id || `${it.artist}|${it.name}`) : "";
     if (key === lyricsKey) return;
     lyricsKey = key;
@@ -403,6 +449,7 @@
     lyrics = l;
     lyricIdx = -2;
     const box = q(".sp-lyrics");
+    lyricsLayout();
     if (!box) return;
     const msg = (icon, text) => `<div class="sp-lyrics-msg">${ic(icon)}<p>${text}</p></div>`;
     box.classList.remove("is-synced", "is-plain");
@@ -502,6 +549,7 @@
     }
     if (e.target.closest?.("button, input")) return;
     if (e.key === "f" || e.key === "F") toggleFullscreen();
+    else if ((e.key === "l" || e.key === "L") && mode === "player") toggleLyrics();
     else if (e.key === " " && state) {
       e.preventDefault();
       q('[data-act="toggle"]')?.click();
@@ -544,6 +592,8 @@
 
     if (act === "close") {
       setOpen(false);
+    } else if (act === "lyrics") {
+      toggleLyrics();
     } else if (act === "fullscreen") {
       toggleFullscreen();
     } else if (act === "connect") {

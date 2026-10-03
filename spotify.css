@@ -62,8 +62,10 @@
   box-shadow: 0 0 0 3px rgba(var(--red-500-rgb), 0.4);
 }
 
+/* Sonando: solo la carátula; el nombre se despliega al pasar el ratón */
 .sp-btn.has-track {
-  padding: 0 12px 0 4px;
+  gap: 0;
+  padding: 0 3px;
 }
 
 .sp-btn-cover {
@@ -96,9 +98,21 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  max-width: 170px;
+  max-width: 0;
+  margin: 0;
+  opacity: 0;
+  overflow: hidden;
   text-align: left;
   line-height: 1.15;
+  transition: max-width 0.34s var(--ease-smooth), margin 0.34s var(--ease-smooth), opacity 0.2s ease;
+}
+
+.sp-btn:hover .sp-btn-text,
+.sp-btn:focus-visible .sp-btn-text {
+  max-width: 200px;
+  margin: 0 10px 0 9px;
+  opacity: 1;
+  transition: max-width 0.34s var(--ease-smooth), margin 0.34s var(--ease-smooth), opacity 0.25s ease 0.06s;
 }
 
 .sp-btn-text b,
@@ -165,14 +179,6 @@
   }
 }
 
-@media (max-width: 1250px) {
-  .sp-btn-text {
-    display: none;
-  }
-  .sp-btn.has-track {
-    padding-right: 10px;
-  }
-}
 
 /* ------------------------------------------------------------ Pantalla completa */
 .sp-full {
@@ -322,27 +328,27 @@ html.sp-full-open .main-content {
   box-shadow: 0 0 0 3px rgba(var(--red-500-rgb), 0.45);
 }
 
+/* Centrado; al abrir la letra, esta crece a la derecha y empuja el
+   reproductor hacia la izquierda (todo con la misma curva). */
+.sp-full {
+  --lyr-w: min(760px, calc(100vw - 700px));
+  --lyr-gap: clamp(40px, 6vw, 110px);
+}
+
 .sp-full-body {
   flex: 1;
   min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(300px, 420px) minmax(0, 1fr);
+  display: flex;
   align-items: center;
-  gap: clamp(32px, 6vw, 110px);
+  justify-content: center;
   padding: 0 clamp(24px, 6vw, 110px) clamp(20px, 4vh, 48px);
 }
 
-.sp-full[data-mode="off"] .sp-full-body,
-.sp-full[data-mode="connecting"] .sp-full-body,
-.sp-full[data-mode="idle"] .sp-full-body {
-  grid-template-columns: 1fr;
-  justify-items: center;
-}
-
-/* Reproductor (columna izquierda) */
+/* Reproductor */
 .sp-player {
   display: flex;
   flex-direction: column;
+  flex: 0 0 min(420px, 40vw);
   min-width: 0;
 }
 
@@ -724,12 +730,36 @@ html.sp-full-open .main-content {
 .sp-lyrics {
   position: relative;
   align-self: stretch;
+  flex: 0 1 0px;
+  min-width: 0;
   min-height: 0;
   max-height: 100%;
+  margin-left: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
+  opacity: 0;
+  transform: translateX(48px);
+  pointer-events: none;
+  transition: flex-basis 0.7s var(--ease-smooth), margin-left 0.7s var(--ease-smooth), transform 0.7s var(--ease-smooth), opacity 0.3s ease;
   -webkit-mask-image: linear-gradient(transparent, #000 14%, #000 80%, transparent);
   mask-image: linear-gradient(transparent, #000 14%, #000 80%, transparent);
+}
+
+.sp-full.lyrics-on .sp-lyrics {
+  flex-basis: var(--lyr-w);
+  margin-left: var(--lyr-gap);
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+  transition: flex-basis 0.7s var(--ease-smooth), margin-left 0.7s var(--ease-smooth), transform 0.75s var(--ease-smooth), opacity 0.55s ease 0.18s;
+}
+
+/* Ancho fijo: el texto no se recoloca mientras se abre */
+.sp-lines,
+.sp-lyrics-src,
+.sp-lyrics-msg {
+  width: var(--lyr-w);
 }
 
 .sp-lines {
@@ -924,12 +954,27 @@ html.sp-full-open .main-content {
 
 /* Ventana estrecha: la letra va debajo del reproductor */
 @media (max-width: 980px) {
+  .sp-full {
+    --lyr-w: 100%;
+  }
   .sp-full-body {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto minmax(0, 1fr);
-    align-items: start;
-    gap: 18px;
-    overflow-y: auto;
+    flex-direction: column;
+    justify-content: center;
+    align-items: stretch;
+  }
+  .sp-full.lyrics-on .sp-full-body {
+    justify-content: flex-start;
+  }
+  .sp-player {
+    flex: 0 0 auto;
+  }
+  .sp-lyrics {
+    flex: 0 0 0px;
+    transform: translateY(30px);
+  }
+  .sp-full.lyrics-on .sp-lyrics {
+    flex: 1 1 0px;
+    margin: 18px 0 0;
   }
   .sp-player {
     display: grid;
@@ -1588,4 +1633,73 @@ html.sp-full-open .main-content {
   margin-top: -4px;
   background: var(--red-500);
   box-shadow: none;
+}
+
+/* Botón "Letra" de arriba */
+.sp-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  border: 1px solid rgba(var(--fg-rgb), 0.16);
+  border-radius: 999px;
+  background: rgba(var(--fg-rgb), 0.06);
+  color: var(--washi-200);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s var(--ease-smooth), border-color 0.2s var(--ease-smooth), color 0.2s var(--ease-smooth);
+}
+
+.sp-pill[hidden] {
+  display: none;
+}
+
+.sp-pill .sp-i {
+  width: 15px;
+  height: 15px;
+}
+
+.sp-pill:hover {
+  background: rgba(var(--fg-rgb), 0.12);
+  color: var(--washi-50);
+}
+
+.sp-pill.is-on {
+  border-color: var(--red-500);
+  background: var(--red-500);
+  color: var(--on-accent);
+}
+
+/* La quiere ver, pero esta canción no tiene */
+.sp-pill.is-on.is-empty {
+  background: transparent;
+  color: var(--washi-400);
+  border-style: dashed;
+}
+
+.sp-pill:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(var(--red-500-rgb), 0.45);
+}
+
+:root[data-effect="retro"] .sp-pill,
+:root[data-effect="terminal"] .sp-pill,
+:root[data-effect="cyber"] .sp-pill {
+  border-radius: 0;
+}
+
+:root[data-effect="glass"] .sp-pill:not(.is-on) {
+  border-color: transparent;
+  background: var(--lg-fill);
+  box-shadow: var(--lg-rim);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sp-lyrics,
+  .sp-full.lyrics-on .sp-lyrics {
+    transition: opacity 0.2s ease;
+    transform: none;
+  }
 }

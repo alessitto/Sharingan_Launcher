@@ -94,7 +94,9 @@
     btn.title = me ? "Tu cuenta" : "Inicia sesión o crea una cuenta";
   }
 
-  async function openAuth(mode = "login", why = "") {
+  // Formulario de entrar / crear cuenta dentro de "wrap" (un modal o la
+  // página Cuenta de Ajustes). onDone(res, modo) al entrar bien.
+  function bindAuth(wrap, { mode = "login", why = "", onDone, autofocus = true } = {}) {
     let current = mode;
     const form = () => `
       <div class="cm-auth">
@@ -111,67 +113,64 @@
         <button type="button" class="sl-btn sl-btn-primary cm-auth-go">${current === "register" ? "Crear cuenta" : "Entrar"}</button>
       </div>`;
 
+    wrap.innerHTML = form();
+    const bind = (focus) => {
+      if (focus) wrap.querySelector(".cm-in-user").focus();
+      wrap.querySelectorAll("input").forEach((i) =>
+        i.addEventListener("keydown", (e) => e.key === "Enter" && wrap.querySelector(".cm-auth-go").click())
+      );
+    };
+    bind(autofocus);
+    wrap.addEventListener("click", async (e) => {
+      const seg = e.target.closest("[data-mode]");
+      if (seg) {
+        const user = wrap.querySelector(".cm-in-user").value;
+        current = seg.dataset.mode;
+        wrap.innerHTML = form();
+        wrap.querySelector(".cm-in-user").value = user;
+        bind(true);
+        return;
+      }
+      const go = e.target.closest(".cm-auth-go");
+      if (!go) return;
+      const err = wrap.querySelector(".cm-auth-error");
+      const username = wrap.querySelector(".cm-in-user").value.trim();
+      const password = wrap.querySelector(".cm-in-pass").value;
+      const show = (msg) => {
+        err.textContent = msg;
+        err.hidden = false;
+      };
+      if (!username || !password) return show("Rellena el usuario y la contraseña.");
+      if (current === "register" && password !== wrap.querySelector(".cm-in-pass2").value) return show("Las contraseñas no coinciden.");
+      go.disabled = true;
+      go.textContent = current === "register" ? "Creando cuenta…" : "Entrando…";
+      const res = await api(current, username, password);
+      if (!res.ok) {
+        go.disabled = false;
+        go.textContent = current === "register" ? "Crear cuenta" : "Entrar";
+        return show(res.error);
+      }
+      showNotification(current === "register" ? `¡Bienvenido, ${res.user.username}! Tu cuenta está lista.` : `Hola de nuevo, ${res.user.username}.`);
+      onDone?.(res, current);
+    });
+  }
+
+  async function openAuth(mode = "login", why = "") {
     await openModal({
       eyebrow: "Cuenta",
       title: "Sharingan Launcher",
       width: 440,
-      html: `<div class="cm-auth-wrap">${form()}</div>`,
+      html: `<div class="cm-auth-wrap"></div>`,
       showConfirmButton: false,
       showCloseButton: true,
-      didOpen: (popup) => {
-        const wrap = popup.querySelector(".cm-auth-wrap");
-        const bind = () => {
-          wrap.querySelector(".cm-in-user").focus();
-          wrap.querySelectorAll("input").forEach((i) =>
-            i.addEventListener("keydown", (e) => e.key === "Enter" && wrap.querySelector(".cm-auth-go").click())
-          );
-        };
-        bind();
-        wrap.addEventListener("click", async (e) => {
-          const seg = e.target.closest("[data-mode]");
-          if (seg) {
-            const user = wrap.querySelector(".cm-in-user").value;
-            current = seg.dataset.mode;
-            wrap.innerHTML = form();
-            wrap.querySelector(".cm-in-user").value = user;
-            bind();
-            return;
-          }
-          const go = e.target.closest(".cm-auth-go");
-          if (!go) return;
-          const err = wrap.querySelector(".cm-auth-error");
-          const username = wrap.querySelector(".cm-in-user").value.trim();
-          const password = wrap.querySelector(".cm-in-pass").value;
-          const show = (msg) => {
-            err.textContent = msg;
-            err.hidden = false;
-          };
-          if (!username || !password) return show("Rellena el usuario y la contraseña.");
-          if (current === "register" && password !== wrap.querySelector(".cm-in-pass2").value) return show("Las contraseñas no coinciden.");
-          go.disabled = true;
-          go.textContent = current === "register" ? "Creando cuenta…" : "Entrando…";
-          const res = await api(current, username, password);
-          if (!res.ok) {
-            go.disabled = false;
-            go.textContent = current === "register" ? "Crear cuenta" : "Entrar";
-            return show(res.error);
-          }
-          Swal.close();
-          showNotification(current === "register" ? `¡Bienvenido, ${res.user.username}! Tu cuenta está lista.` : `Hola de nuevo, ${res.user.username}.`);
-        });
-      },
+      didOpen: (popup) => bindAuth(popup.querySelector(".cm-auth-wrap"), { mode, why, onDone: () => Swal.close() }),
     });
   }
 
-  async function openProfile() {
-    if (!me) return openAuth();
+  function profileHtml() {
     const list = window.Achievements?.list() || [];
     const got = list.filter((a) => a.unlockedAt).length;
-    await openModal({
-      eyebrow: "Tu cuenta",
-      title: me.username,
-      width: 460,
-      html: `
+    return `
         <div class="cm-profile">
           <div class="cm-profile-top">
             ${avatar(me.username, "is-lg")}
@@ -192,33 +191,59 @@
             <button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-p="ach">${icon("trophy")}Ver logros</button>
             <button type="button" class="sl-btn sl-btn-danger-ghost sl-btn-sm" data-p="logout">${icon("logout")}Cerrar sesión</button>
           </div>
-        </div>`,
+        </div>`;
+  }
+
+  // Botones del perfil. La confirmación de cerrar sesión es otro modal:
+  // al acabar se llama a "back" para volver a donde se estaba (Ajustes).
+  function bindProfile(box, back) {
+    box.addEventListener("click", async (e) => {
+      const b = e.target.closest("[data-p]");
+      if (!b) return;
+      if (b.dataset.p === "sync") {
+        b.disabled = true;
+        const res = await api("syncNow");
+        b.disabled = false;
+        box.querySelector(".cm-sync-text").textContent = res.ok ? `Al día · ${ago(res.lastSync)}` : res.error;
+      } else if (b.dataset.p === "ach") {
+        Swal.close();
+        openCommunity("achievements");
+      } else if (b.dataset.p === "logout") {
+        const ok = await confirmDialog({
+          title: "¿Cerrar sesión?",
+          text: "Tus datos se quedan en este PC y en tu cuenta.",
+          confirmText: "Cerrar sesión",
+        });
+        if (ok) {
+          await api("logout");
+          showNotification("Sesión cerrada.");
+        }
+        back?.();
+      }
+    });
+  }
+
+  async function openProfile() {
+    if (!me) return openAuth();
+    await openModal({
+      eyebrow: "Tu cuenta",
+      title: me.username,
+      width: 460,
+      html: profileHtml(),
       showConfirmButton: false,
       showCloseButton: true,
-      didOpen: (popup) =>
-        popup.addEventListener("click", async (e) => {
-          const b = e.target.closest("[data-p]");
-          if (!b) return;
-          if (b.dataset.p === "sync") {
-            b.disabled = true;
-            const res = await api("syncNow");
-            b.disabled = false;
-            popup.querySelector(".cm-sync-text").textContent = res.ok ? `Al día · ${ago(res.lastSync)}` : res.error;
-          } else if (b.dataset.p === "ach") {
-            Swal.close();
-            openCommunity("achievements");
-          } else if (b.dataset.p === "logout") {
-            const ok = await confirmDialog({
-              title: "¿Cerrar sesión?",
-              text: "Tus datos se quedan en este PC y en tu cuenta.",
-              confirmText: "Cerrar sesión",
-            });
-            if (!ok) return;
-            await api("logout");
-            showNotification("Sesión cerrada.");
-          }
-        }),
+      didOpen: (popup) => bindProfile(popup),
     });
+  }
+
+  // Página "Cuenta" de Ajustes: el perfil o, sin sesión, el formulario.
+  function renderAccount(box, back) {
+    if (me) {
+      box.innerHTML = profileHtml();
+      bindProfile(box, back);
+    } else {
+      bindAuth(box, { autofocus: false, onDone: () => back?.() });
+    }
   }
 
   // ------------------------------------------------------------ Comunidad
@@ -507,7 +532,7 @@
           type,
           title: popup.querySelector(".cm-new-title").value,
           body: popup.querySelector(".cm-new-body").value,
-          appVersion: (document.getElementById("versionLink")?.textContent || "").replace(/^v/, ""),
+          appVersion: window.appVersion || "",
         });
         if (!res.ok) {
           err.textContent = res.error;
@@ -811,6 +836,7 @@
     },
     openAuth,
     openProfile,
+    renderAccount,
   };
 
   init();

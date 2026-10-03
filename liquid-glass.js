@@ -314,6 +314,20 @@
     indicator.style.transform = `translate(${item.offsetLeft}px, ${item.offsetTop}px)`;
   }
 
+  // Las pestañas despliegan su nombre al pasar el ratón y mueven a las de al
+  // lado: la cápsula las sigue durante la animación (unos 400 ms).
+  let followUntil = 0;
+  function followTabs() {
+    const running = performance.now() < followUntil;
+    followUntil = performance.now() + 450;
+    if (running) return;
+    const step = () => {
+      placeIndicator();
+      if (performance.now() < followUntil) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+
   // ------------------------------------------------------------ Luz al tocar
   // El cristal interactivo de iOS se ilumina donde está el dedo; aquí, donde
   // está el ratón (lo pinta el CSS con --lg-x / --lg-y).
@@ -346,6 +360,8 @@
       mo.observe(document.body, { childList: true, subtree: true });
       const nav = document.querySelector(".topnav");
       if (nav) navMo.observe(nav, { subtree: true, attributes: true, attributeFilter: ["class"] });
+      nav?.addEventListener("pointerover", followTabs);
+      nav?.addEventListener("pointerout", followTabs);
       document.addEventListener("pointermove", onPointer, { passive: true });
       window.addEventListener("resize", placeIndicator);
       scan();
@@ -356,6 +372,9 @@
       clearTimeout(scanTimer);
       scanTimer = 0;
       navMo.disconnect();
+      const nav = document.querySelector(".topnav");
+      nav?.removeEventListener("pointerover", followTabs);
+      nav?.removeEventListener("pointerout", followTabs);
       document.removeEventListener("pointermove", onPointer);
       window.removeEventListener("resize", placeIndicator);
       for (const node of [...tracked.keys()]) forget(node);
