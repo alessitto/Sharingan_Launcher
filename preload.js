@@ -95,5 +95,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getStats: () => ipcRenderer.invoke('stats:get'),
   saveStats: (stats) => ipcRenderer.invoke('stats:save', stats),
 
+  // Spotify (spotify.js en main; solo admins)
+  spotify: (action, ...args) => ipcRenderer.invoke('spotify:' + action, ...args),
+
   openExternal: (url) => ipcRenderer.invoke('app:openExternal', url),
 });

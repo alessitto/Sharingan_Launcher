@@ -5,6 +5,7 @@ const { execFile, spawn } = require("child_process");
 const saves = require("./saves");
 const ai = require("./ai");
 const { createCloud } = require("./cloud");
+const { createSpotify } = require("./spotify");
 const themes = require("./themes");
 let cloud = null; // se crea al arrancar (setupCloud)
 const fs = require("fs");
@@ -213,6 +214,7 @@ const publicSettings = () => ({
   ...appSettings,
   aiKey: undefined,
   cloudToken: undefined,
+  spotifyAuth: undefined,
   cloudDirty: undefined,
   cloudLinkedUser: undefined,
 });
@@ -731,6 +733,7 @@ ipcMain.handle("update:install", async () => {
 
 app.whenReady().then(() => {
   setupCloud();
+  setupSpotify();
   loadData();
   createWindow();
   setupAutoUpdates();
@@ -1239,6 +1242,21 @@ function setupCloud() {
     setStats: (stats) => writeJsonAtomic(statsFilePath, stats || {}),
   });
   for (const [name, fn] of Object.entries(cloud.ipc)) ipcMain.handle(`cloud:${name}`, (_e, ...args) => fn(...args));
+}
+
+// -------------------- Spotify (solo admins, no testers) --------------------
+function setupSpotify() {
+  const spotify = createSpotify({
+    safeStorage,
+    settings: appSettings,
+    saveSettings,
+    shell,
+    isAllowed: () => {
+      const u = cloud?.loggedIn() ? appSettings.cloudUser : null;
+      return !!u?.admin && !u.tester;
+    },
+  });
+  for (const [name, fn] of Object.entries(spotify.ipc)) ipcMain.handle(`spotify:${name}`, (_e, ...args) => fn(...args));
 }
 
 // Antes de cerrar se suben los cambios pendientes (máximo 4 s).

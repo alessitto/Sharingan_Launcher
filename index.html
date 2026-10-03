@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="pokepark.css" />
     <link rel="stylesheet" href="community.css" />
+    <link rel="stylesheet" href="spotify.css" />
   </head>
   <body>
     <div class="theme-bg" aria-hidden="true"></div>
@@ -55,6 +56,8 @@
         </div>
 
         <span id="versionLink" class="version-link" onclick="openChangelogModal()" title="Historial de versiones"></span>
+        <!-- Spotify: solo lo ven los admins (spotify-ui.js) -->
+        <button type="button" id="spotifyBtn" class="sp-btn" hidden aria-haspopup="dialog" aria-expanded="false"></button>
         <button type="button" id="accountBtn" class="account-btn" title="Inicia sesión o crea una cuenta"></button>
         <button class="icon-btn settings-btn" onclick="openSettingsModal()" title="Ajustes" aria-label="Ajustes">
           <svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
@@ -179,6 +182,7 @@
     <script src="liquid-glass.js" defer></script>
     <script src="achievements.js" defer></script>
     <script src="community.js" defer></script>
+    <script src="spotify-ui.js" defer></script>
 
     <script>
       // ===============================
