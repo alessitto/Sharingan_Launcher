@@ -2621,6 +2621,14 @@
         window.Achievements?.trackTheme(`fx:${themeState.effect}`);
       }
 
+      // Al elegir otro color o estilo, la ventana entera hace un fundido
+      // del tema viejo al nuevo en vez de cambiar de golpe.
+      function smoothTheme(settings) {
+        const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+        if (!document.startViewTransition || reduced) return applyTheme(settings);
+        document.startViewTransition(() => applyTheme(settings));
+      }
+
       function themeSwatchHtml(p, selected) {
         return `
           <div class="theme-swatch${selected ? " is-selected" : ""}" data-theme-id="${p.id}" title="${p.name}">
@@ -2742,7 +2750,7 @@
             if (!sw) return;
             const theme = sw.dataset.themeId;
             colorsEl.querySelectorAll(".theme-swatch").forEach((el) => el.classList.toggle("is-selected", el === sw));
-            applyTheme({ theme, themeEffect: themeState.effect });
+            smoothTheme({ theme, themeEffect: themeState.effect });
             persistSetting({ theme });
           });
         } else if (id === "style") {
@@ -2752,7 +2760,7 @@
             if (!card) return;
             const themeEffect = card.dataset.effectId;
             effectsEl.querySelectorAll(".tp-effect").forEach((el) => el.classList.toggle("is-selected", el === card));
-            applyTheme({ theme: themeState.palette, themeEffect });
+            smoothTheme({ theme: themeState.palette, themeEffect });
             persistSetting({ themeEffect });
           });
         } else if (id === "discover") {

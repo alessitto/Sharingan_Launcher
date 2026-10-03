@@ -202,13 +202,15 @@
     btn.hidden = !allowed;
     if (!allowed) return;
     const it = state?.item;
-    const key = it ? `${it.name}|${it.artists}|${it.thumb}|${state.isPlaying}` : `none|${connected}`;
+    // Play/pausa solo cambia la clase: la carátula se queda girada donde
+    // esté en vez de volver de golpe a su sitio.
+    const key = it ? `${it.name}|${it.artists}|${it.thumb}` : `none|${connected}`;
     btn.classList.toggle("is-open", open);
+    btn.classList.toggle("is-playing", !!state?.isPlaying);
     btn.setAttribute("aria-expanded", String(open));
     if (key === btnKey) return;
     btnKey = key;
     btn.classList.toggle("has-track", !!it);
-    btn.classList.toggle("is-playing", !!state?.isPlaying);
     btn.title = it ? "" : "Spotify";
     // Sonando: solo la carátula girando; el nombre sale al pasar el ratón.
     btn.innerHTML = it
@@ -482,7 +484,31 @@
     });
     if (Date.now() < manualScrollUntil) return;
     const cur = els[Math.max(0, idx)];
-    if (cur) box.scrollTo({ top: cur.offsetTop - box.clientHeight * 0.38 + cur.offsetHeight / 2, behavior: instant ? "auto" : "smooth" });
+    if (cur) glide(box, cur.offsetTop - box.clientHeight * 0.38 + cur.offsetHeight / 2, instant);
+  }
+
+  // Desplazamiento de la letra con curva propia (sale rápido y frena
+  // suave); el "smooth" del navegador es más brusco y no se puede ajustar.
+  let glideRaf = 0;
+  const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+  function glide(box, top, instant) {
+    cancelAnimationFrame(glideRaf);
+    top = Math.max(0, Math.min(top, box.scrollHeight - box.clientHeight));
+    const from = box.scrollTop;
+    const dist = top - from;
+    if (instant || reducedMotion?.matches || Math.abs(dist) < 1) {
+      box.scrollTop = top;
+      return;
+    }
+    const t0 = performance.now();
+    const dur = Math.min(900, 520 + Math.abs(dist) * 0.4);
+    const ease = (t) => 1 - Math.pow(1 - t, 4);
+    const step = (now) => {
+      const t = Math.min(1, (now - t0) / dur);
+      box.scrollTop = from + dist * ease(t);
+      if (t < 1) glideRaf = requestAnimationFrame(step);
+    };
+    glideRaf = requestAnimationFrame(step);
   }
 
   // ------------------------------------------------------------ Pintar
@@ -504,12 +530,18 @@
     open = on;
     devicesOpen = false;
     mode = "";
-    clearInterval(tickTimer);
+    cancelAnimationFrame(tickTimer);
     if (open) {
       render();
       view.classList.add("is-shown");
       document.documentElement.classList.add("sp-full-open");
-      tickTimer = setInterval(tick, 100);
+      // Barra de progreso y letra a cada frame (antes, a saltos de 100 ms).
+      const loop = () => {
+        if (!open) return;
+        tick();
+        tickTimer = requestAnimationFrame(loop);
+      };
+      tickTimer = requestAnimationFrame(loop);
       if (connected) {
         poll();
         if (!state) loadDevices();
@@ -564,7 +596,15 @@
   document.addEventListener("visibilitychange", () => (document.hidden ? schedule() : connected && allowed && schedule(0)));
 
   // Si se mueve la letra a mano, se deja de seguir un rato.
-  view.addEventListener("wheel", (e) => e.target.closest(".sp-lyrics") && (manualScrollUntil = Date.now() + 4000), { passive: true });
+  view.addEventListener(
+    "wheel",
+    (e) => {
+      if (!e.target.closest(".sp-lyrics")) return;
+      cancelAnimationFrame(glideRaf);
+      manualScrollUntil = Date.now() + 4000;
+    },
+    { passive: true }
+  );
 
   // Cerrar la lista de dispositivos al pulsar fuera de ella.
   view.addEventListener("pointerdown", (e) => {

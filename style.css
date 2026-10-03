@@ -5838,3 +5838,163 @@ body.pad-in-use {
   background: transparent !important;
   box-shadow: none !important;
 }
+
+/* =====================================================================
+   Movimiento: mismas curvas y duraciones en toda la app
+   ===================================================================== */
+/* Permite animar hasta "auto" (anchos de las etiquetas que se despliegan):
+   así se abren y se cierran a su medida, sin el retardo de max-width. */
+:root {
+  interpolate-size: allow-keywords;
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+}
+
+.topnav-label,
+.topnav-item:hover .topnav-label,
+.topnav-item:focus-visible .topnav-label {
+  max-width: none;
+}
+
+.topnav-label {
+  width: 0;
+  transition: width 0.4s var(--ease-smooth), margin-left 0.4s var(--ease-smooth), opacity 0.16s ease;
+}
+
+.topnav-item:hover .topnav-label,
+.topnav-item:focus-visible .topnav-label {
+  width: auto;
+  transition: width 0.4s var(--ease-smooth), margin-left 0.4s var(--ease-smooth), opacity 0.3s ease 0.08s;
+}
+
+.topnav-item {
+  transition: background 0.25s var(--ease-smooth), color 0.25s var(--ease-smooth), border-color 0.25s var(--ease-smooth);
+}
+
+/* Cambio de sección: entra con un fundido y un leve desplazamiento */
+.section.active {
+  animation: slSectionIn 0.4s var(--ease-smooth) backwards;
+}
+
+@keyframes slSectionIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* Modales: entran con un poco más de recorrido y salen acelerando */
+@keyframes slModalIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes slModalOut {
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.975);
+  }
+}
+
+.sl-modal-in {
+  animation: slModalIn 0.36s var(--ease-smooth);
+}
+
+.sl-modal-out {
+  animation: slModalOut 0.2s var(--ease-exit) forwards;
+}
+
+.swal2-container {
+  transition: background-color 0.3s var(--ease-smooth) !important;
+}
+
+/* Avisos de arriba: entrada y salida suaves (antes eran lineales) */
+.notification {
+  animation: fadeInOut 3s var(--ease-smooth) forwards;
+}
+
+@keyframes fadeInOut {
+  0% {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.96);
+  }
+  9% {
+    opacity: 1;
+    transform: none;
+  }
+  91% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.98);
+  }
+}
+
+/* Tarjetas: sin escalar el texto (se veía borroso), solo se elevan */
+.game-card {
+  transition: transform 0.35s var(--ease-smooth), box-shadow 0.35s var(--ease-smooth), border-color 0.25s var(--ease-smooth);
+}
+
+.game-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 0 0 1px rgba(var(--red-500-rgb), 0.15), 0 14px 30px rgba(0, 0, 0, 0.28);
+}
+
+.game-card img {
+  transition: transform 0.6s var(--ease-smooth);
+}
+
+.game-card:hover img {
+  transform: scale(1.04);
+}
+
+/* Desplegables un pelín más largos para que no "salten" */
+.dropdown-content,
+.dropdown-content.show {
+  transition-duration: 0.2s;
+}
+
+/* Ajustes: cambio de página */
+.st-page.is-entering .st-body {
+  animation: stPageIn 0.34s var(--ease-smooth);
+}
+
+@keyframes stPageIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.st-tab {
+  transition: background 0.2s var(--ease-smooth), color 0.2s var(--ease-smooth), box-shadow 0.25s var(--ease-smooth);
+}
+
+/* Cambio de tema: fundido de toda la ventana (View Transitions) */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.45s;
+  animation-timing-function: var(--ease-smooth);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .section.active,
+  .sl-modal-in,
+  .sl-modal-out {
+    animation-duration: 0.01ms !important;
+  }
+  .topnav-label {
+    transition: none !important;
+  }
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
+}
