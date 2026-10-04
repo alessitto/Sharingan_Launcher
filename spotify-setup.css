@@ -1,0 +1,1329 @@
+/* =====================================================================
+   Spotify: asistente para conectar tu app (spotify-setup.js) y la página
+   Ajustes › Spotify
+   ===================================================================== */
+/* Va dentro de la pantalla completa de Spotify (spotify.css), así que hereda
+   su fondo; todo sale de las variables del tema. Abajo, retoques por estilo. */
+
+.sps {
+  width: min(1080px, 100%);
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sps [hidden] {
+  display: none !important;
+}
+
+.sps .sp-i {
+  width: 16px;
+  height: 16px;
+}
+
+/* Progreso: cuatro barritas y "Paso 2 de 4" */
+.sps-top {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 0 0 clamp(8px, 2vh, 20px);
+}
+
+.sps-progress {
+  display: flex;
+  gap: 6px;
+}
+
+.sps-progress i {
+  position: relative;
+  width: 40px;
+  height: 4px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(var(--fg-rgb), 0.14);
+}
+
+.sps-progress i::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--red-500);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.6s var(--ease-smooth);
+}
+
+.sps-progress i.is-done::after,
+.sps-progress i.is-now::after {
+  transform: scaleX(1);
+}
+
+.sps-step-label {
+  min-width: 82px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+  color: var(--washi-400);
+}
+
+.sps-stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 8px 4px;
+  scrollbar-width: thin;
+}
+
+.sps-step {
+  width: 100%;
+  margin: auto 0;
+  animation: spsIn 0.55s var(--ease-smooth) both;
+}
+
+@keyframes spsIn {
+  from {
+    opacity: 0;
+    transform: translateX(calc(var(--dir, 1) * 32px));
+  }
+}
+
+.sps-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: clamp(12px, 2.5vh, 24px);
+}
+
+.sps-foot-space {
+  flex: 1;
+}
+
+.sps-text-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 999px;
+  background: none;
+  color: var(--washi-300);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.2s var(--ease-smooth), color 0.2s var(--ease-smooth);
+}
+
+.sps-text-btn:hover {
+  background: rgba(var(--fg-rgb), 0.08);
+  color: var(--washi-50);
+}
+
+.sps-text-btn:focus-visible,
+.sps-copy:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(var(--red-500-rgb), 0.45);
+}
+
+.sps .sl-btn .sp-i,
+.sps .sl-btn .sp-logo {
+  width: 17px;
+  height: 17px;
+}
+
+.sps-big {
+  min-height: 46px;
+  padding: 0 24px;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.sps-next:disabled {
+  opacity: 0.4;
+  box-shadow: none;
+  cursor: default;
+  filter: saturate(0.6);
+}
+
+.sps-next .sp-i,
+.sps-big .sp-i {
+  transition: transform 0.25s var(--ease-smooth);
+}
+
+.sps-next:hover:not(:disabled) .sp-i,
+.sps-big:hover .sp-i {
+  transform: translateX(3px);
+}
+
+/* ------------------------------------------------------------ Pasos 1 y 4 */
+.sps-hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  max-width: 540px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.sps-orb {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 96px;
+  height: 96px;
+  margin-bottom: 6px;
+  border-radius: 50%;
+  color: var(--washi-50);
+  background: radial-gradient(circle at 30% 28%, rgba(var(--red-500-rgb), 0.5), rgba(var(--red-500-rgb), 0.12) 70%);
+  box-shadow: 0 0 0 1px rgba(var(--red-500-rgb), 0.4), 0 20px 60px rgba(var(--red-500-rgb), 0.3);
+}
+
+.sps-orb .sp-logo {
+  width: 46px;
+  height: 46px;
+}
+
+/* Ondas que salen del logo */
+.sps-orb::before,
+.sps-orb::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  border: 1px solid rgba(var(--red-500-rgb), 0.45);
+  animation: spsRing 3s var(--ease-smooth) infinite;
+}
+
+.sps-orb::after {
+  animation-delay: 1.5s;
+}
+
+@keyframes spsRing {
+  from {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  to {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+.sps-title {
+  margin: 0;
+  font-family: "Shippori Mincho", "Zen Kaku Gothic New", serif;
+  font-size: clamp(24px, 2.6vw, 34px);
+  font-weight: 800;
+  line-height: 1.15;
+  color: var(--washi-50);
+}
+
+.sps-lead {
+  margin: 0;
+  max-width: 46ch;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--washi-300);
+}
+
+.sps-lead b,
+.sps-list b,
+.sps-tip b,
+.sps-help b,
+.sps-warn b {
+  font-weight: 700;
+  color: var(--washi-50);
+}
+
+.sps-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sps-chips li {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 13px;
+  border: 1px solid rgba(var(--fg-rgb), 0.12);
+  border-radius: 999px;
+  background: rgba(var(--fg-rgb), 0.07);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--washi-200);
+  animation: spsIn 0.5s var(--ease-smooth) both;
+}
+
+.sps-chips li:nth-child(2) {
+  animation-delay: 0.06s;
+}
+
+.sps-chips li:nth-child(3) {
+  animation-delay: 0.12s;
+}
+
+.sps .sps-chips .sp-i {
+  width: 14px;
+  height: 14px;
+  color: var(--accent-text);
+}
+
+.sps-chips li.is-premium {
+  border-color: rgba(var(--red-500-rgb), 0.45);
+  background: rgba(var(--red-500-rgb), 0.12);
+}
+
+.sps-note {
+  margin: -4px 0 0;
+  font-size: 12px;
+  color: var(--washi-400);
+}
+
+.sps-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.sps-actions.is-center {
+  justify-content: center;
+}
+
+/* ------------------------------------------------------------ Pasos 2 y 3 */
+/* Texto a la izquierda y el dibujo del panel de Spotify a la derecha */
+.sps-split {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  align-items: center;
+  gap: clamp(28px, 4.5vw, 72px);
+}
+
+.sps-copytext {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.sps-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: sps;
+}
+
+.sps-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--washi-300);
+  counter-increment: sps;
+}
+
+.sps-list li > span {
+  flex: 1;
+  min-width: 0;
+  padding-top: 2px;
+}
+
+.sps-list li::before {
+  content: counter(sps);
+  display: grid;
+  place-items: center;
+  flex: 0 0 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(var(--red-500-rgb), 0.16);
+  color: var(--accent-text);
+  font-size: 12.5px;
+  font-weight: 800;
+}
+
+.sps-tip {
+  display: flex;
+  gap: 10px;
+  margin: 0;
+  padding: 10px 13px;
+  border: 1px solid rgba(var(--fg-rgb), 0.08);
+  border-radius: 12px;
+  background: rgba(var(--fg-rgb), 0.05);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--washi-400);
+}
+
+.sps .sps-tip .sp-i {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--accent-text);
+}
+
+/* Dibujo: una ventana del navegador con el panel */
+.sps-shot {
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid rgba(var(--fg-rgb), 0.1);
+  border-radius: 14px;
+  background: var(--ink-900);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35), 0 8px 24px rgba(0, 0, 0, 0.2);
+  transform: perspective(1600px) rotateY(-5deg);
+  transition: transform 0.6s var(--ease-smooth);
+  animation: spsShotIn 0.8s var(--ease-smooth) 0.08s both;
+}
+
+.sps-shot:hover {
+  transform: perspective(1600px) rotateY(0);
+}
+
+@keyframes spsShotIn {
+  from {
+    opacity: 0;
+    transform: perspective(1600px) rotateY(-14deg) translateX(30px);
+  }
+}
+
+.sps-chrome {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(var(--fg-rgb), 0.07);
+  background: rgba(var(--fg-rgb), 0.05);
+}
+
+.sps-chrome i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: rgba(var(--fg-rgb), 0.18);
+}
+
+.sps-chrome span {
+  flex: 1;
+  min-width: 0;
+  margin-left: 10px;
+  padding: 4px 11px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(var(--bg-rgb), 0.5);
+  font-size: 11px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--washi-400);
+}
+
+.sps-form {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 14px 18px 16px;
+}
+
+.sps-form-h {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--washi-50);
+}
+
+.sps-field,
+.sps-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sps-field.is-muted,
+.sps-row.is-muted {
+  opacity: 0.6;
+}
+
+.sps-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--washi-200);
+}
+
+.sps-label em {
+  margin-left: -5px;
+  font-style: normal;
+  color: var(--accent-text);
+}
+
+/* Etiquetas que señalan dónde fijarse */
+.sps-mark {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--red-500);
+  color: var(--on-accent);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  animation: spsPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.5s both;
+}
+
+.sps-mark.is-no {
+  background: rgba(var(--fg-rgb), 0.16);
+  color: var(--washi-200);
+}
+
+@keyframes spsPop {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+
+.sps-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  padding: 3px 3px 3px 11px;
+  border: 1px solid rgba(var(--fg-rgb), 0.16);
+  border-radius: 7px;
+  background: rgba(var(--bg-rgb), 0.45);
+  font-size: 12.5px;
+  color: var(--washi-100);
+}
+
+.sps-input > span:not(.sps-add),
+.sps-input > code {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.sps code {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 12px;
+}
+
+.sps-input.is-empty > span:not(.sps-add) {
+  font-style: italic;
+  color: var(--washi-400);
+}
+
+.sps-input.is-inline {
+  width: 100%;
+  text-align: left;
+}
+
+.sps-field.is-key .sps-input,
+.sps-row.is-key code {
+  border-color: var(--red-500);
+  animation: spsGlow 2.4s ease-in-out infinite;
+}
+
+@keyframes spsGlow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px rgba(var(--red-500-rgb), 0.2);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(var(--red-500-rgb), 0.06);
+  }
+}
+
+.sps-hint {
+  font-size: 11.5px;
+  color: var(--accent-text);
+}
+
+.sps-add {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border: 1px solid rgba(var(--fg-rgb), 0.3);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--washi-100);
+}
+
+/* Botón de copiar */
+.sps-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  padding: 5px 10px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(var(--red-500-rgb), 0.16);
+  color: var(--accent-text);
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s var(--ease-smooth), color 0.2s var(--ease-smooth), transform 0.15s var(--ease-smooth);
+}
+
+.sps .sps-copy .sp-i {
+  width: 13px;
+  height: 13px;
+}
+
+.sps-copy:hover,
+.sps-copy.is-copied {
+  background: var(--red-500);
+  color: var(--on-accent);
+}
+
+.sps-copy:active {
+  transform: scale(0.94);
+}
+
+.sps-copy.is-copied {
+  animation: spsPop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.sps-copy.is-failed {
+  background: rgba(var(--danger-rgb), 0.16);
+  color: var(--danger);
+}
+
+.sps-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+}
+
+.sps-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--washi-300);
+}
+
+.sps-check::before {
+  content: "";
+  box-sizing: border-box;
+  width: 15px;
+  height: 15px;
+  border: 1.5px solid rgba(var(--fg-rgb), 0.3);
+  border-radius: 4px;
+}
+
+.sps-check.is-on::before {
+  display: none;
+}
+
+.sps .sps-check.is-on .sp-i {
+  box-sizing: border-box;
+  width: 15px;
+  height: 15px;
+  padding: 2px;
+  border-radius: 4px;
+  background: var(--red-500);
+  color: var(--on-accent);
+  stroke-width: 3.5;
+}
+
+.sps-check.is-key {
+  font-weight: 700;
+  color: var(--washi-50);
+}
+
+.sps-terms {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  color: var(--washi-400);
+}
+
+.sps-form-foot {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.sps-save {
+  padding: 7px 20px;
+  border-radius: 999px;
+  background: var(--red-500);
+  color: var(--on-accent);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+/* Paso 3: la página de tu app */
+.sps-crumb {
+  margin: 0;
+  font-size: 11px;
+  color: var(--washi-400);
+}
+
+.sps-tabs {
+  display: flex;
+  gap: 18px;
+  border-bottom: 1px solid rgba(var(--fg-rgb), 0.1);
+  font-size: 12px;
+  color: var(--washi-400);
+}
+
+.sps-tabs span {
+  padding-bottom: 8px;
+}
+
+.sps-tabs .is-on {
+  color: var(--washi-50);
+  box-shadow: inset 0 -2px 0 var(--red-500);
+}
+
+.sps-row code {
+  align-self: flex-start;
+  max-width: 100%;
+  padding: 6px 10px;
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: rgba(var(--bg-rgb), 0.45);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--washi-100);
+}
+
+.sps-fake-link {
+  font-size: 12.5px;
+  text-decoration: underline;
+  color: var(--washi-200);
+}
+
+/* Campo del Client ID */
+.sps-id {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.sps .sps-id-input {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  height: 54px;
+  padding: 0 96px 0 16px;
+  border: 1.5px solid rgba(var(--fg-rgb), 0.16);
+  border-radius: 12px;
+  outline: none;
+  background: rgba(var(--bg-rgb), 0.5);
+  color: var(--washi-50);
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 15px;
+  letter-spacing: 0.03em;
+  transition: border-color 0.2s var(--ease-smooth), box-shadow 0.2s var(--ease-smooth);
+}
+
+.sps-id-input::placeholder {
+  font-family: "Zen Kaku Gothic New", system-ui, sans-serif;
+  letter-spacing: 0;
+  color: var(--washi-400);
+}
+
+.sps .sps-id-input:focus {
+  border-color: var(--red-500);
+  box-shadow: 0 0 0 4px rgba(var(--red-500-rgb), 0.16);
+}
+
+.sps .sps-id[data-state="ok"] .sps-id-input {
+  border-color: var(--red-500);
+}
+
+.sps .sps-id[data-state="error"] .sps-id-input {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 4px rgba(var(--danger-rgb), 0.14);
+  animation: spsShake 0.4s ease;
+}
+
+@keyframes spsShake {
+  20%,
+  60% {
+    transform: translateX(-4px);
+  }
+  40%,
+  80% {
+    transform: translateX(4px);
+  }
+}
+
+.sps-id-count {
+  position: absolute;
+  right: 48px;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--washi-400);
+  pointer-events: none;
+}
+
+.sps-id-count.is-ok {
+  color: var(--accent-text);
+}
+
+.sps-id-state {
+  position: absolute;
+  right: 14px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.sps-id[data-state="ok"] .sps-id-state {
+  background: var(--red-500);
+  color: var(--on-accent);
+  animation: spsPop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.sps-id[data-state="error"] .sps-id-state {
+  background: var(--danger);
+  color: #fff;
+}
+
+.sps .sps-id-state .sp-i {
+  width: 14px;
+  height: 14px;
+  stroke-width: 3;
+}
+
+.sps-spin {
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(var(--fg-rgb), 0.2);
+  border-top-color: var(--red-500);
+  border-radius: 50%;
+  animation: spSpin 0.8s linear infinite;
+}
+
+.sps-id-msg {
+  min-height: 20px;
+  margin: -8px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--washi-400);
+}
+
+.sps-id-msg[data-state="ok"] {
+  font-weight: 600;
+  color: var(--accent-text);
+}
+
+.sps-id-msg[data-state="error"] {
+  color: var(--danger);
+}
+
+/* ------------------------------------------------------------ Paso 4 */
+.sps-wait-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+  animation: spsIn 0.4s var(--ease-smooth) both;
+}
+
+.sps-wait-box p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--washi-300);
+}
+
+.sps-error {
+  max-width: 48ch;
+  margin: 4px 0 0;
+  padding: 11px 15px;
+  border-radius: 12px;
+  background: rgba(var(--danger-rgb), 0.14);
+  color: var(--danger);
+  font-size: 13.5px;
+  line-height: 1.45;
+  animation: spsIn 0.4s var(--ease-smooth) both;
+}
+
+.sps-help {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: min(480px, 100%);
+  padding: 14px 16px;
+  border: 1px solid rgba(var(--fg-rgb), 0.1);
+  border-radius: 14px;
+  background: rgba(var(--fg-rgb), 0.05);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--washi-300);
+  animation: spsIn 0.45s var(--ease-smooth) both;
+}
+
+.sps-help p {
+  margin: 0;
+}
+
+.sps-change {
+  margin-top: 2px;
+  font-size: 12px;
+}
+
+/* Con error o ayuda a la vista, sin el logo grande para que quepa todo */
+.sps-connect.is-compact .sps-orb {
+  display: none;
+}
+
+.sps-connect.is-compact {
+  gap: 12px;
+}
+
+/* ------------------------------------------------------------ ¡Conectado! */
+.sps-tick {
+  display: grid;
+  place-items: center;
+  width: 96px;
+  height: 96px;
+  margin-bottom: 6px;
+  border-radius: 50%;
+  background: var(--red-500);
+  color: var(--on-accent);
+  box-shadow: 0 18px 50px rgba(var(--red-500-rgb), 0.45);
+  animation: spsTick 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.sps .sps-tick .sp-i {
+  width: 46px;
+  height: 46px;
+  stroke-width: 3;
+  stroke-dasharray: 30;
+  stroke-dashoffset: 30;
+  animation: spsDraw 0.45s var(--ease-smooth) 0.35s forwards;
+}
+
+@keyframes spsTick {
+  from {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+}
+
+@keyframes spsDraw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Confeti con los colores del tema (sale del centro del tick) */
+.sps-burst {
+  position: absolute;
+  top: 48px;
+  left: 50%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.sps-burst i {
+  position: absolute;
+  width: 7px;
+  height: 14px;
+  margin: -7px 0 0 -3.5px;
+  border-radius: 2px;
+  background: var(--red-500);
+  opacity: 0;
+  animation: spsConfetti 1.2s cubic-bezier(0.15, 0.75, 0.3, 1) calc(0.15s + var(--delay)) forwards;
+}
+
+.sps-burst i:nth-child(3n) {
+  background: var(--washi-50);
+}
+
+.sps-burst i:nth-child(3n + 1) {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent-text);
+}
+
+@keyframes spsConfetti {
+  0% {
+    opacity: 1;
+    transform: rotate(var(--a)) translateY(0) rotate(0);
+  }
+  75% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--a)) translateY(calc(var(--d) * -1)) rotate(var(--r));
+  }
+}
+
+.sps-done .sps-title {
+  animation: spsIn 0.5s var(--ease-smooth) 0.25s both;
+}
+
+.sps-done .sps-lead,
+.sps-done .sps-warn,
+.sps-done .sps-actions {
+  animation: spsIn 0.5s var(--ease-smooth) 0.35s both;
+}
+
+.sps-warn {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: 48ch;
+  margin: 0;
+  padding: 11px 14px;
+  border: 1px solid rgba(var(--red-500-rgb), 0.3);
+  border-radius: 12px;
+  background: rgba(var(--red-500-rgb), 0.1);
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: left;
+  color: var(--washi-200);
+}
+
+.sps .sps-warn .sp-i {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--accent-text);
+}
+
+/* Ventana estrecha: el dibujo va debajo */
+@media (max-width: 980px) {
+  .sps-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .sps-shot,
+  .sps-shot:hover {
+    transform: none;
+  }
+}
+
+/* =====================================================================
+   Retoques por estilo
+   ===================================================================== */
+:root[data-effect="retro"] :is(.sps-shot, .sps-input, .sps-copy, .sps-chips li, .sps-tip, .sps-help, .sps-error, .sps-warn, .sps-id-input, .sps-progress i, .sps-mark, .sps-save, .sps-add, .sps-tick, .sps-orb, .sps-orb::before, .sps-orb::after, .sps-list li::before, .sps-row code, .sps-text-btn, .sps-check::before, .sps-check .sp-i, .sps-id-state),
+:root[data-effect="terminal"] :is(.sps-shot, .sps-input, .sps-copy, .sps-chips li, .sps-tip, .sps-help, .sps-error, .sps-warn, .sps-id-input, .sps-progress i, .sps-mark, .sps-save, .sps-add, .sps-tick, .sps-orb, .sps-orb::before, .sps-orb::after, .sps-list li::before, .sps-row code, .sps-text-btn, .sps-check::before, .sps-check .sp-i, .sps-id-state),
+:root[data-effect="cyber"] :is(.sps-shot, .sps-input, .sps-copy, .sps-chips li, .sps-tip, .sps-help, .sps-error, .sps-warn, .sps-id-input, .sps-progress i, .sps-mark, .sps-save, .sps-add, .sps-list li::before, .sps-row code, .sps-text-btn) {
+  border-radius: 0 !important;
+}
+
+/* Retro: marcos gruesos con sombra dura */
+:root[data-effect="retro"] .sps-shot {
+  border: 3px solid var(--retro-line);
+  box-shadow: 8px 8px 0 var(--retro-drop);
+  transform: none;
+  animation-name: spsIn;
+}
+
+:root[data-effect="retro"] .sps-title {
+  font-family: var(--retro-title) !important;
+  font-size: 18px;
+  line-height: 1.6;
+}
+
+:root[data-effect="retro"] .sps-tick,
+:root[data-effect="retro"] .sps-orb {
+  border: 3px solid var(--retro-line);
+  box-shadow: 6px 6px 0 var(--retro-drop);
+}
+
+/* Terminal: monoespaciada, líneas finas, sin sombras */
+:root[data-effect="terminal"] .sps-shot {
+  border-color: var(--tm-line);
+  box-shadow: none;
+  transform: none;
+  animation-name: spsIn;
+}
+
+:root[data-effect="terminal"] .sps-title {
+  font-family: var(--tm-font) !important;
+  font-size: clamp(20px, 2vw, 26px);
+}
+
+:root[data-effect="terminal"] .sps-title::before {
+  content: "> ";
+  color: var(--accent-text);
+}
+
+:root[data-effect="terminal"] .sps-orb,
+:root[data-effect="terminal"] .sps-tick {
+  box-shadow: none;
+}
+
+/* Cyberpunk: esquinas cortadas y neón */
+:root[data-effect="cyber"] .sps-shot {
+  border-color: var(--cy-line);
+  border-radius: 0;
+  clip-path: var(--cy-cut);
+  box-shadow: none;
+  transform: none;
+  animation-name: spsIn;
+  filter: drop-shadow(0 0 14px rgba(var(--red-500-rgb), 0.3));
+}
+
+:root[data-effect="cyber"] .sps-title {
+  font-family: var(--cy-title) !important;
+  font-size: clamp(20px, 2vw, 26px);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+:root[data-effect="cyber"] .sps-orb,
+:root[data-effect="cyber"] .sps-tick {
+  border-radius: 0;
+  clip-path: var(--cy-cut);
+}
+
+:root[data-effect="cyber"] .sps-orb::before,
+:root[data-effect="cyber"] .sps-orb::after {
+  display: none;
+}
+
+/* Y2K: brillo plástico */
+:root[data-effect="y2k"] .sps-title {
+  font-family: var(--y2k-title) !important;
+  font-size: clamp(20px, 2.2vw, 28px);
+}
+
+:root[data-effect="y2k"] .sps-shot {
+  border-radius: 20px;
+  box-shadow: var(--y2k-edge), 0 24px 60px rgba(0, 0, 0, 0.3);
+}
+
+:root[data-effect="y2k"] .sps-copy,
+:root[data-effect="y2k"] .sps-save {
+  background: var(--y2k-gloss), var(--red-500);
+  color: var(--on-accent);
+  box-shadow: var(--y2k-edge);
+}
+
+:root[data-effect="y2k"] .sps-tick,
+:root[data-effect="y2k"] .sps-orb {
+  background: var(--y2k-gloss), var(--red-500);
+  box-shadow: var(--y2k-edge), var(--y2k-glow);
+}
+
+/* Frutiger Aero */
+:root[data-effect="aero"] .sps-shot {
+  border-color: rgba(255, 255, 255, 0.38);
+  border-radius: 18px;
+  background: var(--ae-panel), var(--ink-900);
+  box-shadow: var(--ae-edge), 0 24px 60px rgba(0, 0, 0, 0.28);
+}
+
+:root[data-effect="aero"] .sps-tick,
+:root[data-effect="aero"] .sps-save {
+  background: var(--ae-gloss), var(--red-500);
+}
+
+/* Liquid Glass: paneles de cristal */
+:root[data-effect="glass"] .sps-shot,
+:root[data-effect="glass"] .sps-tip,
+:root[data-effect="glass"] .sps-help,
+:root[data-effect="glass"] .sps-chips li:not(.is-premium) {
+  border-color: transparent;
+  background: var(--lg-fill);
+  box-shadow: var(--lg-rim);
+  backdrop-filter: blur(24px) saturate(160%);
+}
+
+:root[data-effect="glass"] .sps-shot {
+  border-radius: 22px;
+  box-shadow: var(--lg-rim), 0 30px 80px rgba(0, 0, 0, 0.3);
+}
+
+:root[data-effect="glass"] .sps-tick {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0) 60%), var(--red-500);
+  box-shadow: var(--lg-rim), 0 18px 50px rgba(var(--red-500-rgb), 0.4);
+}
+
+/* Minimalista: plano, sin ondas ni brillos */
+:root[data-effect="minimal"] .sps-title {
+  font-family: var(--mn-font) !important;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+:root[data-effect="minimal"] .sps-shot {
+  transform: none;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.16);
+}
+
+:root[data-effect="minimal"] .sps-orb,
+:root[data-effect="minimal"] .sps-tick {
+  box-shadow: none;
+}
+
+:root[data-effect="minimal"] .sps-orb::before,
+:root[data-effect="minimal"] .sps-orb::after {
+  display: none;
+}
+
+/* Papel: una hoja con grano, un poco torcida */
+:root[data-effect="paper"] .sps-title {
+  font-family: var(--pa-font) !important;
+}
+
+:root[data-effect="paper"] .sps-shot {
+  border-radius: 3px;
+  background: var(--pa-grain), var(--ink-900);
+  box-shadow: var(--pa-card-shadow);
+  transform: rotate(0.8deg);
+  animation-name: spsIn;
+}
+
+:root[data-effect="paper"] .sps-shot:hover {
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sps-step,
+  .sps-shot,
+  .sps-chips li,
+  .sps-mark,
+  .sps-orb::before,
+  .sps-orb::after,
+  .sps-field.is-key .sps-input,
+  .sps-row.is-key code,
+  .sps-id-input,
+  .sps-tick,
+  .sps-done *,
+  .sps-wait-box,
+  .sps-error,
+  .sps-help {
+    animation: none !important;
+  }
+  .sps .sps-tick .sp-i {
+    animation: none !important;
+    stroke-dashoffset: 0;
+  }
+  .sps-burst {
+    display: none;
+  }
+}
+
+/* =====================================================================
+   Ajustes › Spotify
+   ===================================================================== */
+.st-sp-status {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  border: 1px solid rgba(var(--fg-rgb), 0.08);
+  border-radius: 14px;
+  background: rgba(var(--fg-rgb), 0.05);
+}
+
+.st-sp-status > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.st-sp-status .settings-update-text {
+  margin: 0;
+}
+
+.st-sp-status code {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 12px;
+  color: var(--washi-200);
+}
+
+.st-sp-dot {
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(var(--fg-rgb), 0.25);
+}
+
+.st-sp-status.is-on .st-sp-dot {
+  background: var(--red-500);
+  box-shadow: 0 0 0 4px rgba(var(--red-500-rgb), 0.2);
+}
+
+.st-sp-status.is-half .st-sp-dot {
+  background: var(--washi-400);
+}
+
+.st-sp-toggle {
+  cursor: pointer;
+}
+
+/* Interruptor */
+.st-switch {
+  -webkit-appearance: none;
+  appearance: none;
+  position: relative;
+  flex-shrink: 0;
+  width: 40px;
+  height: 22px;
+  margin: 0;
+  border-radius: 999px;
+  background: rgba(var(--fg-rgb), 0.18);
+  cursor: pointer;
+  transition: background 0.25s var(--ease-smooth);
+}
+
+.st-switch::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: transform 0.3s var(--ease-smooth);
+}
+
+.st-switch:checked {
+  background: var(--red-500);
+}
+
+.st-switch:checked::before {
+  transform: translateX(18px);
+}
+
+.st-switch:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(var(--red-500-rgb), 0.4);
+}
+
+:root[data-effect="retro"] :is(.st-sp-status, .st-switch, .st-switch::before),
+:root[data-effect="terminal"] :is(.st-sp-status, .st-switch, .st-switch::before),
+:root[data-effect="cyber"] :is(.st-sp-status, .st-switch, .st-switch::before) {
+  border-radius: 0;
+}

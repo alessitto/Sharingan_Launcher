@@ -1,9 +1,10 @@
 // =====================================================================
 // Spotify: botón en la barra de arriba + reproductor a pantalla completa
 // =====================================================================
-// Solo existe para los admins que no son testers: para el resto el botón
-// sigue oculto y no se hace ninguna petición. Todo pasa por main.js
-// (spotify.js), que es quien habla con Spotify y con LRCLIB (letras).
+// Lo tiene todo el mundo: sin conectar, el botón abre el asistente para
+// conectar la app de Spotify de cada uno (spotify-setup.js). Todo pasa por
+// main.js (spotify.js), que es quien habla con Spotify y con LRCLIB (letras).
+// El botón de la barra se puede ocultar en Ajustes › Spotify.
 //
 // Usa de index.html: escapeHtml y showNotification.
 (() => {
@@ -46,16 +47,35 @@
     expand: '<path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="m21 3-7 7"/><path d="m3 21 7-7"/>',
     shrink: '<path d="m14 10 7-7"/><path d="M20 10h-6V4"/><path d="m3 21 7-7"/><path d="M4 14h6v6"/>',
     lyrics: '<path d="M17 6H3"/><path d="M21 12H8"/><path d="M21 18H8"/><path d="M3 12v6"/>',
+    // Asistente
+    copy: '<rect width="13" height="13" x="9" y="9" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+    clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+    crown: '<path d="M11.56 3.27a.5.5 0 0 1 .88 0l2.95 5.6a1 1 0 0 0 1.52.3l4.27-3.67a.5.5 0 0 1 .8.52l-2.83 10.25a1 1 0 0 1-.96.73H5.81a1 1 0 0 1-.96-.73L2.02 6.02a.5.5 0 0 1 .8-.52l4.27 3.67a1 1 0 0 0 1.52-.3z"/><path d="M5 21h14"/>',
+    arrow: '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
+    back: '<path d="m15 18-6-6 6-6"/>',
+    info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+    x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
   };
   const ic = (name, cls = "") => `<svg class="sp-i ${cls}" viewBox="0 0 24 24" aria-hidden="true">${PATHS[name] || ""}</svg>`;
   const deviceIcon = (type) =>
     ic({ computer: "computer", smartphone: "smartphone", tablet: "smartphone", speaker: "speaker", avr: "speaker", stb: "tv", tv: "tv", castvideo: "tv", castaudio: "speaker", automobile: "speaker" }[type] || "speaker");
 
   // ------------------------------------------------------------ Estado
-  let allowed = false;
+  let allowed = false; // ya se sabe si hay Client ID / sesión (config cargada)
+  let config = {};
   let connected = false;
-  let connecting = false;
+  let setup = null; // asistente montado
+  let setupStep = 0; // paso con el que abrir el asistente (0 = el que toque)
+  let forceSetup = false; // asistente aunque ya esté conectado (cambiar de app)
   let open = false;
+  // El botón de la barra se puede ocultar (Ajustes › Spotify).
+  let showBtn = (() => {
+    try {
+      return localStorage.getItem("spBtn") !== "0";
+    } catch {
+      return true;
+    }
+  })();
   let state = null; // lo que suena (o null si no hay nada)
   let fetchedAt = 0; // cuándo llegó `state` (para mover la barra entre consultas)
   let devices = null;
@@ -199,8 +219,8 @@
 
   // ------------------------------------------------------------ Botón de arriba
   function renderButton() {
-    btn.hidden = !allowed;
-    if (!allowed) return;
+    btn.hidden = !allowed || !showBtn;
+    if (btn.hidden) return;
     const it = state?.item;
     // Play/pausa solo cambia la clase: la carátula se queda girada donde
     // esté en vez de volver de golpe a su sitio.
@@ -211,7 +231,7 @@
     if (key === btnKey) return;
     btnKey = key;
     btn.classList.toggle("has-track", !!it);
-    btn.title = it ? "" : "Spotify";
+    btn.title = it ? "" : connected ? "Spotify" : "Conectar Spotify";
     // Sonando: solo la carátula girando; el nombre sale al pasar el ratón.
     btn.innerHTML = it
       ? `${it.thumb ? `<img class="sp-btn-cover" src="${esc(it.thumb)}" alt="">` : `<span class="sp-btn-cover is-empty">${ic("music")}</span>`}
@@ -236,7 +256,13 @@
 
   const errorLine = `<p class="sp-error" role="alert" hidden></p>`;
 
+  function closeSetup() {
+    setup?.destroy();
+    setup = null;
+  }
+
   function skeleton(next) {
+    closeSetup();
     mode = next;
     view.dataset.mode = next;
     lastCover = null;
@@ -246,21 +272,27 @@
     }
     q(".sp-lyrics-btn").hidden = next !== "player";
     view.classList.remove("lyrics-on");
-    if (next === "off") {
-      body.innerHTML = `
-        <div class="sp-center">
-          <span class="sp-center-logo">${SPOTIFY_LOGO}</span>
-          <p class="sp-center-title">Conecta tu Spotify</p>
-          <button type="button" class="sl-btn sl-btn-primary sp-connect" data-act="connect">${SPOTIFY_LOGO}Conectar</button>
-          ${errorLine}
-        </div>`;
-    } else if (next === "connecting") {
-      body.innerHTML = `
-        <div class="sp-center">
-          <span class="sp-wait" aria-hidden="true"><i></i><i></i><i></i></span>
-          <p class="sp-center-title">Autoriza en el navegador</p>
-          <button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-act="cancel">Cancelar</button>
-        </div>`;
+    if (next === "setup") {
+      // Sin conectar: asistente (si ya hay Client ID, directo a conectar).
+      const step = setupStep || (config.clientId ? 4 : 1);
+      setupStep = 0;
+      setup = window.SpotifySetup.mount(body, {
+        sp,
+        ic,
+        logo: SPOTIFY_LOGO,
+        step,
+        config,
+        onConfig: (c) => (config = c),
+        onSkip: () => {
+          setOpen(false);
+          refreshConfig(); // por si ha cambiado de Client ID a medias
+        },
+        onDone: async () => {
+          forceSetup = false;
+          await refreshConfig(); // ya conectado: pasa al reproductor
+          loadDevices();
+        },
+      });
     } else if (next === "idle") {
       body.innerHTML = `
         <div class="sp-center sp-idle">
@@ -515,7 +547,7 @@
   function render() {
     renderButton();
     if (!allowed || !open) return;
-    const next = !connected ? (connecting ? "connecting" : "off") : state ? "player" : "idle";
+    const next = !connected || forceSetup ? "setup" : state ? "player" : "idle";
     if (next !== mode) {
       skeleton(next);
       if (next === "player") lyricsKey = null; // se vuelve a pintar la letra
@@ -548,6 +580,8 @@
       }
       view.focus({ preventScroll: true });
     } else {
+      closeSetup();
+      forceSetup = false;
       view.classList.remove("is-shown");
       document.documentElement.classList.remove("sp-full-open");
       if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
@@ -616,6 +650,7 @@
 
   // ------------------------------------------------------------ Acciones
   view.addEventListener("click", async (e) => {
+    if (e.target.closest(".sps")) return; // el asistente lleva sus propios botones
     const line = e.target.closest(".sp-line[data-t]");
     if (line && state?.item) {
       const ms = Math.max(0, Number(line.dataset.t) - 100);
@@ -636,23 +671,6 @@
       toggleLyrics();
     } else if (act === "fullscreen") {
       toggleFullscreen();
-    } else if (act === "connect") {
-      connecting = true;
-      render();
-      const res = await sp("connect");
-      connecting = false;
-      if (res.ok) {
-        connected = true;
-        state = null;
-        render();
-        poll();
-        loadDevices();
-      } else {
-        render();
-        if (res.code !== "login_cancelled") showError(res);
-      }
-    } else if (act === "cancel") {
-      await sp("cancelConnect");
     } else if (act === "disconnect") {
       await sp("disconnect");
       connected = false;
@@ -753,31 +771,57 @@
     }, 250);
   }
 
-  // ------------------------------------------------------------ Quién puede
-  async function applyUser(user) {
-    const now = !!user?.admin && !user?.tester;
-    if (now === allowed) return;
-    allowed = now;
-    if (!allowed) {
-      setOpen(false);
+  // ------------------------------------------------------------ Configuración
+  // Lee de main si hay Client ID y sesión, y deja todo como corresponda.
+  async function refreshConfig() {
+    const res = await sp("config");
+    config = res.ok ? res : {};
+    const was = connected;
+    connected = !!config.connected;
+    allowed = true;
+    if (!connected) {
       clearTimeout(pollTimer);
       state = null;
       devices = null;
-      connected = false;
-      btnKey = "";
-      renderButton();
-      return;
     }
-    const res = await sp("status");
-    connected = !!res.ok && !!res.connected;
     btnKey = "";
-    renderButton();
-    if (connected) poll();
+    render();
+    if (connected && !was) poll();
+    return config;
   }
 
-  window.electronAPI.onCloudStatus((s) => applyUser(s?.user));
-  window.electronAPI
-    .cloud("status")
-    .then((s) => applyUser(s?.user))
-    .catch(() => {});
+  // Para Ajustes › Spotify.
+  window.SpotifyUI = {
+    config: () => refreshConfig(),
+    // Abre la pantalla de Spotify. Sin conectar (o con `setup`), el asistente
+    // en ese paso.
+    open: (step = 0, { setup: force = false } = {}) => {
+      setupStep = step;
+      forceSetup = force;
+      if (open && (!connected || force)) {
+        mode = "";
+        render();
+      } else setOpen(true);
+    },
+    buttonShown: () => showBtn,
+    showButton: (on) => {
+      showBtn = !!on;
+      try {
+        localStorage.setItem("spBtn", showBtn ? "1" : "0");
+      } catch {}
+      btnKey = "";
+      renderButton();
+    },
+  };
+
+  refreshConfig();
+  // Al entrar o salir de la cuenta puede cambiar el Client ID (el del dueño
+  // lo da la API).
+  let lastUserId;
+  window.electronAPI.onCloudStatus?.((s) => {
+    const id = s?.user?.id ?? null;
+    if (id === lastUserId) return;
+    lastUserId = id;
+    refreshConfig();
+  });
 })();

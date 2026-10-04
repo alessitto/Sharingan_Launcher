@@ -2776,20 +2776,42 @@
       const incoming = trades.list.filter((t) => !t.outgoing && t.status === "pending");
       const outgoing = trades.list.filter((t) => t.outgoing && t.status === "pending");
       const history = trades.list.filter((t) => t.status !== "pending").slice(0, 8);
+      // Elegido: el de antes si sigue libre; si no, el primero libre.
+      if (!free.some((m) => m.uid === preselect)) preselect = free[0]?.uid || null;
+      // Jugadores con los que ya has intercambiado (para no escribirlos).
+      const me = String(trades.user || "").toLowerCase();
+      const recent = [...new Set(trades.list.map((t) => (t.outgoing ? t.to : t.from)).filter((n) => n && n.toLowerCase() !== me))].slice(0, 5);
+      const empty = (text) => `<p class="pp-tr-empty">${TRADE_SVG}${text}</p>`;
       box.innerHTML = `
         <section class="pp-tr-sec">
           <h4>Nueva oferta</h4>
           ${
             free.length
-              ? `<div class="pp-tr-new">
-                  <select class="pp-tr-mon-sel">${free
-                    .map((m) => `<option value="${m.uid}" ${m.uid === preselect ? "selected" : ""}>${m.shiny ? "✦ " : ""}${esc(displayName(m))} · Nv. ${m.lv}</option>`)
-                    .join("")}</select>
-                  <input type="text" class="pp-tr-to" placeholder="Usuario del otro jugador" maxlength="20" spellcheck="false">
-                  <button type="button" class="sl-btn sl-btn-primary sl-btn-sm" data-tr="offer" ${trades.busy ? "disabled" : ""}>${TRADE_SVG}Ofrecer</button>
+              ? `<div class="pp-tr-pick" role="radiogroup" aria-label="Pokémon que ofreces">${state.party
+                  .map((m) => {
+                    const busy = !!m.trade;
+                    const sel = m.uid === preselect;
+                    return `<button type="button" class="pp-tr-card${sel ? " is-sel" : ""}${busy ? " is-busy" : ""}" data-tr="pick" data-uid="${m.uid}" role="radio" aria-checked="${sel}" ${busy ? "disabled" : ""}
+                      title="${esc(displayName(m))} · Nv. ${m.lv}${m.held ? ` · lleva ${esc(itemName(m.held))} (viaja con él)` : ""}${busy ? " · ya está en una oferta" : ""}">
+                      <span class="pp-tr-card-img">${thumbHtml(m)}${m.held ? `<img class="pp-tr-held" src="${ITEM_IMG(m.held)}" alt="" onerror="this.remove()">` : ""}</span>
+                      <b>${m.shiny ? "✦ " : ""}${esc(displayName(m))}</b>
+                      <small>${busy ? "En oferta" : `Nv. ${m.lv}`}</small>
+                    </button>`;
+                  })
+                  .join("")}</div>
+                <div class="pp-tr-send">
+                  <label class="pp-tr-to-box">${icon("user", "pp-tr-to-ic")}<input type="text" class="pp-tr-to" placeholder="Nombre del jugador" maxlength="20" spellcheck="false" autocomplete="off"></label>
+                  <button type="button" class="sl-btn sl-btn-primary pp-tr-offer" data-tr="offer" disabled>${TRADE_SVG}<span>Ofrecer</span></button>
                 </div>
-                <p class="pp-tr-hint">Su objeto equipado viaja con él.</p>`
-              : `<p class="sl-hint">Todos tus Pokémon están ya en alguna oferta.</p>`
+                <p class="pp-tr-msg" aria-live="polite"></p>
+                ${
+                  recent.length
+                    ? `<div class="pp-tr-recent"><span>Recientes</span>${recent
+                        .map((n) => `<button type="button" class="pp-tr-chip" data-tr="to" data-name="${esc(n)}">${esc(n)}</button>`)
+                        .join("")}</div>`
+                    : ""
+                }`
+              : empty("Todos tus Pokémon están ya en alguna oferta.")
           }
         </section>
         <section class="pp-tr-sec">
@@ -2797,24 +2819,25 @@
           ${
             incoming
               .map(
-                (t) => `<div class="pp-tr-row">${monLine(t.monFrom, ` · de <b>${esc(t.from)}</b>`)}
+                (t) => `<div class="pp-tr-row is-in">${monLine(t.monFrom, ` · de <b>${esc(t.from)}</b>`)}
                   <span class="pp-tr-btns">
                     <button type="button" class="sl-btn sl-btn-primary sl-btn-sm" data-tr="accept" data-id="${t.id}" ${trades.busy ? "disabled" : ""}>Aceptar</button>
                     <button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-tr="close" data-id="${t.id}" ${trades.busy ? "disabled" : ""}>Rechazar</button>
                   </span></div>`
               )
-              .join("") || `<p class="sl-hint">Nadie te ha ofrecido nada todavía.</p>`
+              .join("") || empty("Nadie te ha ofrecido nada todavía.")
           }
         </section>
         <section class="pp-tr-sec">
-          <h4>Tus ofertas</h4>
+          <h4>Tus ofertas ${outgoing.length ? `<em class="is-soft">${outgoing.length}</em>` : ""}</h4>
           ${
             outgoing
               .map(
                 (t) => `<div class="pp-tr-row">${monLine(t.monFrom, ` · para <b>${esc(t.to)}</b>`)}
+                  <span class="pp-tr-wait">Esperando</span>
                   <span class="pp-tr-btns"><button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-tr="close" data-id="${t.id}" ${trades.busy ? "disabled" : ""}>Cancelar</button></span></div>`
               )
-              .join("") || `<p class="sl-hint">No tienes ofertas pendientes.</p>`
+              .join("") || empty("No tienes ofertas pendientes.")
           }
         </section>
         ${
@@ -2843,13 +2866,44 @@
       showCloseButton: true,
       customClass: { popup: "pp-bag-popup pp-trades-popup" },
       didOpen: (popup) => {
+        let to = "";
+        // El botón dice qué se ofrece y a quién, y solo se activa si se puede.
+        const updateSend = () => {
+          const btn = popup.querySelector(".pp-tr-offer");
+          if (!btn) return;
+          const name = to.trim();
+          const mon = state.party.find((m) => m.uid === preselect);
+          const self = name && name.toLowerCase() === String(trades.user || "").toLowerCase();
+          const valid = /^[A-Za-z0-9_.-]{3,20}$/.test(name);
+          btn.disabled = trades.busy || !mon || !valid || self;
+          btn.querySelector("span").textContent = mon && valid && !self ? `Ofrecer ${displayName(mon)} a ${name}` : mon ? `Ofrecer ${displayName(mon)}` : "Ofrecer";
+          const msg = popup.querySelector(".pp-tr-msg");
+          msg.textContent = self ? "No puedes intercambiar contigo." : name && !valid ? "Los nombres tienen de 3 a 20 letras, números, punto, guion o guion bajo." : "";
+          popup.querySelectorAll(".pp-tr-chip").forEach((c) => c.classList.toggle("is-on", c.dataset.name.toLowerCase() === name.toLowerCase()));
+        };
+        const offer = () => {
+          if (popup.querySelector(".pp-tr-offer")?.disabled) return;
+          const uid = preselect;
+          offerTrade(uid, to.trim()).then(() => {
+            // Enviada: se limpia el nombre para la siguiente.
+            if (state.party.find((m) => m.uid === uid)?.trade) {
+              to = "";
+              trades.rerender?.();
+            }
+          });
+        };
         trades.rerender = () => {
-          const to = popup.querySelector(".pp-tr-to")?.value || "";
-          const sel = popup.querySelector(".pp-tr-mon-sel")?.value;
-          if (sel) preselect = sel;
           body(popup);
           const input = popup.querySelector(".pp-tr-to");
-          if (input) input.value = to;
+          if (input) {
+            input.value = to;
+            input.addEventListener("input", () => {
+              to = input.value;
+              updateSend();
+            });
+            input.addEventListener("keydown", (e) => e.key === "Enter" && offer());
+          }
+          updateSend();
           hydrate(popup);
         };
         trades.rerender();
@@ -2862,8 +2916,21 @@
           if (k === "login") {
             Swal.close();
             window.Community?.openAuth?.("login");
+          } else if (k === "pick") {
+            preselect = b.dataset.uid;
+            popup.querySelectorAll(".pp-tr-card").forEach((c) => {
+              c.classList.toggle("is-sel", c === b);
+              c.setAttribute("aria-checked", String(c === b));
+            });
+            updateSend();
+          } else if (k === "to") {
+            to = b.dataset.name;
+            const input = popup.querySelector(".pp-tr-to");
+            input.value = to;
+            input.focus();
+            updateSend();
           } else if (k === "offer") {
-            offerTrade(popup.querySelector(".pp-tr-mon-sel")?.value, popup.querySelector(".pp-tr-to")?.value.trim());
+            offer();
           } else if (k === "accept" && t) {
             accepting = t;
             trades.rerender();

@@ -375,6 +375,8 @@ function createCloud(hooks) {
       reconcile().catch((err) => console.error("sync inicial", err.code || err));
     },
     flush: () => push().catch(() => {}),
+    // Client ID de Spotify del dueño (solo se lo da la API a él).
+    spotifyClient: async () => (await api("spotify/client")).clientId || null,
   };
 }
 

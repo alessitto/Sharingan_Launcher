@@ -1,22 +1,30 @@
 // =====================================================================
-// Spotify (solo administradores)
+// Spotify
 // =====================================================================
-// Controla la música de la cuenta de Spotify del admin desde el launcher:
-// qué suena, play/pausa, saltos, posición, volumen, aleatorio, repetición y
-// en qué dispositivo suena. La app de Spotify está en modo desarrollo (5
-// usuarios como mucho), así que solo la ven los admins que no son testers.
+// Controla la música de Spotify desde el launcher: qué suena, play/pausa,
+// saltos, posición, volumen, aleatorio, repetición y en qué dispositivo suena.
+//
+// "Trae tu propio Client ID": en modo desarrollo Spotify solo deja entrar al
+// dueño de la app (y a 5 usuarios añadidos a mano), así que cada usuario crea
+// su propia app en el Dashboard y pega su Client ID (asistente en
+// spotify-setup.js). El build no lleva ningún Client ID. Se lee de:
+//   1. settings.spotifyClientId (userData/settings.json, el que pega cada uno)
+//   2. la cuenta: al dueño (admin con sesión iniciada) se lo da la API
+//      (hooks.ownerClientId, ruta spotify/client), en cualquier PC y sin pasos
 //
 // Inicio de sesión: Authorization Code con PKCE (sin client secret). Se abre
 // el navegador y Spotify vuelve a un servidor local de un solo uso en
 // http://127.0.0.1:43821/callback (tiene que coincidir con la Redirect URI de
-// la app en el Dashboard). Los tokens se guardan cifrados con safeStorage.
+// la app en el Dashboard). Los tokens se guardan cifrados con safeStorage
+// (DPAPI en Windows). El Client ID va sin cifrar: es público por diseño (sale
+// en la URL de cada inicio de sesión) y sin el refresh token no sirve de nada.
 const http = require("http");
 const crypto = require("crypto");
 
-const CLIENT_ID = "cf2893e14c384b82a7a6bd574ed893cc";
 const PORT = 43821;
 const REDIRECT_URI = `http://127.0.0.1:${PORT}/callback`;
-const SCOPES = ["user-read-playback-state", "user-modify-playback-state", "user-read-currently-playing"];
+const CLIENT_ID_RE = /^[0-9a-f]{32}$/;
+const SCOPES = ["user-read-playback-state", "user-modify-playback-state", "user-read-currently-playing", "user-read-private"];
 const ACCOUNTS = "https://accounts.spotify.com";
 const API = "https://api.spotify.com/v1";
 const LOGIN_TIMEOUT_MS = 5 * 60 * 1000;
@@ -29,35 +37,67 @@ class SpotifyError extends Error {
   }
 }
 
+// Cada error dice qué ha pasado y qué hacer.
 const MESSAGES = {
-  forbidden: "Spotify solo está disponible para administradores.",
+  no_client: "Primero pega el Client ID de tu app.",
+  bad_client_id: "El Client ID son 32 letras y números. Cópialo otra vez.",
+  invalid_client: "Spotify no encuentra ninguna app con ese Client ID. Cópialo otra vez desde tu app (y que no sea el Client secret).",
   not_connected: "Conecta tu cuenta de Spotify.",
-  premium_required: "Para controlar la música hace falta Spotify Premium.",
+  premium_required: "Spotify solo deja controlar la música con una cuenta Premium.",
   no_device: "No hay ningún dispositivo con Spotify abierto. Ábrelo en el PC o en el móvil.",
   rate_limited: "Spotify pide ir más despacio. Espera unos segundos.",
   network: "No se puede conectar con Spotify. Revisa tu conexión.",
   login_cancelled: "Has cancelado la conexión con Spotify.",
-  login_timeout: "Se ha acabado el tiempo para conectar con Spotify. Prueba otra vez.",
-  login_failed: "No se ha podido conectar con Spotify. Prueba otra vez.",
-  login_busy:"Ya hay una conexión con Spotify en marcha en el navegador.",
-  port_busy: `El puerto ${PORT} está ocupado por otro programa. Ciérralo y prueba otra vez.`,
-  not_allowed_user: "Esta cuenta de Spotify no está dada de alta en la app (User Management del Dashboard).",
+  login_denied: "Has pulsado Cancelar en Spotify. Prueba otra vez cuando quieras.",
+  login_timeout: "El navegador no ha respondido. Si Spotify enseñaba un error, revisa la Redirect URI de tu app y prueba otra vez.",
+  login_failed: "Spotify no ha aceptado la conexión. Revisa que la Redirect URI de tu app sea exactamente la del paso 2.",
+  login_busy: "Ya hay una conexión con Spotify en marcha en el navegador.",
+  port_busy: `Otro programa está usando el puerto ${PORT}. Ciérralo y prueba otra vez.`,
+  not_allowed_user: "Has entrado con una cuenta de Spotify distinta a la que creó la app. Entra con esa cuenta y prueba otra vez.",
   restricted: "Spotify no deja hacer eso ahora mismo en este dispositivo.",
 };
 const describe = (err) => MESSAGES[err?.code] || "Spotify ha devuelto un error. Prueba otra vez.";
 
 const b64url = (buf) => buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
+// Saca el Client ID de lo que se pegue (aunque venga con espacios o dentro
+// de una URL del Dashboard). null si no hay nada con forma de Client ID.
+const cleanClientId = (raw) => {
+  const s = String(raw || "").trim().toLowerCase();
+  return CLIENT_ID_RE.test(s) ? s : s.match(/[0-9a-f]{32}/)?.[0] || null;
+};
+
 function createSpotify(hooks) {
-  const { safeStorage, settings, saveSettings, shell, isAllowed } = hooks;
+  const { safeStorage, settings, saveSettings, shell } = hooks;
   let pendingLogin = null; // { server, reject }
   let refreshing = null;
+  let ownerId = null; // el de la cuenta del dueño (se actualiza antes de cada acción)
+
+  // ------------------------------------------------------------ Client ID
+  async function refreshOwner() {
+    try {
+      ownerId = cleanClientId(await hooks.ownerClientId?.());
+    } catch {
+      ownerId = null;
+    }
+  }
+
+  function clientInfo() {
+    const own = cleanClientId(settings.spotifyClientId);
+    if (own) return { id: own, source: "settings" };
+    return ownerId ? { id: ownerId, source: "account" } : { id: null, source: null };
+  }
+  const clientId = () => clientInfo().id;
 
   // ------------------------------------------------------------ Tokens
   function readAuth() {
     if (!settings.spotifyAuth) return null;
     try {
-      return JSON.parse(safeStorage.decryptString(Buffer.from(settings.spotifyAuth, "base64")));
+      const auth = JSON.parse(safeStorage.decryptString(Buffer.from(settings.spotifyAuth, "base64")));
+      // Los tokens son de una app concreta: si se cambia de Client ID, no valen.
+      // (Los de antes de 3.1.1 no guardaban el Client ID: son del que haya.)
+      if (auth.clientId && auth.clientId !== clientId()) return null;
+      return auth;
     } catch {
       return null;
     }
@@ -69,13 +109,14 @@ function createSpotify(hooks) {
     saveSettings();
   }
 
-  async function tokenRequest(params) {
+  async function tokenRequest(params, id = clientId()) {
+    if (!id) throw new SpotifyError("no_client");
     let res;
     try {
       res = await fetch(`${ACCOUNTS}/api/token`, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({ client_id: CLIENT_ID, ...params }),
+        body: new URLSearchParams({ client_id: id, ...params }),
         signal: AbortSignal.timeout(15000),
       });
     } catch {
@@ -83,6 +124,7 @@ function createSpotify(hooks) {
     }
     const json = await res.json().catch(() => null);
     if (!res.ok || !json?.access_token) {
+      if (json?.error === "invalid_client") throw new SpotifyError("invalid_client", res.status);
       if (params.grant_type === "authorization_code") throw new SpotifyError("login_failed", res.status);
       // invalid_grant = el refresh token ya no vale (revocado o caducado).
       if (json?.error === "invalid_grant") {
@@ -96,6 +138,7 @@ function createSpotify(hooks) {
 
   function saveTokens(json, prev) {
     const auth = {
+      clientId: clientId(),
       access: json.access_token,
       // Spotify puede rotar el refresh token: si no manda uno, sigue el de antes.
       refresh: json.refresh_token || prev?.refresh,
@@ -119,6 +162,8 @@ function createSpotify(hooks) {
   // ------------------------------------------------------------ Login (PKCE)
   function login() {
     if (pendingLogin) return Promise.reject(new SpotifyError("login_busy"));
+    const id = clientId();
+    if (!id) return Promise.reject(new SpotifyError("no_client"));
     const verifier = b64url(crypto.randomBytes(64));
     const challenge = b64url(crypto.createHash("sha256").update(verifier).digest());
     const state = b64url(crypto.randomBytes(16));
@@ -156,7 +201,8 @@ function createSpotify(hooks) {
         const code = url.searchParams.get("code");
         if (!code) {
           send(false);
-          return finish(new SpotifyError("login_cancelled"));
+          // access_denied = ha pulsado "Cancelar" en la página de Spotify.
+          return finish(new SpotifyError(url.searchParams.get("error") === "access_denied" ? "login_denied" : "login_cancelled"));
         }
         try {
           const json = await tokenRequest({ grant_type: "authorization_code", code, redirect_uri: REDIRECT_URI, code_verifier: verifier });
@@ -175,7 +221,7 @@ function createSpotify(hooks) {
         timer = setTimeout(() => finish(new SpotifyError("login_timeout")), LOGIN_TIMEOUT_MS);
         const auth = new URL(`${ACCOUNTS}/authorize`);
         auth.search = new URLSearchParams({
-          client_id: CLIENT_ID,
+          client_id: id,
           response_type: "code",
           redirect_uri: REDIRECT_URI,
           code_challenge_method: "S256",
@@ -221,7 +267,8 @@ function createSpotify(hooks) {
     const reason = json?.error?.reason || "";
     const message = String(json?.error?.message || "");
     if (res.status === 429) throw new SpotifyError("rate_limited", 429);
-    if (reason === "PREMIUM_REQUIRED") throw new SpotifyError("premium_required", 403);
+    // Desde 2026 el dueño de una app en modo desarrollo también necesita Premium.
+    if (reason === "PREMIUM_REQUIRED" || /premium/i.test(message)) throw new SpotifyError("premium_required", 403);
     if (reason === "NO_ACTIVE_DEVICE" || res.status === 404) throw new SpotifyError("no_device", res.status);
     if (/not registered|not be registered/i.test(message)) throw new SpotifyError("not_allowed_user", 403);
     if (res.status === 403) throw new SpotifyError("restricted", 403);
@@ -319,8 +366,57 @@ function createSpotify(hooks) {
 
   const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, Math.round(Number(n) || 0)));
 
+  // ¿Existe una app con este Client ID? Se canjea un código inventado: si la
+  // app no existe Spotify dice invalid_client; si existe, invalid_grant.
+  async function clientExists(id) {
+    try {
+      await tokenRequest({ grant_type: "authorization_code", code: "sharingan-check", redirect_uri: REDIRECT_URI, code_verifier: "x".repeat(64) }, id);
+      return true;
+    } catch (err) {
+      if (err.code === "invalid_client") return false;
+      if (err.code === "login_failed") return true;
+      throw err;
+    }
+  }
+
+  const config = () => {
+    const c = clientInfo();
+    return { clientId: c.id, source: c.source, connected: !!(c.id && readAuth()?.refresh), redirectUri: REDIRECT_URI };
+  };
+
   const actions = {
-    status: async () => ({ connected: !!readAuth()?.refresh }),
+    status: async () => config(),
+    config: async () => config(),
+    checkClientId: async (raw) => {
+      const id = cleanClientId(raw);
+      if (!id) throw new SpotifyError("bad_client_id");
+      if (!(await clientExists(id))) throw new SpotifyError("invalid_client");
+      return { clientId: id };
+    },
+    // Guarda el Client ID. Si es otro distinto, la sesión de la app anterior
+    // ya no sirve y hay que volver a conectar.
+    setClientId: async (raw) => {
+      const id = cleanClientId(raw);
+      if (!id) throw new SpotifyError("bad_client_id");
+      if (id !== clientId()) delete settings.spotifyAuth;
+      settings.spotifyClientId = id;
+      saveSettings();
+      return config();
+    },
+    // Olvida la app y la sesión (para empezar de cero o cambiar de app).
+    forget: async () => {
+      pendingLogin?.reject(new SpotifyError("login_cancelled"));
+      delete settings.spotifyClientId;
+      delete settings.spotifyAuth;
+      saveSettings();
+      return config();
+    },
+    // Tras conectar: quién es y si tiene Premium (sin Premium no se puede
+    // controlar nada, solo ver qué suena).
+    test: async () => {
+      const me = await call("GET", "/me");
+      return { name: me?.display_name || me?.id || "", premium: me?.product ? me.product === "premium" : null };
+    },
     connect: async () => {
       await login();
       return { connected: true };
@@ -375,14 +471,13 @@ function createSpotify(hooks) {
     transfer: async (deviceId, play) => (await call("PUT", "/me/player", { body: { device_ids: [String(deviceId)], play: !!play } }), {}),
   };
 
-  // IPC: { ok, ...datos } o { ok: false, error, code }. Nada funciona si el
-  // usuario con sesión no es admin (los testers tampoco).
+  // IPC: { ok, ...datos } o { ok: false, error, code }.
   const ipc = Object.fromEntries(
     Object.entries(actions).map(([name, fn]) => [
       name,
       async (...args) => {
-        if (!isAllowed()) return { ok: false, error: describe({ code: "forbidden" }), code: "forbidden" };
         try {
+          await refreshOwner();
           return { ok: true, ...(await fn(...args)) };
         } catch (err) {
           if (!(err instanceof SpotifyError)) console.error("spotify", err);

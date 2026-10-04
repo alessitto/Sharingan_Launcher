@@ -1832,33 +1832,260 @@ body.in-pokepark .main-content {
   background: var(--red-500);
 }
 
-.pp-tr-new {
-  display: flex;
+/* Nueva oferta: tu equipo en tarjetas */
+.pp-tr-pick {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 8px;
 }
 
-.pp-tr-new select,
-.pp-tr-new input {
+.pp-tr-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  padding: 8px 6px 9px;
+  border: 1.5px solid var(--ink-800);
+  border-radius: 14px;
+  background: rgba(var(--fg-rgb), 0.03);
+  color: var(--washi-100);
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 0.2s var(--ease-smooth), background 0.2s var(--ease-smooth), transform 0.2s var(--ease-smooth), box-shadow 0.2s var(--ease-smooth);
+}
+
+.pp-tr-card:hover:not(:disabled) {
+  border-color: var(--ink-600);
+  background: rgba(var(--fg-rgb), 0.06);
+  transform: translateY(-2px);
+}
+
+.pp-tr-card.is-sel {
+  border-color: var(--red-500);
+  background: rgba(var(--red-500-rgb), 0.1);
+  box-shadow: 0 0 0 3px rgba(var(--red-500-rgb), 0.18);
+}
+
+.pp-tr-card.is-sel::after {
+  content: "";
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--red-500);
+}
+
+.pp-tr-card:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.pp-tr-card:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(var(--red-500-rgb), 0.4);
+}
+
+.pp-tr-card-img {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+}
+
+.pp-tr-card-img > img:first-child {
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  transition: transform 0.25s var(--ease-smooth);
+}
+
+.pp-tr-card.is-sel .pp-tr-card-img > img:first-child {
+  transform: scale(1.08);
+}
+
+/* Objeto equipado (viaja con él) */
+.pp-tr-held {
+  position: absolute;
+  right: -4px;
+  bottom: -2px;
+  width: 22px;
+  height: 22px;
+  padding: 1px;
+  border-radius: 50%;
+  background: var(--ink-900);
+  box-shadow: 0 0 0 1px var(--ink-700);
+  image-rendering: pixelated;
+}
+
+.pp-tr-card b {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 12px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.pp-tr-card small {
+  font-size: 11px;
+  color: var(--ink-300);
+}
+
+.pp-tr-card.is-busy small {
+  color: var(--accent-text);
+  font-weight: 700;
+}
+
+/* Jugador + botón, misma altura */
+.pp-tr-send {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.pp-tr-to-box {
   flex: 1;
   min-width: 0;
-  padding: 8px 10px;
-  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 12px;
   border: 1px solid var(--ink-700);
+  border-radius: 12px;
   background: var(--ink-950);
+  cursor: text;
+  transition: border-color 0.2s var(--ease-smooth), box-shadow 0.2s var(--ease-smooth);
+}
+
+.pp-tr-to-box:focus-within {
+  border-color: var(--red-500);
+  box-shadow: 0 0 0 3px rgba(var(--red-500-rgb), 0.16);
+}
+
+.pp-tr-to-ic {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  color: var(--ink-300);
+}
+
+/* El marco es la caja de fuera: el campo no lleva el de cada estilo */
+:root .pp-tr-to-box input.pp-tr-to[type="text"] {
+  flex: 1;
+  min-width: 0;
+  max-width: none;
+  height: 100%;
+  margin: 0;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  outline: none !important;
+  background: transparent !important;
   color: var(--washi-100);
   font: inherit;
   font-size: 13px;
+  box-shadow: none !important;
 }
 
-.pp-tr-new .sl-btn .i {
-  width: 14px;
-  height: 14px;
+.pp-tr-offer {
+  flex: none;
+  height: 42px;
+  max-width: 55%;
+  padding: 0 16px;
+  border-radius: 12px;
 }
 
-.pp-tr-hint {
+.pp-tr-offer span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.pp-tr-offer .i {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+
+.pp-tr-offer:disabled {
+  opacity: 0.45;
+  box-shadow: none;
+  cursor: default;
+}
+
+.pp-tr-msg {
+  min-height: 0;
   margin: 6px 0 0;
+  font-size: 11.5px;
+  color: var(--danger);
+}
+
+.pp-tr-msg:empty {
+  display: none;
+}
+
+.pp-tr-recent {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.pp-tr-recent > span {
+  margin-right: 2px;
   font-size: 11px;
   color: var(--ink-300);
+}
+
+.pp-tr-chip {
+  padding: 3px 10px;
+  border: 1px solid var(--ink-700);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--washi-200);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.2s var(--ease-smooth), background 0.2s var(--ease-smooth), color 0.2s var(--ease-smooth);
+}
+
+.pp-tr-chip:hover,
+.pp-tr-chip.is-on {
+  border-color: var(--red-500);
+  color: var(--accent-text);
+  background: rgba(var(--red-500-rgb), 0.08);
+}
+
+/* Vacío: una línea suave con icono */
+.pp-tr-empty {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px dashed var(--ink-700);
+  border-radius: 12px;
+  font-size: 13px;
+  color: var(--ink-300);
+}
+
+.pp-tr-empty .i {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  opacity: 0.7;
+}
+
+.pp-tr-sec h4 em.is-soft {
+  color: var(--washi-100);
+  background: var(--ink-700);
 }
 
 .pp-tr-row {
@@ -1868,7 +2095,58 @@ body.in-pokepark .main-content {
   padding: 8px 10px;
   border-radius: 12px;
   border: 1px solid var(--ink-800);
-  margin-bottom: 4px;
+  background: rgba(var(--fg-rgb), 0.03);
+  margin-bottom: 6px;
+  animation: slSectionIn 0.35s var(--ease-smooth) backwards;
+}
+
+.pp-tr-row.is-in {
+  border-color: rgba(var(--red-500-rgb), 0.45);
+  background: rgba(var(--red-500-rgb), 0.07);
+}
+
+.pp-tr-wait {
+  flex: none;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-300);
+}
+
+.pp-tr-wait::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  border-radius: 50%;
+  vertical-align: 1px;
+  background: var(--accent-text);
+  animation: ppTrPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes ppTrPulse {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@media (max-width: 640px) {
+  .pp-tr-pick {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pp-tr-row,
+  .pp-tr-wait::before {
+    animation: none;
+  }
+}
+
+:root[data-effect="retro"] :is(.pp-tr-card, .pp-tr-to-box, .pp-tr-offer, .pp-tr-chip, .pp-tr-empty, .pp-tr-row, .pp-tr-held),
+:root[data-effect="terminal"] :is(.pp-tr-card, .pp-tr-to-box, .pp-tr-offer, .pp-tr-chip, .pp-tr-empty, .pp-tr-row, .pp-tr-held),
+:root[data-effect="cyber"] :is(.pp-tr-card, .pp-tr-to-box, .pp-tr-offer, .pp-tr-chip, .pp-tr-empty, .pp-tr-row, .pp-tr-held) {
+  border-radius: 0;
 }
 
 .pp-tr-mon {

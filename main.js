@@ -215,6 +215,7 @@ const publicSettings = () => ({
   aiKey: undefined,
   cloudToken: undefined,
   spotifyAuth: undefined,
+  spotifyClientId: undefined,
   cloudDirty: undefined,
   cloudLinkedUser: undefined,
 });
@@ -1253,18 +1254,34 @@ function setupCloud() {
   for (const [name, fn] of Object.entries(cloud.ipc)) ipcMain.handle(`cloud:${name}`, (_e, ...args) => fn(...args));
 }
 
-// -------------------- Spotify (solo admins, no testers) --------------------
+// -------------------- Spotify (cada uno con su Client ID) --------------------
+// El dueño (admin con su cuenta iniciada) recibe su Client ID de la API; se
+// guarda solo en memoria y por usuario. Sin red se vuelve a pedir la próxima vez.
+let spotifyOwner = { userId: null, id: null, job: null };
+function spotifyOwnerClientId() {
+  const u = cloud?.loggedIn() ? appSettings.cloudUser : null;
+  if (!u?.admin || u.tester) return null;
+  if (spotifyOwner.userId !== u.id) spotifyOwner = { userId: u.id, id: null, job: null };
+  const rec = spotifyOwner; // si cambia de cuenta a medias, no se mezcla
+  if (rec.id !== null) return rec.id || null;
+  rec.job ||= cloud
+    .spotifyClient()
+    .then((id) => (rec.id = id || ""))
+    .catch((err) => {
+      if (err?.code === "forbidden") rec.id = ""; // admin, pero no el dueño
+    })
+    .finally(() => (rec.job = null));
+  return rec.job.then(() => rec.id || null);
+}
+
 function setupSpotify() {
   const spotify = createSpotify({
     safeStorage,
     settings: appSettings,
     saveSettings,
     shell,
+    ownerClientId: spotifyOwnerClientId,
     userAgent: `Sharingan Launcher/${app.getVersion()} (https://alejandrodev.es/sharingan_launcher/)`,
-    isAllowed: () => {
-      const u = cloud?.loggedIn() ? appSettings.cloudUser : null;
-      return !!u?.admin && !u.tester;
-    },
   });
   for (const [name, fn] of Object.entries(spotify.ipc)) ipcMain.handle(`spotify:${name}`, (_e, ...args) => fn(...args));
 }
