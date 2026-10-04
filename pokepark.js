@@ -82,6 +82,7 @@
     if (slug === "oval-stone" || slug === "razor-fang" || slug === "razor-claw") return 2000;
     if (heldItems.has(slug)) return 2000; // objetos para evolucionar por intercambio
     if (useItems.has(slug)) return 3000; // manzanas, tetera, armaduras...
+    if (megaStones.has(slug)) return MEGA_PRICE;
     return 0;
   }
   const sellPrice = (slug) => BERRY_SELL[slug] || Math.floor(buyPrice(slug) / 2);
@@ -91,6 +92,13 @@
   // 8 h y su amistad se conserva entre visitas. Cuanta más amistad, más
   // posibilidades de que sea ese el que vuelva.
   const VISIT_MS = 8 * 60 * 60 * 1000;
+
+  // Megaevolución: con su megapiedra equipada, un Pokémon de tu equipo puede
+  // megaevolucionar desde su ficha. Dura 2 h y después hay que esperar otras
+  // 2 h para volver a hacerlo. Las megapiedras solo se compran en la tienda.
+  const MEGA_MS = 2 * 60 * 60 * 1000;
+  const MEGA_COOLDOWN_MS = 2 * 60 * 60 * 1000;
+  const MEGA_PRICE = 10000;
   // Al expulsarlo se va molesto: su amistad queda un pelín por debajo de la
   // de un legendario nuevo (peso 0,99 frente a 1), así vuelve algo menos.
   const EXPEL_FRIENDSHIP = -0.2;
@@ -150,6 +158,8 @@
   const bySlug = new Map();
   let useItems = new Set(); // se consumen para evolucionar (piedras...)
   let heldItems = new Set(); // se equipan (evolución con objeto / intercambio)
+  let megas = []; // formas mega (dex.megas), con un id propio en byId
+  let megaStones = new Set();
   let state = null;
   let selectedUid = null;
   let root = null;
@@ -238,6 +248,74 @@
   }
 
   const isLegendary = (s) => !!(s && (s.leg || s.myth || s.ub));
+
+  // ------------------------------------------------------------ Megaevolución
+  // Forma mega que le corresponde por la piedra que lleva (Meowstic tiene una
+  // para cada género).
+  function megaFor(mon) {
+    if (!mon?.held || mon.wild || mon.visitor || !megaStones.has(mon.held)) return null;
+    return megas.find((m) => m.stone === mon.held && m.sp === mon.sp && (!m.gender || m.gender === mon.g)) || null;
+  }
+  const megaActive = (mon) => !!(mon?.megaAt && now() < mon.megaAt + MEGA_MS && megaFor(mon));
+  const megaLeft = (mon) => Math.max(0, mon.megaAt + MEGA_MS - now());
+  // Recarga pendiente (0 = puede megaevolucionar).
+  const megaCooldown = (mon) => (mon.megaAt ? Math.max(0, mon.megaAt + MEGA_MS + MEGA_COOLDOWN_MS - now()) : 0);
+  // Especie que se ve: la forma mega mientras dura.
+  const lookSp = (mon) => (megaActive(mon) ? megaFor(mon).id : mon.sp);
+
+  // Especies a las que sirve una megapiedra (y las de su línea evolutiva previa,
+  // para marcar en la tienda las que le valdrán a tu equipo cuando evolucione).
+  function stoneTargets(slug) {
+    const out = new Set();
+    for (const m of megas.filter((x) => x.stone === slug)) {
+      for (let sp = species(m.sp); sp; sp = sp.from ? species(sp.from) : null) out.add(sp.id);
+    }
+    return out;
+  }
+  const stoneOwner = (slug) => speciesName(megas.find((m) => m.stone === slug)?.sp);
+
+  // Al quitarle la piedra (o cambiársela) mientras está megaevolucionado
+  // vuelve a la normalidad y empieza la recarga.
+  function endMega(mon) {
+    if (!megaActive(mon)) return;
+    mon.megaAt = now() - MEGA_MS;
+    mon.megaOn = false;
+  }
+
+  function megaEvolve(mon) {
+    const m = megaFor(mon);
+    if (!m || megaActive(mon) || megaCooldown(mon)) return;
+    mon.megaAt = now();
+    mon.megaOn = true;
+    save();
+    render();
+    const el = actorOf(mon);
+    if (el) {
+      el.classList.remove("is-megaevolving");
+      void el.offsetWidth;
+      el.classList.add("is-megaevolving");
+      setTimeout(() => el.classList.remove("is-megaevolving"), 1600);
+    }
+    root.querySelector(".pp-portrait")?.classList.add("is-megaevolving");
+    sparkle(mon, 14);
+    floatText(mon, "¡Megaevolución!");
+    window.Achievements?.track("megas");
+    showNotification(`¡${displayName(mon)} ha megaevolucionado en ${m.n}!`);
+  }
+
+  // Se llama cada minuto: los que han agotado sus 2 h vuelven a su forma.
+  function checkMegas() {
+    let changed = false;
+    for (const mon of state.party) {
+      if (mon.megaOn && !megaActive(mon)) {
+        mon.megaOn = false;
+        changed = true;
+        floatText(mon, "Vuelve a la normalidad", true);
+        showNotification(`${displayName(mon)} ha vuelto a su forma normal.`);
+      } else if (mon.megaOn) changed = true; // cuenta atrás en la ficha
+    }
+    return changed;
+  }
   const legendKind = (s) => (s.ub ? "Ultraente" : s.myth ? "Singular" : "Legendario");
 
   // El sprite se pide a main.js (lo descarga y lo cachea en disco) y llega
@@ -277,7 +355,7 @@
     if (!s) return Promise.resolve(null);
     const key = `${s.id}${shiny ? "s" : ""}`;
     if (spriteCache.has(key)) return spriteCache.get(key);
-    const tries = [...(s.a ? [[SPRITE_ANI(s.sd, shiny), true]] : []), [SPRITE_PNG(s.sd, shiny), false]];
+    const tries = s.sd ? [...(s.a ? [[SPRITE_ANI(s.sd, shiny), true]] : []), [SPRITE_PNG(s.sd, shiny), false]] : [];
     if (s.sprite) tries.push([shiny ? s.sprite.replace("/pokemon/", "/pokemon/shiny/") : s.sprite, false]);
     const p = (async () => {
       for (const [url, ani] of tries) {
@@ -300,10 +378,12 @@
   // Miniatura fija (equipo, listas): el sprite de 5ª gen, con su versión
   // variocolor si lo es.
   function thumbHtml(mon, extra = "") {
-    const s = species(mon.sp);
+    const s = species(lookSp(mon));
     const fb = s.sprite ? (mon.shiny ? s.sprite.replace("/pokemon/", "/pokemon/shiny/") : s.sprite) : "";
-    return `<img src="${SPRITE_PNG(s.sd, mon.shiny)}" alt="" ${extra} onerror="this.onerror=null;${fb ? `this.src='${fb}'` : "this.style.visibility='hidden'"}">`;
+    return `<img src="${s.sd ? SPRITE_PNG(s.sd, mon.shiny) : fb}" alt="" ${extra} onerror="this.onerror=null;${fb && s.sd ? `this.src='${fb}'` : "this.style.visibility='hidden'"}">`;
   }
+  // Sprite fijo de una especie (o forma mega, que puede no tenerlo en Showdown).
+  const pngOf = (sp) => (species(sp).sd ? SPRITE_PNG(species(sp).sd) : species(sp).sprite || "");
   const SHINY_MARK = `<span class="pp-shiny-mark" title="Variocolor">✦</span>`;
 
   // Rellena las imágenes de sprite que haya dentro de "box".
@@ -352,7 +432,7 @@
   const expForLevel = (l) => (l <= 1 ? 0 : l * l * l); // crecimiento "medio"
 
   function statsOf(mon) {
-    const s = species(mon.sp);
+    const s = species(lookSp(mon));
     return s.s.map((b, i) => {
       const core = Math.floor(((2 * b + (mon.iv?.[i] || 0)) * mon.lv) / 100);
       return i === 0 ? core + mon.lv + 10 : core + 5;
@@ -1270,6 +1350,7 @@
     if (!state.party.length) return;
     tickCount++;
     let dirty = refreshWild();
+    if (checkMegas()) dirty = true;
 
     if (tickCount % EXP_EVERY_TICKS === 0) {
       for (const mon of parkMons()) gainExp(mon, 10 + mon.lv * 4);
@@ -1379,6 +1460,26 @@
     updateClock();
   }
 
+  // Bloque de megaevolución de la ficha (solo si lleva su megapiedra).
+  function megaBox(mon, mega, on) {
+    if (!mega) {
+      return megaStones.has(mon.held) ? `<p class="pp-mega-note">${esc(itemName(mon.held))} es de ${esc(stoneOwner(mon.held))}: a ${esc(displayName(mon))} no le sirve.</p>` : "";
+    }
+    if (on) {
+      const pct = Math.max(0, Math.min(100, (megaLeft(mon) / MEGA_MS) * 100));
+      return `<div class="pp-mega is-on">
+        <div class="pp-mega-head">${MEGA_SVG}<span><b>Megaevolucionado</b><small>Vuelve a la normalidad en ${fmtDuration(megaLeft(mon))}</small></span></div>
+        <div class="pp-mega-bar"><span style="width:${pct}%"></span></div>
+      </div>`;
+    }
+    const wait = megaCooldown(mon);
+    return `<div class="pp-mega">
+      <button type="button" class="pp-mega-btn" data-pp="mega" ${wait ? "disabled" : ""} title="${wait ? "Necesita descansar antes de volver a megaevolucionar" : `Se convierte en ${esc(mega.n)} durante 2 horas`}">
+        ${MEGA_SVG}<span><b>Megaevolucionar</b><small>${wait ? `Disponible en ${fmtDuration(wait)}` : `${esc(mega.n)} · 2 h`}</small></span>
+      </button>
+    </div>`;
+  }
+
   function renderSide() {
     const team = root.querySelector(".pp-team");
     const sel = selected();
@@ -1426,7 +1527,7 @@
                   ? 100
                   : Math.max(0, Math.min(100, ((m.exp - cur) / (expForLevel(m.lv + 1) - cur)) * 100));
               return `<button type="button" class="pp-ov-row ${m.visitor ? "is-visitor" : ""}" data-pp="select" data-uid="${m.uid}">
-                <span class="pp-ov-avatar"><img src="${SPRITE_PNG(species(m.sp).sd)}" alt="" onerror="this.style.visibility='hidden'"></span>
+                <span class="pp-ov-avatar"><img src="${pngOf(lookSp(m))}" alt="" onerror="this.style.visibility='hidden'"></span>
                 <span class="pp-ov-text">
                   <span class="pp-ov-top"><b>${esc(displayName(m))}</b><small>${m.visitor ? `De visita · ${fmtDuration(m.leaves - now())}` : `Nv. ${m.lv}`}</small></span>
                   <i title="${m.visitor ? "Tiempo de visita" : "Experiencia"}"><em style="width:${pct}%"></em></i>
@@ -1448,6 +1549,9 @@
       return;
     }
     const s = species(sel.sp);
+    const mega = megaFor(sel);
+    const megaOn = megaActive(sel);
+    const look = species(lookSp(sel)); // la forma mega mientras dura
     const stats = statsOf(sel);
     const cur = expForLevel(sel.lv);
     const next = expForLevel(sel.lv + 1);
@@ -1468,7 +1572,7 @@
           ${fi.left ? `Comidas con experiencia: ${fmtCount(fi.left)}/${FEED_MAX}` : `Lleno · vuelve a tener hambre en ${fmtDuration(fi.resetIn)}`}
           ${cleanWait > 0 ? ` · Cepillado (${fmtDuration(cleanWait)})` : ""}
         </p>
-        <div class="pp-portrait ${sel.visitor ? "is-visitor" : ""} ${sel.shiny ? "is-shiny" : ""}">${spriteHtml(sel.sp, "pp-portrait-img", sel.shiny)}</div>
+        <div class="pp-portrait ${sel.visitor ? "is-visitor" : ""} ${sel.shiny ? "is-shiny" : ""} ${megaOn ? "is-mega" : ""}">${spriteHtml(look.id, "pp-portrait-img", sel.shiny)}</div>
         <div class="pp-name-row">
           ${
             sel.visitor
@@ -1480,8 +1584,8 @@
           }
           ${gender}
         </div>
-        <p class="pp-species">${sel.visitor ? `<span class="pp-legend-badge">${legendKind(s)}</span> ` : ""}${sel.shiny ? `<span class="pp-shiny-badge">✦ Variocolor</span> ` : ""}${sel.nick ? `${esc(s.n)} · ` : ""}Nº ${String(s.id).padStart(4, "0")}${sel.ot ? ` · EO ${esc(sel.ot)}` : ""}</p>
-        <div class="pp-types">${s.t.map((t) => `<span class="pp-type" style="--tc:${TYPE_COLORS[t] || "#888"}">${esc(dex.types[t] || t)}</span>`).join("")}</div>
+        <p class="pp-species">${sel.visitor ? `<span class="pp-legend-badge">${legendKind(s)}</span> ` : ""}${megaOn ? `<span class="pp-mega-badge">${MEGA_SVG}${esc(look.n)}</span> ` : ""}${sel.shiny ? `<span class="pp-shiny-badge">✦ Variocolor</span> ` : ""}${sel.nick ? `${esc(s.n)} · ` : ""}Nº ${String(s.id).padStart(4, "0")}${sel.ot ? ` · EO ${esc(sel.ot)}` : ""}</p>
+        <div class="pp-types">${look.t.map((t) => `<span class="pp-type" style="--tc:${TYPE_COLORS[t] || "#888"}">${esc(dex.types[t] || t)}</span>`).join("")}</div>
         ${
           sel.visitor
             ? `<div class="pp-visit-info">
@@ -1503,7 +1607,7 @@
         <div class="pp-stats">
           ${stats
             .map(
-              (v, i) => `<div class="pp-stat"><span>${STAT_LABELS[i]}</span><b>${v}</b><i><em style="width:${Math.min(100, (s.s[i] / 160) * 100)}%"></em></i></div>`
+              (v, i) => `<div class="pp-stat"><span>${STAT_LABELS[i]}</span><b>${v}</b><i><em style="width:${Math.min(100, (look.s[i] / 160) * 100)}%"></em></i></div>`
             )
             .join("")}
         </div>
@@ -1519,7 +1623,8 @@
                  <button type="button" class="pp-link" data-pp="unequip">Quitar</button>`
               : `<span class="pp-held-none">Ninguno</span>`
           }
-        </div>`
+        </div>
+        ${megaBox(sel, mega, megaOn)}`
         }
 
         ${
@@ -1888,14 +1993,16 @@
         layer.appendChild(el);
         actors.set(mon.uid, a);
       }
-      const look = `${mon.sp}${mon.shiny ? "s" : ""}`;
+      const sp = lookSp(mon);
+      const look = `${sp}${mon.shiny ? "s" : ""}`;
       if (a.sp !== look) {
         a.sp = look;
-        a.el.innerHTML = `<span class="pp-mon-ring"></span><span class="pp-mon-shadow"></span>${spriteHtml(mon.sp, "pp-mon-img", mon.shiny)}<span class="pp-mon-ball">${POKEBALL_IMG}</span><span class="pp-mon-name"></span>`;
+        a.el.innerHTML = `<span class="pp-mon-ring"></span><span class="pp-mon-shadow"></span>${spriteHtml(sp, "pp-mon-img", mon.shiny)}<span class="pp-mon-ball">${POKEBALL_IMG}</span><span class="pp-mon-name"></span>`;
         hydrate(a.el);
       }
       a.el.classList.toggle("is-wild", !!mon.wild);
       a.el.classList.toggle("is-shiny", !!mon.shiny);
+      a.el.classList.toggle("is-mega", sp !== mon.sp);
       a.el.classList.toggle("is-catching", catching.has(mon.uid));
       a.el.querySelector(".pp-mon-name").textContent = `${mon.shiny ? "✦ " : ""}${displayName(mon)}${mon.wild ? ` · Nv.${mon.lv}` : ""}`;
       a.el.classList.toggle("is-selected", mon.uid === selected()?.uid);
@@ -2037,7 +2144,9 @@
     else if (act === "trades") openTrades();
     else if (act === "shop") openShop();
     else if (act === "gate") toggleClosed();
+    else if (act === "mega" && mon && !mon.wild && !mon.visitor) megaEvolve(mon);
     else if (act === "unequip" && mon?.held) {
+      endMega(mon);
       addToBag(mon.held);
       showNotification(`Has guardado ${itemName(mon.held)} en la bolsa.`);
       mon.held = null;
@@ -2228,7 +2337,7 @@
 
     const groups = () => {
       const entries = unlimited()
-        ? [...new Set([...Object.keys(BERRIES), ...shopStock()])].map((s) => [s, Infinity])
+        ? [...new Set([...Object.keys(BERRIES), ...shopStock(), ...megaStones])].map((s) => [s, Infinity])
         : Object.entries(state.bag).filter(([, n]) => n > 0);
       return {
         berries: entries.filter(([s]) => isBerry(s)),
@@ -2261,9 +2370,10 @@
                   note = ok ? "¡Puede evolucionar!" : "No tendría ningún efecto";
                 } else {
                   note = m.held ? `Lleva ${itemName(m.held)} (se cambiará)` : "Sin objeto";
+                  if (megaStones.has(action.slug)) note = megaFor({ ...m, held: action.slug }) ? "¡Podrá megaevolucionar!" : `No le sirve${m.held ? ` · lleva ${itemName(m.held)}` : ""}`;
                 }
                 return `<button type="button" class="pp-target ${ok ? "" : "is-off"}" data-bag="target" data-uid="${m.uid}" ${ok ? "" : "disabled"}>
-                  <img src="${SPRITE_PNG(species(m.sp).sd)}" alt="">
+                  <img src="${pngOf(m.sp)}" alt="">
                   <span><b>${esc(displayName(m))}</b><small>Nv. ${m.lv} · ${esc(note)}</small></span>
                 </button>`;
               })
@@ -2307,6 +2417,7 @@
     }
 
     function heldNote(slug) {
+      if (megaStones.has(slug)) return `Megapiedra de ${stoneOwner(slug)}.`;
       const trade = dex.species.some((s) => (s.evo || []).some((d) => d.held === slug && kindOf(d) === "trade"));
       const level = dex.species.some((s) => (s.evo || []).some((d) => d.held === slug && kindOf(d) === "level"));
       if (level) return "Equipado, evoluciona al subir de nivel.";
@@ -2359,6 +2470,7 @@
               queueEvolution(mon, d);
               return;
             }
+            endMega(mon);
             if (mon.held) addToBag(mon.held);
             takeFromBag(action.slug);
             mon.held = action.slug;
@@ -2385,6 +2497,7 @@
   }
 
   function itemNote(slug) {
+    if (megaStones.has(slug)) return `Megapiedra de ${stoneOwner(slug)}: equípasela para megaevolucionar.`;
     if (slug === "poke-ball") return "Para capturar Pokémon salvajes.";
     if (isBerry(slug)) return BERRIES[slug].desc;
     if (useItems.has(slug)) return "Objeto evolutivo: se gasta al usarlo.";
@@ -2420,6 +2533,26 @@
       popup.querySelectorAll(".pp-bag-tab").forEach((b) => b.classList.toggle("is-active", b.dataset.tab === tab));
       popup.querySelector(".pp-shop-money").textContent = unlimited() ? "∞" : fmtMoney(state.money);
       const box = popup.querySelector(".pp-bag-body");
+      if (tab === "mega") {
+        // Primero las que le sirven a tu equipo (o le servirán al evolucionar).
+        const team = new Set(state.party.map((m) => m.sp));
+        const forTeam = (slug) => [...stoneTargets(slug)].some((sp) => team.has(sp));
+        const list = [...megaStones].sort((a, b) => Number(forTeam(b)) - Number(forTeam(a)) || stoneOwner(a).localeCompare(stoneOwner(b), "es") || a.localeCompare(b));
+        box.innerHTML = `<p class="pp-mega-intro">${MEGA_SVG}<span>Equípale a un Pokémon su megapiedra y megaevoluciónalo desde su ficha. Dura 2 horas; después necesita descansar otras 2.</span></p>
+          <div class="pp-bag-list">${list
+          .map((slug) => {
+            const p = buyPrice(slug);
+            const owned = have(slug);
+            const mine = forTeam(slug);
+            return `<div class="pp-bag-row ${mine ? "is-team" : ""}">${itemImg(slug)}<span class="pp-bag-name"><b>${esc(itemName(slug))}${mine ? ` <span class="pp-team-tag">Tu equipo</span>` : ""}</b><small>Para ${esc(stoneOwner(slug))}.${owned ? ` Tienes ${fmtCount(owned)}.` : ""}</small></span>
+              <em class="pp-price">${fmtMoney(p)}</em>
+              <span class="pp-shop-btns">
+                <button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-shop="buy" data-slug="${slug}" data-n="1" ${state.money < p && !unlimited() ? "disabled" : ""}>Comprar</button>
+              </span></div>`;
+          })
+          .join("")}</div>`;
+        return;
+      }
       if (tab === "buy") {
         box.innerHTML = `<div class="pp-bag-list">${shopStock()
           .map((slug) => {
@@ -2459,6 +2592,7 @@
           <div class="pp-shop-head">
             <div class="pp-bag-tabs">
               <button type="button" class="pp-bag-tab" data-tab="buy">Comprar</button>
+              <button type="button" class="pp-bag-tab" data-tab="mega">Megapiedras</button>
               <button type="button" class="pp-bag-tab" data-tab="sell">Vender</button>
             </div>
             <span class="pp-chip pp-shop-money" title="Tus Pokédólares"></span>
@@ -2959,6 +3093,9 @@
     '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
   const UNLOCK_SVG =
     '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.9-1"/></svg>';
+  // Símbolo de la megaevolución (simplificado).
+  const MEGA_SVG =
+    '<svg class="pp-mega-ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8.2 6.4c4.6 1.4 7.2 4.4 7.6 9.6M15.8 6.4c-1.6 1.2-2.5 2.4-3 3.6M8.2 17.6c1.4-1 2.4-2.1 3-3.3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/></svg>';
   const SHOP_SVG =
     '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9 4.5 4h15L21 9"/><path d="M3 9h18v2a3 3 0 0 1-6 0 3 3 0 0 1-6 0 3 3 0 0 1-6 0Z"/><path d="M5 13v7h14v-7"/><path d="M10 20v-4h4v4"/></svg>';
   const POKEBALL_SVG =
@@ -2990,6 +3127,13 @@
         if (d.held) heldItems.add(d.held);
       }
     }
+    // Formas mega: especies "virtuales" con id propio para sprites, tipos y stats.
+    megas = (dex.megas || []).map((m, i) => ({ ...m, id: 20000 + i }));
+    for (const m of megas) {
+      const base = species(m.sp);
+      byId.set(m.id, { id: m.id, n: m.n, slug: `${base.slug}-mega${m.id}`, t: m.t, s: m.s, g: base.g, sd: m.sd, a: m.a, sprite: m.sprite, mega: true, base: m.sp });
+    }
+    megaStones = new Set(megas.map((m) => m.stone));
     // Objetos solo de legendarios/formas regionales fuera del reparto.
     useItems = new Set([...useItems].filter((s) => !ITEM_BLOCKLIST.has(s)));
     heldItems = new Set([...heldItems].filter((s) => !ITEM_BLOCKLIST.has(s) && !useItems.has(s)));
@@ -3060,6 +3204,7 @@
     // Depuración / pruebas.
     _state: () => state,
     _openTrades: () => openTrades(),
+    _tick: () => tick(),
     _syncTrades: () => syncTrades(),
     _trades: () => trades,
   };

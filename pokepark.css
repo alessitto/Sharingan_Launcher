@@ -2527,3 +2527,263 @@ body.in-pokepark .main-content {
   border-color: rgba(var(--red-500-rgb), 0.7);
   background: rgba(var(--red-500-rgb), 0.3);
 }
+
+/* ------------------------------------------------------------ Megaevolución */
+:root {
+  --pp-mega-grad: linear-gradient(120deg, #ff5fa2, #b06bff 35%, #4fa8ff 65%, #ffb347);
+}
+
+.pp-mega-ic {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+
+.pp-mega-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px 2px 5px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #fff;
+  background: var(--pp-mega-grad);
+  box-shadow: 0 0 12px rgba(176, 107, 255, 0.5);
+  vertical-align: 1px;
+}
+
+.pp-mega-badge .pp-mega-ic {
+  width: 12px;
+  height: 12px;
+}
+
+.pp-mega {
+  margin-top: 12px;
+}
+
+.pp-mega-btn {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 12px;
+  color: #fff;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  background: var(--pp-mega-grad);
+  background-size: 200% 100%;
+  box-shadow: 0 6px 18px rgba(176, 107, 255, 0.35);
+  animation: ppMegaShift 5s ease-in-out infinite;
+  transition: transform 0.15s, box-shadow 0.15s, filter 0.15s;
+}
+
+.pp-mega-btn:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(176, 107, 255, 0.5);
+}
+
+.pp-mega-btn .pp-mega-ic {
+  width: 24px;
+  height: 24px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+}
+
+.pp-mega-btn span,
+.pp-mega-head span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.pp-mega-btn b {
+  font-size: 13px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.pp-mega-btn small {
+  font-size: 11px;
+  opacity: 0.9;
+}
+
+.pp-mega-btn:disabled {
+  cursor: default;
+  animation: none;
+  filter: grayscale(0.85) brightness(0.75);
+  box-shadow: none;
+}
+
+.pp-mega.is-on {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(176, 107, 255, 0.45);
+  background: rgba(176, 107, 255, 0.1);
+}
+
+.pp-mega-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.pp-mega-head .pp-mega-ic {
+  width: 22px;
+  height: 22px;
+  color: #c79bff;
+}
+
+.pp-mega-head small {
+  font-size: 11px;
+  color: var(--ink-300);
+}
+
+.pp-mega-bar {
+  overflow: hidden;
+  height: 5px;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: var(--ink-800);
+}
+
+.pp-mega-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--pp-mega-grad);
+}
+
+.pp-mega-note {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: var(--ink-300);
+}
+
+/* Aura de los megaevolucionados (parque y ficha) */
+.pp-mon.is-mega .pp-mon-img,
+.pp-portrait.is-mega .pp-portrait-img {
+  animation-name: ppMegaAura;
+  animation-duration: 3s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+.pp-mon.is-mega .pp-mon-img.is-static {
+  animation: ppBreathe 2.4s ease-in-out infinite, ppMegaAura 3s ease-in-out infinite;
+}
+
+.pp-mon.is-mega.is-walking .pp-mon-img.is-static {
+  animation: ppWalkHop 0.42s ease-in-out infinite, ppMegaAura 3s ease-in-out infinite;
+}
+
+.pp-portrait.is-mega {
+  background:
+    radial-gradient(ellipse 50% 14% at 50% 92%, rgba(0, 0, 0, 0.25), transparent 70%),
+    radial-gradient(circle at 50% 60%, rgba(176, 107, 255, 0.22), transparent 65%);
+}
+
+@keyframes ppMegaAura {
+  0%, 100% {
+    filter: drop-shadow(0 0 4px rgba(255, 95, 162, 0.85)) drop-shadow(0 0 10px rgba(176, 107, 255, 0.5));
+  }
+  50% {
+    filter: drop-shadow(0 0 5px rgba(79, 168, 255, 0.9)) drop-shadow(0 0 12px rgba(255, 179, 71, 0.5));
+  }
+}
+
+@keyframes ppMegaShift {
+  50% {
+    background-position: 100% 0;
+  }
+}
+
+/* Destello al megaevolucionar */
+.pp-mon.is-megaevolving::after,
+.pp-portrait.is-megaevolving::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 120px;
+  height: 120px;
+  margin-left: -60px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle, #fff 0%, rgba(255, 255, 255, 0.8) 18%, rgba(176, 107, 255, 0.55) 40%, rgba(79, 168, 255, 0) 70%);
+  animation: ppMegaFlash 1.5s ease-out forwards;
+}
+
+.pp-portrait.is-megaevolving {
+  position: relative;
+}
+
+.pp-portrait.is-megaevolving::after {
+  bottom: 4px;
+}
+
+@keyframes ppMegaFlash {
+  0% {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+  25% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.8);
+  }
+}
+
+/* Tienda: megapiedras */
+.pp-mega-intro {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-200, var(--washi-100));
+  background: rgba(176, 107, 255, 0.1);
+  border: 1px solid rgba(176, 107, 255, 0.3);
+}
+
+.pp-mega-intro .pp-mega-ic {
+  width: 20px;
+  height: 20px;
+  color: #c79bff;
+}
+
+.pp-bag-row.is-team {
+  border-color: rgba(176, 107, 255, 0.5);
+}
+
+.pp-team-tag {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #fff;
+  background: var(--pp-mega-grad);
+  vertical-align: 1px;
+}
+
+:root[data-effect="retro"] .pp-mega-btn,
+:root[data-effect="terminal"] .pp-mega-btn,
+:root[data-effect="cyber"] .pp-mega-btn {
+  border-radius: 0;
+}
