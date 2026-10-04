@@ -1030,20 +1030,13 @@
 /* =====================================================================
    Retoques por estilo
    ===================================================================== */
-:root[data-effect="retro"] :is(.sps-shot, .sps-input, .sps-copy, .sps-chips li, .sps-tip, .sps-help, .sps-error, .sps-warn, .sps-id-input, .sps-progress i, .sps-mark, .sps-save, .sps-add, .sps-tick, .sps-orb, .sps-orb::before, .sps-orb::after, .sps-list li::before, .sps-row code, .sps-text-btn, .sps-check::before, .sps-check .sp-i, .sps-id-state),
-:root[data-effect="terminal"] :is(.sps-shot, .sps-input, .sps-copy, .sps-chips li, .sps-tip, .sps-help, .sps-error, .sps-warn, .sps-id-input, .sps-progress i, .sps-mark, .sps-save, .sps-add, .sps-tick, .sps-orb, .sps-orb::before, .sps-orb::after, .sps-list li::before, .sps-row code, .sps-text-btn, .sps-check::before, .sps-check .sp-i, .sps-id-state),
-:root[data-effect="cyber"] :is(.sps-shot, .sps-input, .sps-copy, .sps-chips li, .sps-tip, .sps-help, .sps-error, .sps-warn, .sps-id-input, .sps-progress i, .sps-mark, .sps-save, .sps-add, .sps-list li::before, .sps-row code, .sps-text-btn) {
+:root[data-effect="retro"] :is(.sps-copy, .sps-chips li, .sps-tip, .sps-help, .sps-error, .sps-warn, .sps-id-input, .sps-progress i, .sps-mark, .sps-tick, .sps-orb, .sps-orb::before, .sps-orb::after, .sps-list li::before, .sps-text-btn, .sps-id-state),
+:root[data-effect="terminal"] :is(.sps-copy, .sps-chips li, .sps-tip, .sps-help, .sps-error, .sps-warn, .sps-id-input, .sps-progress i, .sps-mark, .sps-tick, .sps-orb, .sps-orb::before, .sps-orb::after, .sps-list li::before, .sps-text-btn, .sps-id-state),
+:root[data-effect="cyber"] :is(.sps-copy, .sps-chips li, .sps-tip, .sps-help, .sps-error, .sps-warn, .sps-id-input, .sps-progress i, .sps-mark, .sps-list li::before, .sps-text-btn) {
   border-radius: 0 !important;
 }
 
-/* Retro: marcos gruesos con sombra dura */
-:root[data-effect="retro"] .sps-shot {
-  border: 3px solid var(--retro-line);
-  box-shadow: 8px 8px 0 var(--retro-drop);
-  transform: none;
-  animation-name: spsIn;
-}
-
+/* Retro */
 :root[data-effect="retro"] .sps-title {
   font-family: var(--retro-title) !important;
   font-size: 18px;
@@ -1057,13 +1050,6 @@
 }
 
 /* Terminal: monoespaciada, líneas finas, sin sombras */
-:root[data-effect="terminal"] .sps-shot {
-  border-color: var(--tm-line);
-  box-shadow: none;
-  transform: none;
-  animation-name: spsIn;
-}
-
 :root[data-effect="terminal"] .sps-title {
   font-family: var(--tm-font) !important;
   font-size: clamp(20px, 2vw, 26px);
@@ -1080,16 +1066,6 @@
 }
 
 /* Cyberpunk: esquinas cortadas y neón */
-:root[data-effect="cyber"] .sps-shot {
-  border-color: var(--cy-line);
-  border-radius: 0;
-  clip-path: var(--cy-cut);
-  box-shadow: none;
-  transform: none;
-  animation-name: spsIn;
-  filter: drop-shadow(0 0 14px rgba(var(--red-500-rgb), 0.3));
-}
-
 :root[data-effect="cyber"] .sps-title {
   font-family: var(--cy-title) !important;
   font-size: clamp(20px, 2vw, 26px);
@@ -1114,13 +1090,7 @@
   font-size: clamp(20px, 2.2vw, 28px);
 }
 
-:root[data-effect="y2k"] .sps-shot {
-  border-radius: 20px;
-  box-shadow: var(--y2k-edge), 0 24px 60px rgba(0, 0, 0, 0.3);
-}
-
-:root[data-effect="y2k"] .sps-copy,
-:root[data-effect="y2k"] .sps-save {
+:root[data-effect="y2k"] .sps-copy {
   background: var(--y2k-gloss), var(--red-500);
   color: var(--on-accent);
   box-shadow: var(--y2k-edge);
@@ -1133,20 +1103,11 @@
 }
 
 /* Frutiger Aero */
-:root[data-effect="aero"] .sps-shot {
-  border-color: rgba(255, 255, 255, 0.38);
-  border-radius: 18px;
-  background: var(--ae-panel), var(--ink-900);
-  box-shadow: var(--ae-edge), 0 24px 60px rgba(0, 0, 0, 0.28);
-}
-
-:root[data-effect="aero"] .sps-tick,
-:root[data-effect="aero"] .sps-save {
+:root[data-effect="aero"] .sps-tick {
   background: var(--ae-gloss), var(--red-500);
 }
 
 /* Liquid Glass: paneles de cristal */
-:root[data-effect="glass"] .sps-shot,
 :root[data-effect="glass"] .sps-tip,
 :root[data-effect="glass"] .sps-help,
 :root[data-effect="glass"] .sps-chips li:not(.is-premium) {
@@ -1154,11 +1115,6 @@
   background: var(--lg-fill);
   box-shadow: var(--lg-rim);
   backdrop-filter: blur(24px) saturate(160%);
-}
-
-:root[data-effect="glass"] .sps-shot {
-  border-radius: 22px;
-  box-shadow: var(--lg-rim), 0 30px 80px rgba(0, 0, 0, 0.3);
 }
 
 :root[data-effect="glass"] .sps-tick {
@@ -1171,11 +1127,6 @@
   font-family: var(--mn-font) !important;
   font-weight: 600;
   letter-spacing: -0.03em;
-}
-
-:root[data-effect="minimal"] .sps-shot {
-  transform: none;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.16);
 }
 
 :root[data-effect="minimal"] .sps-orb,
@@ -1191,18 +1142,6 @@
 /* Papel: una hoja con grano, un poco torcida */
 :root[data-effect="paper"] .sps-title {
   font-family: var(--pa-font) !important;
-}
-
-:root[data-effect="paper"] .sps-shot {
-  border-radius: 3px;
-  background: var(--pa-grain), var(--ink-900);
-  box-shadow: var(--pa-card-shadow);
-  transform: rotate(0.8deg);
-  animation-name: spsIn;
-}
-
-:root[data-effect="paper"] .sps-shot:hover {
-  transform: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1229,6 +1168,241 @@
   .sps-burst {
     display: none;
   }
+}
+
+/* =====================================================================
+   El dibujo del panel de Spotify: igual que la web real (claro, con su
+   tipografía y sus colores) en todos los temas, para que no se confunda con
+   el launcher. Solo nuestras ayudas (Copiar, etiquetas y resaltado) llevan
+   el color del tema.
+   ===================================================================== */
+:root .sps .sps-shot {
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  border-radius: 10px !important;
+  background: #fff;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.22);
+  color: #000;
+  clip-path: none;
+  filter: none;
+  backdrop-filter: none;
+}
+
+:root .sps .sps-shot,
+:root .sps .sps-shot * {
+  font-family: "Circular Std", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  text-shadow: none !important;
+}
+
+:root .sps .sps-shot code {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace !important;
+}
+
+/* Barra del navegador */
+.sps .sps-chrome {
+  border-bottom: 1px solid #c7c7c7;
+  background: #dfe1e5;
+}
+
+.sps .sps-chrome i {
+  background: #ff5f57;
+}
+
+:root .sps .sps-shot .sps-chrome i {
+  border-radius: 50% !important;
+}
+
+:root .sps .sps-shot .sps-chrome span {
+  border-radius: 999px !important;
+}
+
+.sps .sps-chrome i:nth-child(2) {
+  background: #febc2e;
+}
+
+.sps .sps-chrome i:nth-child(3) {
+  background: #28c840;
+}
+
+.sps .sps-chrome span {
+  background: #fff;
+  color: #5f6368;
+}
+
+/* Cabecera negra de Spotify for Developers */
+.sps-sp-top {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 18px;
+  background: #000;
+  color: #fff;
+}
+
+.sps .sps-sp-top .sp-logo {
+  width: 22px;
+  height: 22px;
+  color: #fff;
+}
+
+.sps-sp-top b {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.sps-sp-top span {
+  font-size: 13px;
+  color: #b3b3b3;
+}
+
+.sps-sp-top i {
+  flex: 1;
+}
+
+.sps-sp-top em {
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.sps .sps-shot .sps-form {
+  background: #fff;
+}
+
+.sps .sps-shot .sps-form-h {
+  font-size: 20px;
+  font-weight: 700;
+  color: #000;
+}
+
+.sps .sps-shot .sps-label {
+  color: #000;
+  font-weight: 700;
+}
+
+.sps .sps-shot .sps-label em {
+  color: #000;
+}
+
+.sps .sps-shot .sps-input {
+  border: 1px solid #878787;
+  border-radius: 4px !important;
+  background: #fff;
+  color: #000;
+}
+
+.sps .sps-shot .sps-input.is-empty > span:not(.sps-add) {
+  color: #6a6a6a;
+}
+
+.sps .sps-shot .sps-field.is-muted,
+.sps .sps-shot .sps-row.is-muted {
+  opacity: 1;
+}
+
+.sps .sps-shot .sps-add {
+  border: 1px solid #878787;
+  border-radius: 999px !important;
+  background: #fff;
+  color: #000;
+}
+
+.sps .sps-shot .sps-check {
+  color: #000;
+}
+
+.sps .sps-shot .sps-check::before {
+  border: 1px solid #878787;
+  border-radius: 4px !important;
+  background: #fff;
+}
+
+.sps .sps-shot .sps-check.is-on .sp-i {
+  border-radius: 4px !important;
+  background: #000;
+  color: #fff;
+}
+
+.sps .sps-shot .sps-check.is-key {
+  color: #000;
+}
+
+.sps .sps-shot .sps-terms {
+  color: #000;
+}
+
+.sps .sps-shot .sps-form-foot {
+  gap: 10px;
+}
+
+.sps .sps-shot .sps-save,
+.sps .sps-shot .sps-cancel {
+  padding: 7px 20px;
+  border-radius: 999px !important;
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: none;
+}
+
+.sps .sps-shot .sps-save {
+  background: #1ed760;
+  color: #000;
+}
+
+.sps .sps-shot .sps-cancel {
+  border: 1px solid #878787;
+  color: #000;
+}
+
+/* Página de tu app */
+.sps .sps-shot .sps-crumb {
+  color: #6a6a6a;
+}
+
+.sps .sps-shot .sps-tabs {
+  border-bottom-color: #dedede;
+  color: #6a6a6a;
+}
+
+.sps .sps-shot .sps-tabs .is-on {
+  color: #000;
+  box-shadow: inset 0 -2px 0 #000;
+}
+
+.sps .sps-shot .sps-row code {
+  border-radius: 4px !important;
+  background: #fff;
+  color: #000;
+}
+
+.sps .sps-shot .sps-row:not(.is-key) code {
+  padding-left: 0;
+}
+
+.sps .sps-shot .sps-fake-link {
+  color: #000;
+}
+
+/* Nuestras etiquetas sobre fondo blanco */
+.sps .sps-shot .sps-mark.is-no {
+  background: #e5e5e5;
+  color: #000;
+}
+
+.sps .sps-shot .sps-hint {
+  font-weight: 600;
+  color: var(--red-600, var(--red-500));
+}
+
+/* Sobre blanco, el acento claro de algunos temas no se lee: botón sólido */
+.sps .sps-shot .sps-copy {
+  background: var(--red-500);
+  color: var(--on-accent);
+}
+
+.sps .sps-shot .sps-copy:hover {
+  background: var(--red-600, var(--red-500));
 }
 
 /* =====================================================================

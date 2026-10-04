@@ -58,6 +58,8 @@
     let alive = true;
     const uri = () => config.redirectUri || "http://127.0.0.1:43821/callback";
 
+    // Cabecera del panel de Spotify (el dibujo imita la web real, no el tema).
+    const spTop = `<div class="sps-sp-top">${logo}<b>Spotify</b><span>for Developers</span><i></i><em>Dashboard</em></div>`;
     const copyBtn = (value, label = "Copiar") =>
       `<button type="button" class="sps-copy" data-copy="${esc(value)}" title="Copiar">${ic("copy")}<span>${label}</span></button>`;
 
@@ -94,6 +96,7 @@
           </div>
           <figure class="sps-shot" aria-label="Así se rellena el formulario de Spotify">
             <div class="sps-chrome"><i></i><i></i><i></i><span>developer.spotify.com/dashboard/create</span></div>
+            ${spTop}
             <div class="sps-form">
               <p class="sps-form-h">Create app</p>
               <div class="sps-field">
@@ -123,7 +126,7 @@
                 </div>
               </div>
               <div class="sps-terms"><span class="sps-check is-on">${ic("check")}</span>I understand and agree with Spotify's Developer Terms of Service…</div>
-              <div class="sps-form-foot"><span class="sps-save">Save</span></div>
+              <div class="sps-form-foot"><span class="sps-cancel">Cancel</span><span class="sps-save">Save</span></div>
             </div>
           </figure>
         </div>`,
@@ -143,6 +146,7 @@
           </div>
           <figure class="sps-shot" aria-label="Dónde está el Client ID en tu app">
             <div class="sps-chrome"><i></i><i></i><i></i><span>developer.spotify.com/dashboard/…/settings</span></div>
+            ${spTop}
             <div class="sps-form">
               <p class="sps-crumb">Home › ${APP_NAME}</p>
               <p class="sps-form-h">Basic Information</p>
