@@ -537,8 +537,9 @@
     const pool = mode === "trade" ? (s.evo || []).filter((d) => kindOf(d) === "trade") : usableDetails(s);
     const ok = pool
       .filter((d) => conditionsMet(mon, d, mode, item))
-      // primero las más concretas (movimiento, objeto, hora...)
-      .sort((a, b) => Object.keys(b).length - Object.keys(a).length);
+      // Primero las de movimiento (como en los juegos: Sylveon gana a Espeon y
+      // Umbreon si se cumple lo suyo) y después las más concretas (objeto, hora...).
+      .sort((a, b) => Number(!!(b.move || b.moveType)) - Number(!!(a.move || a.moveType)) || Object.keys(b).length - Object.keys(a).length);
     if (!ok.length) return null;
     const targets = [...new Set(ok.map((d) => d.to))];
     if (targets.length === 1 || ok[0].move || ok[0].moveType || ok[0].held || ok[0].time) return ok[0];
