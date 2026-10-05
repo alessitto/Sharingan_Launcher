@@ -5998,3 +5998,74 @@ body.pad-in-use {
     animation: none;
   }
 }
+
+/* 3.2.1: tiendas vinculadas y juegos de la cuenta sin instalar */
+.game-card.is-not-installed .card-cover img {
+  filter: grayscale(0.55) brightness(0.8);
+  transition: filter 0.2s ease;
+}
+
+.game-card.is-not-installed:hover .card-cover img {
+  filter: none;
+}
+
+.card-actions button.dl-btn .i {
+  fill: none;
+  stroke-width: 2;
+}
+
+.card-actions button.dl-btn.is-busy {
+  pointer-events: none;
+  opacity: 0.85;
+  font-variant-numeric: tabular-nums;
+}
+
+.st-store-icon {
+  position: relative;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--washi-400);
+  transition: color 0.2s ease, background 0.2s ease;
+}
+
+.st-store-logo {
+  width: 22px;
+  height: 22px;
+}
+
+.st-store.is-on .st-store-icon {
+  color: var(--washi-100);
+  background: rgba(var(--red-500-rgb), 0.12);
+  border-color: rgba(var(--red-500-rgb), 0.35);
+}
+
+.st-store-dot {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 2px solid var(--bg-elevated, #161616);
+  background: var(--washi-400);
+  display: none;
+}
+
+.st-store.is-on .st-store-dot {
+  display: block;
+  background: var(--red-500);
+}
+
+.st-stores.is-busy .sl-btn {
+  pointer-events: none;
+}
+
+.st-stores .st-actions {
+  margin-top: 16px;
+}

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, safeStorage } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, shell, safeStorage, session } = require("electron");
 const Fuse = require("fuse.js");
 const path = require("path");
 const { execFile, spawn } = require("child_process");
@@ -6,8 +6,10 @@ const saves = require("./saves");
 const ai = require("./ai");
 const { createCloud } = require("./cloud");
 const { createSpotify } = require("./spotify");
+const { createStores } = require("./stores");
 const themes = require("./themes");
 let cloud = null; // se crea al arrancar (setupCloud)
+let stores = null; // cuentas de Steam/Epic/GOG (setupStores)
 const fs = require("fs");
 const fetch = require("node-fetch"); // npm install node-fetch@2
 const si = require("systeminformation"); // npm install systeminformation
@@ -218,6 +220,8 @@ const publicSettings = () => ({
   spotifyClientId: undefined,
   cloudDirty: undefined,
   cloudLinkedUser: undefined,
+  storeAuth: undefined,
+  storeHidden: undefined,
 });
 
 ipcMain.handle("settings:get", () => publicSettings());
@@ -448,6 +452,7 @@ function parseAcfRootFields(acfText) {
   out.appid = grab("appid");
   out.name = grab("name");
   out.installdir = grab("installdir");
+  out.stateFlags = grab("StateFlags");
   return out;
 }
 
@@ -506,6 +511,12 @@ function findGameByExternalId(gameObj) {
       if (hit) return hit;
     }
   }
+  if (gameObj.gogProductId != null) {
+    for (const p of pools) {
+      const hit = p.find((x) => x.gogProductId === gameObj.gogProductId);
+      if (hit) return hit;
+    }
+  }
   return null;
 }
 
@@ -538,6 +549,7 @@ function findGameByInstallDir(gameObj) {
 }
 
 function canLaunch(g) {
+  if (g.notInstalled) return false;
   return !!(
     g.executable ||
     (g.platform === "steam" && g.steamAppId) ||
@@ -567,6 +579,7 @@ function upsertGameImported(gameObj) {
       epicAppName: gameObj.epicAppName ?? g.epicAppName ?? null,
       gogGameId: gameObj.gogGameId ?? g.gogGameId ?? null,
       installDir: gameObj.installDir ?? g.installDir ?? null,
+      gogProductId: gameObj.gogProductId ?? g.gogProductId ?? null,
       sortKey: (
         gameObj.sortKey ??
         g.sortKey ??
@@ -575,6 +588,8 @@ function upsertGameImported(gameObj) {
         ""
       ).toString(),
     });
+    // Estaba en la cuenta sin instalar y ya está instalado.
+    delete g.notInstalled;
     return { status: "existing", game: g };
   }
 
@@ -594,6 +609,8 @@ function upsertGameImported(gameObj) {
     g.epicAppName = g.epicAppName ?? gameObj.epicAppName ?? null;
     g.gogGameId = g.gogGameId ?? gameObj.gogGameId ?? null;
     g.installDir = g.installDir ?? gameObj.installDir ?? null;
+    g.gogProductId = g.gogProductId ?? gameObj.gogProductId ?? null;
+    delete g.notInstalled;
     if (!g.cover && !g.coverUrl) {
       g.cover = gameObj.cover ?? null;
       g.coverUrl = gameObj.coverUrl ?? null;
@@ -615,8 +632,63 @@ function upsertGameImported(gameObj) {
     epicAppName: gameObj.epicAppName ?? null,
     gogGameId: gameObj.gogGameId ?? null,
     installDir: gameObj.installDir ?? null,
+    gogProductId: gameObj.gogProductId ?? null,
     sortKey: (gameObj.sortKey ?? gameObj.name ?? "").toString(),
   });
+  return { status: "new", game: g };
+}
+
+// Juegos de una cuenta vinculada (Steam/Epic/GOG) que no están instalados:
+// entran con notInstalled y el botón Descargar. Si ya estaba en la
+// biblioteca y se puede jugar, no se toca; si estaba sin forma de lanzarse
+// (p. ej. añadido desde Descubrir) pasa a ser "de la cuenta".
+function ownedKey(g) {
+  if (g.platform === "steam" && g.steamAppId) return `steam:${g.steamAppId}`;
+  if (g.platform === "epic" && g.epicAppName) return `epic:${g.epicAppName}`;
+  if (g.platform === "gog" && g.gogProductId) return `gog:${g.gogProductId}`;
+  return null;
+}
+
+function upsertOwnedGame(gameObj) {
+  if ((appSettings.storeHidden || []).includes(ownedKey(gameObj))) return { status: "hidden" };
+  let g =
+    games.find((x) => x.id === gameObj.id) ||
+    completedGames.find((x) => x.id === gameObj.id) ||
+    findGameByExternalId(gameObj) ||
+    findGameByName(gameObj);
+  if (g) {
+    if (canLaunch(g)) {
+      if (g.platform === gameObj.platform) {
+        g.steamAppId = g.steamAppId ?? gameObj.steamAppId ?? null;
+        g.epicAppName = g.epicAppName ?? gameObj.epicAppName ?? null;
+        g.gogProductId = g.gogProductId ?? gameObj.gogProductId ?? null;
+      }
+      return { status: "existing", game: g };
+    }
+    g.platform = gameObj.platform;
+    g.steamAppId = gameObj.steamAppId ?? g.steamAppId ?? null;
+    g.epicAppName = gameObj.epicAppName ?? g.epicAppName ?? null;
+    g.gogProductId = gameObj.gogProductId ?? g.gogProductId ?? null;
+    g.notInstalled = true;
+    if (!g.cover && !g.coverUrl) g.coverUrl = gameObj.coverUrl ?? null;
+    return { status: "existing", game: g };
+  }
+  g = {
+    id: gameObj.id,
+    name: gameObj.name,
+    cover: null,
+    coverUrl: gameObj.coverUrl ?? null,
+    executable: null,
+    platform: gameObj.platform,
+    steamAppId: gameObj.steamAppId ?? null,
+    epicAppName: gameObj.epicAppName ?? null,
+    gogGameId: null,
+    gogProductId: gameObj.gogProductId ?? null,
+    installDir: null,
+    notInstalled: true,
+    sortKey: gameObj.name,
+  };
+  games.push(g);
   return { status: "new", game: g };
 }
 
@@ -735,8 +807,10 @@ ipcMain.handle("update:install", async () => {
 app.whenReady().then(() => {
   setupCloud();
   setupSpotify();
+  setupStores();
   loadData();
   createWindow();
+  win.on("focus", () => checkPendingInstalls());
   setupAutoUpdates();
   // Con sesión iniciada, se trae lo de la cuenta en cuanto la ventana está lista.
   win.webContents.once("did-finish-load", () => cloud.start());
@@ -997,6 +1071,7 @@ ipcMain.handle("games:setExe", (_e, { id, path: exePath }) => {
 
   g.executable = exePath;
   g.platform = detectPlatformFromPath(exePath);
+  delete g.notInstalled;
   saveData();
 });
 
@@ -1102,6 +1177,13 @@ ipcMain.handle("games:return", (_e, id) => {
 
 ipcMain.handle("games:remove", (_e, id) => {
   const gameId = Number(id);
+  // Quitar uno de la cuenta sin instalar: que no vuelva en la próxima importación.
+  const removed = findAnyGame(gameId);
+  const key = removed?.notInstalled ? ownedKey(removed) : null;
+  if (key) {
+    appSettings.storeHidden = [...new Set([...(appSettings.storeHidden || []), key])].slice(-2000);
+    saveSettings();
+  }
   games = games.filter((g) => g.id !== gameId);
   completedGames = completedGames.filter((g) => g.id !== gameId);
   sagas.forEach((s) => {
@@ -1284,6 +1366,24 @@ function setupSpotify() {
     userAgent: `Sharingan Launcher/${app.getVersion()} (https://alejandrodev.es/sharingan_launcher/)`,
   });
   for (const [name, fn] of Object.entries(spotify.ipc)) ipcMain.handle(`spotify:${name}`, (_e, ...args) => fn(...args));
+}
+
+function setupStores() {
+  stores = createStores({
+    safeStorage,
+    settings: appSettings,
+    saveSettings,
+    BrowserWindow,
+    session,
+    fetch,
+    getWin: () => win,
+    steamKey: config.steamWebApiKey || "",
+    epic: { clientId: config.epicClientId, clientSecret: config.epicClientSecret },
+    gog: { clientId: config.gogClientId, clientSecret: config.gogClientSecret },
+    cacheDir: app.getPath("userData"),
+    tempDir: path.join(app.getPath("temp"), "SharinganLauncher"),
+  });
+  for (const [name, fn] of Object.entries(stores.ipc)) ipcMain.handle(`stores:${name}`, (_e, ...args) => fn(...args));
 }
 
 // Antes de cerrar se suben los cambios pendientes (máximo 4 s).
@@ -1743,7 +1843,7 @@ async function readGogRegistryGames() {
 }
 
 function newImportReport() {
-  return { status: "not_found", location: null, added: [], existing: 0, noLaunch: [], error: null };
+  return { status: "not_found", location: null, added: [], existing: 0, noLaunch: [], error: null, account: null };
 }
 
 function trackImported(report, gameObj) {
@@ -1787,6 +1887,8 @@ function importSteam(root, report) {
       if (!fields.appid) continue;
       const appid = Number(fields.appid);
       if (STEAM_SKIP_APPIDS.has(appid) || looksLikeSteamTool(fields.name)) continue;
+      // Descargándose desde la cuenta (sin el bit 4 = instalado): sigue pendiente.
+      if (fields.stateFlags != null && !(Number(fields.stateFlags) & 4) && findAnyGame(appid)?.notInstalled) continue;
 
       const name = fields.name || `Steam App ${appid}`;
       const installDir = fields.installdir ? path.join(steamapps, "common", fields.installdir) : null;
@@ -1913,6 +2015,7 @@ async function importGog(customRoot, report) {
       // Con .exe se lanza directo (sin DRM); el id de Galaxy solo hace falta
       // si no hay ejecutable, para al menos abrir el juego en Galaxy.
       gogGameId: exe ? null : Number(rg.id) || null,
+      gogProductId: Number(rg.id) || null,
       sortKey: rg.name,
     });
   }
@@ -1931,7 +2034,9 @@ async function importGog(customRoot, report) {
 // Sin "platforms" se buscan Steam, Epic y GOG automáticamente; las carpetas
 // solo llegan cuando el usuario indica a mano dónde está algo que no se
 // encontró solo.
-ipcMain.handle("games:importInstalled", async (_e, config = {}) => {
+ipcMain.handle("games:importInstalled", (_e, config = {}) => runImport(config));
+
+async function runImport(config = {}) {
   const want = new Set(config.platforms || ["steam", "epic", "gog"]);
   const report = {};
 
@@ -1996,9 +2101,148 @@ ipcMain.handle("games:importInstalled", async (_e, config = {}) => {
     }
   }
 
+  // Lo que hay en las cuentas vinculadas y no está instalado. Solo en la
+  // búsqueda automática, no al indicar una carpeta a mano.
+  if (!config.localOnly && !config.steamRoot && !config.epicManifestsDir && !config.gogRoot) {
+    await Promise.all(
+      ["steam", "epic", "gog"]
+        .filter((p) => want.has(p) && stores?.isLinked(p))
+        .map(async (p) => {
+          const r = report[p] || (report[p] = newImportReport());
+          const acc = (r.account = { status: "ok", added: [], error: null });
+          try {
+            for (const o of await stores.owned(p)) {
+              const obj = ownedToGame(p, o);
+              if (!obj) continue;
+              const { status, game } = upsertOwnedGame(obj);
+              if (status === "new") acc.added.push(game.name);
+            }
+          } catch (err) {
+            acc.status = "error";
+            acc.error = String(err?.message || err);
+          }
+        })
+    );
+  }
+
   saveData();
   return { ok: true, report };
+}
+
+function ownedToGame(platform, o) {
+  if (platform === "steam") {
+    if (STEAM_SKIP_APPIDS.has(o.appid) || looksLikeSteamTool(o.name)) return null;
+    return {
+      id: o.appid,
+      name: o.name,
+      platform,
+      steamAppId: o.appid,
+      coverUrl: `https://cdn.cloudflare.steamstatic.com/steam/apps/${o.appid}/library_600x900.jpg`,
+    };
+  }
+  if (platform === "epic") {
+    return { id: stableNegativeId(`epic:${o.appName}`), name: o.name, platform, epicAppName: o.appName, coverUrl: o.cover || null };
+  }
+  return { id: stableNegativeId(`gogid:${o.id}`), name: o.name, platform, gogProductId: o.id };
+}
+
+// -------------------- Descargar juegos de la cuenta --------------------
+// Steam y Epic abren su launcher con la instalación ya pedida; GOG descarga
+// el instalador sin conexión y lo abre. Al volver a la app se mira si ya
+// está instalado (checkPendingInstalls).
+function hasProtocol(url) {
+  try {
+    return !!app.getApplicationNameForProtocol(url);
+  } catch {
+    return true;
+  }
+}
+
+ipcMain.handle("stores:install", async (e, id) => {
+  const g = findAnyGame(Number(id));
+  if (!g) return { ok: false, error: "No se encuentra el juego en tu biblioteca." };
+  try {
+    if (g.platform === "steam" && g.steamAppId) {
+      if (!hasProtocol("steam://")) return { ok: false, error: "Instala Steam para descargarlo." };
+      await shell.openExternal(`steam://install/${g.steamAppId}`);
+      return { ok: true, via: "launcher" };
+    }
+    if (g.platform === "epic" && g.epicAppName) {
+      if (!hasProtocol("com.epicgames.launcher://")) return { ok: false, error: "Instala Epic Games Launcher para descargarlo." };
+      await shell.openExternal(`com.epicgames.launcher://apps/${encodeURIComponent(g.epicAppName)}?action=install`);
+      return { ok: true, via: "launcher" };
+    }
+    if (g.platform === "gog" && g.gogProductId) {
+      const send = (p) => !e.sender.isDestroyed() && e.sender.send("stores:progress", { id: g.id, ...p });
+      send({ phase: "download", progress: 0 });
+      const exe = await stores.installGog(g.gogProductId, (progress) => send({ phase: "download", progress }));
+      if (!exe) throw new Error("El instalador descargado no tiene .exe.");
+      send({ phase: "install" });
+      const err = await shell.openPath(exe);
+      if (err) throw new Error(err);
+      return { ok: true, via: "installer" };
+    }
+  } catch (err) {
+    if (!e.sender.isDestroyed()) e.sender.send("stores:progress", { id: g.id, phase: "error" });
+    return { ok: false, error: String(err?.message || err) };
+  }
+  return { ok: false, error: "Este juego no viene de una cuenta vinculada." };
 });
+
+// Con juegos pendientes de instalar, al volver a la ventana se comprueba si
+// ya están (como mucho cada 15 s) y se reimporta solo esa tienda.
+let pendingCheckAt = 0;
+let pendingChecking = false;
+async function checkPendingInstalls() {
+  if (pendingChecking || Date.now() - pendingCheckAt < 15000) return;
+  const pending = [...games, ...completedGames].filter((g) => g.notInstalled);
+  if (!pending.length) return;
+  pendingChecking = true;
+  pendingCheckAt = Date.now();
+  try {
+    const platforms = new Set();
+    if (pending.some((g) => g.platform === "steam")) {
+      const root = await detectSteamRoot();
+      const vdf =
+        root &&
+        (safeReadText(path.join(root, "steamapps", "libraryfolders.vdf")) ||
+          safeReadText(path.join(root, "config", "libraryfolders.vdf")));
+      const libs = root ? [...new Set([...parseSteamLibraryFoldersVdf(vdf), root])] : [];
+      const installed = pending.some(
+        (g) =>
+          g.platform === "steam" &&
+          libs.some((lib) => {
+            const f = parseAcfRootFields(safeReadText(path.join(lib, "steamapps", `appmanifest_${g.steamAppId}.acf`)));
+            return f.appid && (f.stateFlags == null || Number(f.stateFlags) & 4);
+          })
+      );
+      if (installed) platforms.add("steam");
+    }
+    if (pending.some((g) => g.platform === "epic")) {
+      const dir = await detectEpicManifests();
+      const names = new Set();
+      for (const f of dir ? listFiles(dir).filter((x) => x.toLowerCase().endsWith(".item")) : []) {
+        try {
+          const o = JSON.parse(safeReadText(f));
+          if (o?.AppName && !o.bIsIncompleteInstall) names.add(o.AppName);
+        } catch {}
+      }
+      if (pending.some((g) => g.platform === "epic" && names.has(g.epicAppName))) platforms.add("epic");
+    }
+    if (pending.some((g) => g.platform === "gog")) {
+      const ids = new Set((await readGogRegistryGames()).map((r) => Number(r.id)));
+      if (pending.some((g) => g.platform === "gog" && ids.has(g.gogProductId))) platforms.add("gog");
+    }
+    if (platforms.size) {
+      await runImport({ platforms: [...platforms], localOnly: true });
+      if (win && !win.isDestroyed()) win.webContents.send("games:changed");
+    }
+  } catch (err) {
+    console.error("checkPendingInstalls", err);
+  } finally {
+    pendingChecking = false;
+  }
+}
 
 
 // -------------------- Enrich covers from IGDB --------------------

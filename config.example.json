@@ -1,5 +1,9 @@
 {
   "igdbClientId": "",
   "igdbClientSecret": "",
-  "steamWebApiKey": ""
+  "steamWebApiKey": "",
+  "epicClientId": "",
+  "epicClientSecret": "",
+  "gogClientId": "",
+  "gogClientSecret": ""
 }

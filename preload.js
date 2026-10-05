@@ -98,5 +98,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Spotify (spotify.js en main)
   spotify: (action, ...args) => ipcRenderer.invoke('spotify:' + action, ...args),
 
+  // Cuentas de Steam/Epic/GOG (stores.js en main) y descargas
+  stores: (action, ...args) => ipcRenderer.invoke('stores:' + action, ...args),
+  onStoresProgress: (cb) => ipcRenderer.on('stores:progress', (_e, p) => cb(p)),
+  onGamesChanged: (cb) => ipcRenderer.on('games:changed', () => cb()),
+
   openExternal: (url) => ipcRenderer.invoke('app:openExternal', url),
 });
