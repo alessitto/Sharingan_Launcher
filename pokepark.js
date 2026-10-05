@@ -2,6 +2,8 @@
 // PokéPark
 // =====================================================================
 // Un parque con tu equipo (hasta 6 Pokémon) y hasta 10 Pokémon salvajes.
+// Con el equipo lleno, lo que se captura va a la Caja (hasta 60), desde donde
+// se elige quién está en el equipo (y por tanto en el parque).
 // Al principio solo se elige el inicial; el resto se captura con Poké Balls
 // entre los salvajes que van apareciendo (siempre en su primera etapa).
 // Mientras la app está abierta tu equipo gana experiencia, se le da de comer
@@ -22,6 +24,9 @@
 
   // ------------------------------------------------------------ Constantes
   const PARTY_MAX = 6;
+  // Caja: los capturados con el equipo lleno van aquí. No están en el parque
+  // (no ganan exp ni amistad, no comen ni evolucionan) hasta que vuelven al equipo.
+  const BOX_MAX = 60;
   const START_LEVEL = 5;
   const START_FRIENDSHIP = 70;
   const FRIENDSHIP_MAX = 255;
@@ -183,6 +188,7 @@
     return {
       v: 2,
       party: [],
+      box: [],
       bag: { "oran-berry": 3, "pecha-berry": 2, "razz-berry": 1, "poke-ball": START_BALLS },
       ground: [],
       wild: [],
@@ -204,6 +210,7 @@
     st.bag ||= {};
     st.ground = (st.ground || []).filter((g) => g && g.slug).map((g) => ({ ...g, at: g.at || now() }));
     st.wild ||= [];
+    if (!Array.isArray(st.box)) st.box = [];
     st.legends ||= {};
     st.visitor ||= null;
     st.releases ||= { m: "", n: 0 };
@@ -222,6 +229,11 @@
   // Todo lo que anda por el parque (también los salvajes).
   const allMons = () => [...parkMons(), ...state.wild];
   const monByUid = (uid) => allMons().find((m) => m.uid === uid) || null;
+  const boxMax = () => (unlimited() ? Infinity : BOX_MAX);
+  const partyFull = () => state.party.length >= PARTY_MAX;
+  // Sin hueco ni en el equipo ni en la caja: no se puede capturar.
+  const noRoom = () => partyFull() && state.box.length >= boxMax();
+  const FULL_MSG = () => `Tu equipo y tu caja están llenos (${PARTY_MAX} + ${BOX_MAX}).`;
   const newUid = (p) => `${p}${now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
   function rollShiny(s) {
@@ -256,12 +268,24 @@
     if (!mon?.held || mon.wild || mon.visitor || !megaStones.has(mon.held)) return null;
     return megas.find((m) => m.stone === mon.held && m.sp === mon.sp && (!m.gender || m.gender === mon.g)) || null;
   }
-  const megaActive = (mon) => !!(mon?.megaAt && now() < mon.megaAt + MEGA_MS && megaFor(mon));
+  // Fuerte Afecto (Greninja Ash): no lleva piedra, se despierta con la
+  // amistad al máximo. Comparte duración y recarga con la megaevolución.
+  const bondForm = (mon) => (mon && !mon.wild && !mon.visitor ? megas.find((m) => m.bond && m.sp === mon.sp) || null : null);
+  const bondFor = (mon) => (mon?.fr >= FRIENDSHIP_MAX ? bondForm(mon) : null);
+  // Forma con la que se transformó (megaKey: "bond" o la megapiedra; los de
+  // antes de la 3.1.6 no la guardaban y era la piedra que llevan).
+  function formOf(mon) {
+    if (!mon?.megaAt) return null;
+    if (mon.megaKey === "bond") return bondForm(mon);
+    const m = megaFor(mon);
+    return m && (!mon.megaKey || mon.megaKey === mon.held) ? m : null;
+  }
+  const megaActive = (mon) => !!(mon?.megaAt && now() < mon.megaAt + MEGA_MS && formOf(mon));
   const megaLeft = (mon) => Math.max(0, mon.megaAt + MEGA_MS - now());
   // Recarga pendiente (0 = puede megaevolucionar).
   const megaCooldown = (mon) => (mon.megaAt ? Math.max(0, mon.megaAt + MEGA_MS + MEGA_COOLDOWN_MS - now()) : 0);
   // Especie que se ve: la forma mega mientras dura.
-  const lookSp = (mon) => (megaActive(mon) ? megaFor(mon).id : mon.sp);
+  const lookSp = (mon) => (megaActive(mon) ? formOf(mon).id : mon.sp);
 
   // Especies a las que sirve una megapiedra (y las de su línea evolutiva previa,
   // para marcar en la tienda las que le valdrán a tu equipo cuando evolucione).
@@ -277,30 +301,64 @@
   // Al quitarle la piedra (o cambiársela) mientras está megaevolucionado
   // vuelve a la normalidad y empieza la recarga.
   function endMega(mon) {
-    if (!megaActive(mon)) return;
+    if (!megaActive(mon) || mon.megaKey === "bond") return;
     mon.megaAt = now() - MEGA_MS;
     mon.megaOn = false;
   }
 
-  function megaEvolve(mon) {
-    const m = megaFor(mon);
+  function megaEvolve(mon, bond = false) {
+    const m = bond ? bondFor(mon) : megaFor(mon);
     if (!m || megaActive(mon) || megaCooldown(mon)) return;
     mon.megaAt = now();
+    mon.megaKey = bond ? "bond" : mon.held;
     mon.megaOn = true;
     save();
+    transforming.add(mon.uid);
     render();
-    const el = actorOf(mon);
-    if (el) {
-      el.classList.remove("is-megaevolving");
-      void el.offsetWidth;
-      el.classList.add("is-megaevolving");
-      setTimeout(() => el.classList.remove("is-megaevolving"), 1600);
-    }
     root.querySelector(".pp-portrait")?.classList.add("is-megaevolving");
-    sparkle(mon, 14);
+    playTransform(mon, bond);
+    if (bond) {
+      floatText(mon, "¡Fuerte Afecto!");
+      showNotification(`¡El vínculo con ${displayName(mon)} lo ha convertido en ${m.n}!`);
+      return;
+    }
     floatText(mon, "¡Megaevolución!");
     window.Achievements?.track("megas");
     showNotification(`¡${displayName(mon)} ha megaevolucionado en ${m.n}!`);
+  }
+
+  // Animación en el propio parque (sin modal): se para, se vuelve una silueta
+  // de luz rodeada de anillos de energía, destello, aparece la forma nueva con
+  // una onda expansiva y el símbolo sobre la cabeza.
+  const TRANSFORM_MS = 1900;
+  function playTransform(mon, bond) {
+    const el = actorOf(mon);
+    if (!el) return transforming.delete(mon.uid);
+    const img = el.querySelector(".pp-mon-img");
+    const h = Math.max(40, (img?.offsetHeight || 64) * 1.25);
+    const fx = document.createElement("span");
+    fx.className = `pp-megafx${bond ? " is-bond" : ""}`;
+    fx.style.setProperty("--fxh", `${h}px`);
+    fx.innerHTML = `<i class="pp-megafx-orb"></i><i class="pp-megafx-ring"></i><i class="pp-megafx-ring is-b"></i><i class="pp-megafx-flash"></i><i class="pp-megafx-wave"></i><i class="pp-megafx-sym">${bond ? BOND_SVG : MEGA_SVG}</i>`;
+    for (let i = 0; i < 12; i++) {
+      const p = document.createElement("i");
+      p.className = "pp-megafx-p";
+      p.style.setProperty("--a", `${i * 30 + rand(-8, 8)}deg`);
+      p.style.setProperty("--r", `${rand(50, 80)}px`);
+      p.style.animationDelay = `${rand(0, 1200)}ms`;
+      fx.appendChild(p);
+    }
+    el.appendChild(fx);
+    el.classList.add("is-transforming");
+    setTimeout(() => {
+      transforming.delete(mon.uid);
+      el.classList.remove("is-transforming");
+      fx.classList.add("is-burst");
+      syncActors(); // cambia al sprite nuevo justo con el destello (rehace el actor)
+      if (!fx.isConnected) el.appendChild(fx);
+      sparkle(mon, 14);
+    }, TRANSFORM_MS);
+    setTimeout(() => fx.remove(), TRANSFORM_MS + 1600);
   }
 
   // Se llama cada minuto: los que han agotado sus 2 h vuelven a su forma.
@@ -835,24 +893,27 @@
     a?.el.classList.remove("is-catching");
     if (!state.wild.includes(mon)) return render();
     const name = speciesName(mon.sp);
-    if (state.party.length >= PARTY_MAX) {
-      // Con varias Poké Balls en el aire el equipo se puede llenar antes.
-      showNotification(`Tu equipo está lleno (${PARTY_MAX}): ${name} ha salido de la Poké Ball.`, "error");
+    if (noRoom()) {
+      // Con varias Poké Balls en el aire el equipo y la caja se pueden llenar antes.
+      showNotification(`${FULL_MSG()} ${name} ha salido de la Poké Ball.`, "error");
       floatText(mon, "¡Se ha escapado!", true);
     } else if (Math.random() < CATCH_RATE) {
       state.wild = state.wild.filter((m) => m !== mon);
       const caught = { ...mon, at: now(), caught: now() };
       delete caught.wild;
       delete caught.leaves;
-      state.party.push(caught);
+      const toBox = partyFull();
+      if (toBox) state.box.push(caught);
+      else state.party.push(caught);
       if (!state.starter) state.starter = true;
       a?.el.classList.remove("is-wild");
-      selectedUid = caught.uid;
+      if (!toBox) selectedUid = caught.uid;
+      else if (selectedUid === mon.uid) selectedUid = null;
       window.Achievements?.track("catches");
-      showNotification(`¡Ya está! ¡${name}${mon.shiny ? " variocolor" : ""} atrapado!`);
-      floatText(caught, "¡Atrapado!", true);
+      showNotification(`¡Ya está! ¡${name}${mon.shiny ? " variocolor" : ""} atrapado!${toBox ? " Se ha enviado a la Caja." : ""}`);
+      floatText(caught, toBox ? "¡A la Caja!" : "¡Atrapado!", true);
       sparkle(caught);
-      if (hand?.kind === "ball" && state.party.length >= PARTY_MAX) cancelHand();
+      if (hand?.kind === "ball" && noRoom()) cancelHand();
     } else if (Math.random() < FLEE_CHANCE) {
       state.wild = state.wild.filter((m) => m !== mon);
       if (selectedUid === mon.uid) selectedUid = null;
@@ -937,7 +998,7 @@
   function toggleBall() {
     if (hand?.kind === "ball") return cancelHand();
     if (!(have("poke-ball") > 0)) return showNotification("No te quedan Poké Balls.", "error");
-    if (state.party.length >= PARTY_MAX) return showNotification(`Tu equipo está lleno (${PARTY_MAX}).`, "error");
+    if (noRoom()) return showNotification(FULL_MSG(), "error");
     startHand("ball", "poke-ball");
   }
 
@@ -1046,9 +1107,9 @@
       cancelHand();
       return showNotification("No te quedan Poké Balls.", "error");
     }
-    if (state.party.length >= PARTY_MAX) {
+    if (noRoom()) {
       cancelHand();
-      return showNotification(`Tu equipo está lleno (${PARTY_MAX}).`, "error");
+      return showNotification(FULL_MSG(), "error");
     }
     takeFromBag("poke-ball");
     save();
@@ -1178,8 +1239,9 @@
   }
 
   async function release(mon) {
+    const inBox = state.box.includes(mon);
     if (mon.trade) return showNotification(`${displayName(mon)} está en una oferta de intercambio.`, "error");
-    if (state.party.length <= 1 && !unlimited()) return showNotification("No puedes quedarte sin Pokémon.", "error");
+    if (!inBox && state.party.length <= 1 && !unlimited()) return showNotification("No puedes quedarte sin Pokémon.", "error");
     const left = releasesLeft();
     if (!left) return showNotification(`Ya has liberado ${RELEASES_PER_MONTH} Pokémon este mes.`, "error");
     const ok = await confirmDialog({
@@ -1189,9 +1251,10 @@
       danger: true,
       iconName: "trash",
     });
-    if (!ok || !state.party.includes(mon)) return;
+    if (!ok || !(state.party.includes(mon) || state.box.includes(mon))) return;
     if (mon.held) addToBag(mon.held);
     state.party = state.party.filter((m) => m !== mon);
+    state.box = state.box.filter((m) => m !== mon);
     for (const m of state.party) addFriendship(m, -RELEASE_PENALTY);
     const r = state.releases?.m === monthKey() ? state.releases : { m: monthKey(), n: 0 };
     if (!unlimited()) r.n++;
@@ -1200,6 +1263,220 @@
     showNotification(`Adiós, ${displayName(mon)}. ¡Cuídate!`);
     save();
     render();
+  }
+
+  // ------------------------------------------------------------ Caja
+  // Al guardarlo en la caja deja de estar megaevolucionado (empieza la recarga).
+  function leaveParty(mon) {
+    if (megaActive(mon)) {
+      mon.megaAt = now() - MEGA_MS;
+      mon.megaOn = false;
+    }
+    if (selectedUid === mon.uid) selectedUid = null;
+  }
+
+  // Mueve "mon" del equipo a la caja. Devuelve true si se ha podido.
+  function toBox(mon) {
+    if (!state.party.includes(mon)) return false;
+    if (mon.trade) return showNotification(`${displayName(mon)} está en una oferta de intercambio.`, "error"), false;
+    if (state.party.length <= 1) return showNotification("Tu equipo necesita al menos un Pokémon.", "error"), false;
+    if (state.box.length >= boxMax()) return showNotification(`La caja está llena (${BOX_MAX}).`, "error"), false;
+    leaveParty(mon);
+    state.party = state.party.filter((m) => m !== mon);
+    state.box.push(mon);
+    return true;
+  }
+
+  // Saca "mon" de la caja al equipo (si hay hueco).
+  function toParty(mon) {
+    if (!state.box.includes(mon)) return false;
+    if (partyFull()) return showNotification(`Tu equipo está lleno (${PARTY_MAX}).`, "error"), false;
+    state.box = state.box.filter((m) => m !== mon);
+    state.party.push(mon);
+    return true;
+  }
+
+  // Intercambia uno del equipo por uno de la caja (cada uno ocupa el sitio del otro).
+  function swapBox(partyMon, boxMon) {
+    const pi = state.party.indexOf(partyMon);
+    const bi = state.box.indexOf(boxMon);
+    if (pi < 0 || bi < 0) return false;
+    if (partyMon.trade) return showNotification(`${displayName(partyMon)} está en una oferta de intercambio.`, "error"), false;
+    leaveParty(partyMon);
+    state.party[pi] = boxMon;
+    state.box[bi] = partyMon;
+    return true;
+  }
+
+  const BOX_SORTS = { recent: "Llegada", lv: "Nivel", dex: "Nº Pokédex", name: "Nombre" };
+
+  async function openBox() {
+    let picked = null; // uid elegido
+    let dragUid = null;
+    let q = "";
+    let sort = "recent";
+    let releaseMon = null;
+    const norm = (s) => String(s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+    const find = (uid) => state.party.find((m) => m.uid === uid) || state.box.find((m) => m.uid === uid) || null;
+    const where = (m) => (state.party.includes(m) ? "party" : state.box.includes(m) ? "box" : null);
+
+    const cell = (m, w) => `
+      <button type="button" class="pp-pc-cell ${m.uid === picked ? "is-picked" : ""} ${m.trade ? "is-trading" : ""}" data-uid="${m.uid}" data-where="${w}" draggable="true" title="${esc(displayName(m))}">
+        ${thumbHtml(m, 'draggable="false"')}
+        ${m.shiny ? SHINY_MARK : ""}
+        <span class="pp-slot-lv">Nv.${m.lv}</span>
+      </button>`;
+
+    // Mueve o cambia "a" según dónde se suelte/toque: otro Pokémon o un hueco.
+    function act(a, targetUid, targetWhere) {
+      if (!a) return false;
+      const b = targetUid ? find(targetUid) : null;
+      const wa = where(a);
+      if (b && b !== a) {
+        const wb = where(b);
+        if (wa === wb) return false;
+        return wa === "party" ? swapBox(a, b) : swapBox(b, a);
+      }
+      if (targetWhere === "box" && wa === "party") return toBox(a);
+      if (targetWhere === "party" && wa === "box") return toParty(a);
+      return false;
+    }
+
+    function commit() {
+      picked = null;
+      save();
+      render();
+    }
+
+    function body(popup) {
+      const team = [];
+      for (let i = 0; i < PARTY_MAX; i++) {
+        const m = state.party[i];
+        team.push(m ? cell(m, "party") : `<span class="pp-pc-cell is-empty" data-where="party">${POKEBALL_SVG}</span>`);
+      }
+      const nq = norm(q);
+      const list = state.box
+        .map((m, i) => ({ m, i }))
+        .filter(({ m }) => !nq || norm(displayName(m)).includes(nq) || norm(speciesName(m.sp)).includes(nq) || String(m.sp) === nq);
+      if (sort === "lv") list.sort((x, y) => y.m.lv - x.m.lv || x.i - y.i);
+      else if (sort === "dex") list.sort((x, y) => x.m.sp - y.m.sp || x.i - y.i);
+      else if (sort === "name") list.sort((x, y) => displayName(x.m).localeCompare(displayName(y.m), "es"));
+      popup.querySelector(".pp-pc-team").innerHTML = team.join("");
+      popup.querySelector(".pp-pc-tcount").textContent = `${state.party.length}/${PARTY_MAX}`;
+      popup.querySelector(".pp-pc-bcount").textContent = `${state.box.length}/${unlimited() ? "∞" : BOX_MAX}`;
+      popup.querySelector(".pp-pc-grid").innerHTML = list.length
+        ? list.map(({ m }) => cell(m, "box")).join("")
+        : `<p class="pp-pc-empty">${state.box.length ? "Ningún Pokémon coincide." : "La caja está vacía. Con el equipo lleno, lo que captures vendrá aquí."}</p>`;
+
+      const sel = picked ? find(picked) : null;
+      const info = popup.querySelector(".pp-pc-info");
+      if (!sel) {
+        info.innerHTML = `<p class="pp-pc-hint">Toca un Pokémon o arrástralo para moverlo.</p>`;
+        return;
+      }
+      const inBox = where(sel) === "box";
+      const s = species(sel.sp);
+      const btns = inBox
+        ? `<button type="button" class="sl-btn sl-btn-primary sl-btn-sm" data-pc="toparty" ${partyFull() ? "disabled" : ""}>Al equipo</button>
+           <button type="button" class="sl-btn sl-btn-danger-ghost sl-btn-sm" data-pc="release" ${releasesLeft() ? "" : "disabled"}>${icon("trash")}Liberar</button>`
+        : `<button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-pc="tobox" ${sel.trade || state.party.length <= 1 || state.box.length >= boxMax() ? "disabled" : ""}>A la caja</button>`;
+      const hint = inBox && partyFull() ? "Toca a uno de tu equipo para cambiarlos." : !inBox && state.box.length ? "Toca uno de la caja para cambiarlos." : "";
+      info.innerHTML = `
+        ${thumbHtml(sel)}
+        <span class="pp-pc-text">
+          <b>${esc(displayName(sel))}${sel.shiny ? ` ${SHINY_MARK}` : ""}</b>
+          <small>${sel.nick ? `${esc(s.n)} · ` : ""}Nv. ${sel.lv}${sel.held ? ` · ${esc(itemName(sel.held))}` : ""}</small>
+          ${hint ? `<small class="pp-pc-tip">${hint}</small>` : ""}
+        </span>
+        <span class="pp-pc-btns">${btns}</span>`;
+    }
+
+    await openModal({
+      eyebrow: "PokéPark",
+      title: "Caja",
+      width: 720,
+      html: `
+        <div class="pp-pc">
+          <div class="pp-pc-head"><b>Equipo</b><em class="pp-pc-tcount"></em></div>
+          <div class="pp-pc-team"></div>
+          <div class="pp-pc-head">
+            <b>Caja</b><em class="pp-pc-bcount"></em>
+            <input type="text" class="pp-pc-search" placeholder="Buscar" spellcheck="false">
+            <select class="pp-pc-sort">${Object.entries(BOX_SORTS)
+              .map(([k, n]) => `<option value="${k}">${n}</option>`)
+              .join("")}</select>
+          </div>
+          <div class="pp-pc-grid" data-where="box"></div>
+          <div class="pp-pc-info"></div>
+        </div>`,
+      showConfirmButton: false,
+      showCloseButton: true,
+      customClass: { popup: "pp-pc-popup" },
+      didOpen: (popup) => {
+        body(popup);
+        popup.querySelector(".pp-pc-search").addEventListener("input", (e) => {
+          q = e.target.value.trim();
+          body(popup);
+        });
+        popup.querySelector(".pp-pc-sort").addEventListener("change", (e) => {
+          sort = e.target.value;
+          body(popup);
+        });
+        popup.addEventListener("click", (e) => {
+          const b = e.target.closest("[data-pc]");
+          if (b) {
+            const mon = picked && find(picked);
+            if (!mon) return;
+            const k = b.dataset.pc;
+            if (k === "release") {
+              releaseMon = mon;
+              return Swal.close();
+            }
+            if ((k === "tobox" && toBox(mon)) || (k === "toparty" && toParty(mon))) commit();
+            return body(popup);
+          }
+          const c = e.target.closest(".pp-pc-cell");
+          if (!c) return;
+          const uid = c.dataset.uid || null;
+          const a = picked && find(picked);
+          // Con uno elegido, tocar uno del otro lado (o un hueco del equipo) los mueve.
+          if (a && uid !== picked && (c.dataset.where !== where(a) || !uid) && act(a, uid, c.dataset.where)) commit();
+          else picked = uid && uid !== picked ? uid : null;
+          body(popup);
+        });
+        popup.addEventListener("dragstart", (e) => {
+          const c = e.target.closest?.(".pp-pc-cell[data-uid]");
+          if (!c) return;
+          dragUid = c.dataset.uid;
+          e.dataTransfer.effectAllowed = "move";
+          e.dataTransfer.setData("text/plain", dragUid);
+          c.classList.add("is-dragging");
+        });
+        popup.addEventListener("dragend", () => {
+          dragUid = null;
+          popup.querySelectorAll(".is-dragging, .is-over").forEach((el) => el.classList.remove("is-dragging", "is-over"));
+        });
+        popup.addEventListener("dragover", (e) => {
+          const t = dragUid && e.target.closest(".pp-pc-cell, .pp-pc-grid");
+          if (!t) return;
+          e.preventDefault();
+          popup.querySelectorAll(".is-over").forEach((el) => el !== t && el.classList.remove("is-over"));
+          t.classList.add("is-over");
+        });
+        popup.addEventListener("drop", (e) => {
+          const t = dragUid && e.target.closest(".pp-pc-cell, .pp-pc-grid");
+          if (!t) return;
+          e.preventDefault();
+          if (act(find(dragUid), t.dataset.uid || null, t.dataset.where)) commit();
+          dragUid = null;
+          body(popup);
+        });
+      },
+    });
+    if (releaseMon) {
+      await release(releaseMon);
+      openBox();
+    }
   }
 
   // ------------------------------------------------------------ Visitas
@@ -1462,23 +1739,26 @@
   }
 
   // Bloque de megaevolución de la ficha (solo si lleva su megapiedra).
+  // También el Fuerte Afecto de Greninja (amistad al máximo).
   function megaBox(mon, mega, on) {
-    if (!mega) {
-      return megaStones.has(mon.held) ? `<p class="pp-mega-note">${esc(itemName(mon.held))} es de ${esc(stoneOwner(mon.held))}: a ${esc(displayName(mon))} no le sirve.</p>` : "";
-    }
+    const bond = bondFor(mon);
+    const wrong = !mega && megaStones.has(mon.held) ? `<p class="pp-mega-note">${esc(itemName(mon.held))} es de ${esc(stoneOwner(mon.held))}: a ${esc(displayName(mon))} no le sirve.</p>` : "";
+    const bondHint = !bond && bondForm(mon) && !on ? `<p class="pp-mega-note">Con la amistad al máximo despertará el Fuerte Afecto.</p>` : "";
     if (on) {
+      const isBond = mon.megaKey === "bond";
       const pct = Math.max(0, Math.min(100, (megaLeft(mon) / MEGA_MS) * 100));
-      return `<div class="pp-mega is-on">
-        <div class="pp-mega-head">${MEGA_SVG}<span><b>Megaevolucionado</b><small>Vuelve a la normalidad en ${fmtDuration(megaLeft(mon))}</small></span></div>
+      return `<div class="pp-mega is-on ${isBond ? "is-bond" : ""}">
+        <div class="pp-mega-head">${isBond ? BOND_SVG : MEGA_SVG}<span><b>${isBond ? "Fuerte Afecto" : "Megaevolucionado"}</b><small>Vuelve a la normalidad en ${fmtDuration(megaLeft(mon))}</small></span></div>
         <div class="pp-mega-bar"><span style="width:${pct}%"></span></div>
-      </div>`;
+      </div>${wrong}`;
     }
     const wait = megaCooldown(mon);
-    return `<div class="pp-mega">
-      <button type="button" class="pp-mega-btn" data-pp="mega" ${wait ? "disabled" : ""} title="${wait ? "Necesita descansar antes de volver a megaevolucionar" : `Se convierte en ${esc(mega.n)} durante 2 horas`}">
-        ${MEGA_SVG}<span><b>Megaevolucionar</b><small>${wait ? `Disponible en ${fmtDuration(wait)}` : `${esc(mega.n)} · 2 h`}</small></span>
-      </button>
-    </div>`;
+    const btn = (form, isBond) => `
+      <button type="button" class="pp-mega-btn ${isBond ? "is-bond" : ""}" data-pp="${isBond ? "bond" : "mega"}" ${wait ? "disabled" : ""} title="${wait ? "Necesita descansar antes de volver a transformarse" : `Se convierte en ${esc(form.n)} durante 2 horas`}">
+        ${isBond ? BOND_SVG : MEGA_SVG}<span><b>${isBond ? "Fuerte Afecto" : "Megaevolucionar"}</b><small>${wait ? `Disponible en ${fmtDuration(wait)}` : `${esc(form.n)} · 2 h`}</small></span>
+      </button>`;
+    const btns = [bond && btn(bond, true), mega && btn(mega, false)].filter(Boolean).join("");
+    return `${btns ? `<div class="pp-mega">${btns}</div>` : ""}${wrong}${bondHint}`;
   }
 
   function renderSide() {
@@ -1510,7 +1790,9 @@
         ? `<p class="pp-visit is-empty" title="Solo entran legendarios con la amistad al máximo">Parque cerrado</p>`
         : `<p class="pp-visit is-empty" title="Vienen de visita al azar durante 8 horas">Ningún legendario de visita</p>`;
     team.innerHTML = `
-      <div class="pp-team-head"><span class="section-eyebrow">PokéPark</span><span class="pp-team-count">${state.party.length}/${PARTY_MAX}</span></div>
+      <div class="pp-team-head"><span class="section-eyebrow">PokéPark</span><span class="pp-team-count">${state.party.length}/${PARTY_MAX}</span>${
+        state.party.length || state.box.length ? `<button type="button" class="pp-box-btn" data-pp="box" title="Caja: guarda Pokémon y elige tu equipo">${BOX_SVG}Caja<em>${state.box.length}</em></button>` : ""
+      }</div>
       <div class="pp-slots">${slots.join("")}</div>
       ${state.party.length || v ? visit : ""}`;
 
@@ -1585,7 +1867,7 @@
           }
           ${gender}
         </div>
-        <p class="pp-species">${sel.visitor ? `<span class="pp-legend-badge">${legendKind(s)}</span> ` : ""}${megaOn ? `<span class="pp-mega-badge">${MEGA_SVG}${esc(look.n)}</span> ` : ""}${sel.shiny ? `<span class="pp-shiny-badge">✦ Variocolor</span> ` : ""}${sel.nick ? `${esc(s.n)} · ` : ""}Nº ${String(s.id).padStart(4, "0")}${sel.ot ? ` · EO ${esc(sel.ot)}` : ""}</p>
+        <p class="pp-species">${sel.visitor ? `<span class="pp-legend-badge">${legendKind(s)}</span> ` : ""}${megaOn ? `<span class="pp-mega-badge ${sel.megaKey === "bond" ? "is-bond" : ""}">${sel.megaKey === "bond" ? BOND_SVG : MEGA_SVG}${esc(look.n)}</span> ` : ""}${sel.shiny ? `<span class="pp-shiny-badge">✦ Variocolor</span> ` : ""}${sel.nick ? `${esc(s.n)} · ` : ""}Nº ${String(s.id).padStart(4, "0")}${sel.ot ? ` · EO ${esc(sel.ot)}` : ""}</p>
         <div class="pp-types">${look.t.map((t) => `<span class="pp-type" style="--tc:${TYPE_COLORS[t] || "#888"}">${esc(dex.types[t] || t)}</span>`).join("")}</div>
         ${
           sel.visitor
@@ -1651,6 +1933,7 @@
                  ${sel.trade ? `<p class="pp-trade-note">${TRADE_SVG}En una oferta de intercambio.</p>` : ""}
                  <div class="pp-more-btns">
                    <button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-pp="trade" ${sel.trade ? "disabled" : ""}>${TRADE_SVG}Intercambiar</button>
+                   <button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-pp="tobox" ${sel.trade || state.party.length <= 1 || state.box.length >= boxMax() ? "disabled" : ""} title="Sale del parque y se guarda en la caja">${BOX_SVG}A la caja</button>
                    <button type="button" class="sl-btn sl-btn-danger-ghost sl-btn-sm" data-pp="release" ${sel.trade || (state.party.length <= 1 && !unlimited()) || !releasesLeft() ? "disabled" : ""}
                      title="${unlimited() ? "Sin límite (tester)" : `${releasesLeft()} de ${RELEASES_PER_MONTH} liberaciones este mes`}">${icon("trash")}Liberar (${unlimited() ? "∞" : `${releasesLeft()}/${RELEASES_PER_MONTH}`})</button>
                  </div>
@@ -1712,6 +1995,7 @@
 
   // ------------------------------------------------------------ Paseo libre
   const actors = new Map(); // uid -> { el, x, y, tx, ty, idleUntil, facing }
+  const transforming = new Set(); // uids en plena animación de megaevolución
   let rafId = null;
   let lastFrame = 0;
 
@@ -1994,7 +2278,8 @@
         layer.appendChild(el);
         actors.set(mon.uid, a);
       }
-      const sp = lookSp(mon);
+      // Durante la animación se sigue viendo la forma normal hasta el destello.
+      const sp = transforming.has(mon.uid) ? mon.sp : lookSp(mon);
       const look = `${sp}${mon.shiny ? "s" : ""}`;
       if (a.sp !== look) {
         a.sp = look;
@@ -2028,7 +2313,7 @@
           a.y = rand(0.12, 0.92) * h;
         }
         // Quieto mientras se le captura o se le cepilla.
-        const still = catching.has(uid) || (hand?.kind === "comb" && hand.target === uid);
+        const still = catching.has(uid) || transforming.has(uid) || (hand?.kind === "comb" && hand.target === uid);
         if (still || now() < a.idleUntil) {
           a.el.classList.remove("is-walking");
         } else {
@@ -2143,9 +2428,19 @@
     else if (act === "expel" && mon?.visitor) expelVisitor();
     else if (act === "trade" && mon && !mon.wild && !mon.visitor) openTrades(mon.uid);
     else if (act === "trades") openTrades();
+    else if (act === "box") openBox();
+    else if (act === "tobox" && mon && state.party.includes(mon)) {
+      const name = displayName(mon);
+      if (toBox(mon)) {
+        showNotification(`${name} se ha guardado en la Caja.`);
+        save();
+        render();
+      }
+    }
     else if (act === "shop") openShop();
     else if (act === "gate") toggleClosed();
     else if (act === "mega" && mon && !mon.wild && !mon.visitor) megaEvolve(mon);
+    else if (act === "bond" && mon && !mon.wild && !mon.visitor) megaEvolve(mon, true);
     else if (act === "unequip" && mon?.held) {
       endMega(mon);
       addToBag(mon.held);
@@ -3097,6 +3392,11 @@
   // Símbolo de la megaevolución (simplificado).
   const MEGA_SVG =
     '<svg class="pp-mega-ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8.2 6.4c4.6 1.4 7.2 4.4 7.6 9.6M15.8 6.4c-1.6 1.2-2.5 2.4-3 3.6M8.2 17.6c1.4-1 2.4-2.1 3-3.3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/></svg>';
+  // Fuerte Afecto: el remolino de agua de Greninja Ash.
+  const BOND_SVG =
+    '<svg class="pp-mega-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5c3.6 4.2 6 7.6 6 10.8a6 6 0 0 1-12 0c0-3.2 2.4-6.6 6-10.8Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 14.2c.5 1.7 1.9 2.8 3.6 2.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+  const BOX_SVG =
+    '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v13a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Z"/><path d="M2 3h20v4H2Z"/><path d="M10 11h4"/></svg>';
   const SHOP_SVG =
     '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9 4.5 4h15L21 9"/><path d="M3 9h18v2a3 3 0 0 1-6 0 3 3 0 0 1-6 0 3 3 0 0 1-6 0Z"/><path d="M5 13v7h14v-7"/><path d="M10 20v-4h4v4"/></svg>';
   const POKEBALL_SVG =
@@ -3134,7 +3434,7 @@
       const base = species(m.sp);
       byId.set(m.id, { id: m.id, n: m.n, slug: `${base.slug}-mega${m.id}`, t: m.t, s: m.s, g: base.g, sd: m.sd, a: m.a, sprite: m.sprite, mega: true, base: m.sp });
     }
-    megaStones = new Set(megas.map((m) => m.stone));
+    megaStones = new Set(megas.filter((m) => m.stone).map((m) => m.stone));
     // Objetos solo de legendarios/formas regionales fuera del reparto.
     useItems = new Set([...useItems].filter((s) => !ITEM_BLOCKLIST.has(s)));
     heldItems = new Set([...heldItems].filter((s) => !ITEM_BLOCKLIST.has(s) && !useItems.has(s)));
@@ -3174,7 +3474,7 @@
     },
     _spriteError: spriteError,
     snapshot() {
-      return ready ? { party: state.party, legends: state.legends || {}, shinyCharm: !!state.shinyCharm } : null;
+      return ready ? { party: state.party, box: state.box, legends: state.legends || {}, shinyCharm: !!state.shinyCharm } : null;
     },
     // La cuenta ha traído otro parque: se recarga desde disco.
     async reload() {

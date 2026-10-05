@@ -75,7 +75,7 @@
     { id: "pp_legend_friend", cat: "pokepark", icon: "crown", name: "Vínculo legendario", desc: "Llena la amistad de un legendario.", goal: () => [Math.max(0, ...Object.values(park().legends).map((l) => l.fr || 0)), FRIENDSHIP_MAX] },
     { id: "pp_catch", cat: "pokepark", icon: "pokeball", name: "¡Atrapado!", desc: "Captura un Pokémon salvaje.", goal: (st) => [s("catches")(st), 1] },
     { id: "pp_catch_10", cat: "pokepark", icon: "pokeball", name: "Cazador Pokémon", desc: "Captura 10 Pokémon salvajes.", goal: (st) => [s("catches")(st), 10] },
-    { id: "pp_shiny", cat: "pokepark", icon: "sparkles", name: "¡Brilla!", desc: "Ten un Pokémon variocolor en tu equipo.", goal: () => [park().party.some((m) => m.shiny) ? 1 : 0, 1] },
+    { id: "pp_shiny", cat: "pokepark", icon: "sparkles", name: "¡Brilla!", desc: "Ten un Pokémon variocolor en tu equipo o en la caja.", goal: () => [[...park().party, ...(park().box || [])].some((m) => m.shiny) ? 1 : 0, 1] },
     { id: "pp_charm", cat: "pokepark", icon: "gem", name: "Amuleto Iris", desc: "Encuentra el Amuleto Iris en el parque.", goal: (st) => [Math.max(s("shinyCharm")(st), park().shinyCharm ? 1 : 0), 1] },
     { id: "pp_trade", cat: "pokepark", icon: "user", name: "Intercambio completado", desc: "Intercambia un Pokémon con otro jugador.", goal: (st) => [s("trades")(st), 1] },
     { id: "pp_mega", cat: "pokepark", icon: "sparkles", name: "¡Megaevolución!", desc: "Megaevoluciona a un Pokémon con su megapiedra.", goal: (st) => [s("megas")(st), 1] },

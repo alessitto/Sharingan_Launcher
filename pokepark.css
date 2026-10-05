@@ -2705,7 +2705,6 @@ body.in-pokepark .main-content {
 }
 
 /* Destello al megaevolucionar */
-.pp-mon.is-megaevolving::after,
 .pp-portrait.is-megaevolving::after {
   content: "";
   position: absolute;
@@ -2786,4 +2785,507 @@ body.in-pokepark .main-content {
 :root[data-effect="terminal"] .pp-mega-btn,
 :root[data-effect="cyber"] .pp-mega-btn {
   border-radius: 0;
+}
+
+/* Fuerte Afecto: tonos de agua */
+.pp-mega-btn.is-bond,
+.pp-mega-badge.is-bond {
+  background: linear-gradient(120deg, #1b6fd8, #35b6ff 40%, #0d2c6b 75%, #e8394a);
+  background-size: 200% 100%;
+  box-shadow: 0 6px 18px rgba(53, 182, 255, 0.35);
+}
+
+.pp-mega-badge.is-bond {
+  background-size: 100% 100%;
+}
+
+.pp-mega.is-on.is-bond {
+  border-color: rgba(53, 182, 255, 0.45);
+  background: rgba(53, 182, 255, 0.1);
+}
+
+.pp-mega.is-on.is-bond .pp-mega-head .pp-mega-ic {
+  color: #5cc3ff;
+}
+
+.pp-mega.is-on.is-bond .pp-mega-bar span {
+  background: linear-gradient(90deg, #1b6fd8, #35b6ff, #e8394a);
+}
+
+.pp-mega:has(.pp-mega-btn + .pp-mega-btn) {
+  display: grid;
+  gap: 8px;
+}
+
+/* Animación de megaevolución en el parque */
+.pp-megafx {
+  --c1: #ff5fa2;
+  --c2: #b06bff;
+  --c3: #4fa8ff;
+  --c4: #ffb347;
+  position: absolute;
+  left: 0;
+  bottom: calc(var(--fxh, 64px) / 2);
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.pp-megafx.is-bond {
+  --c1: #35b6ff;
+  --c2: #1b6fd8;
+  --c3: #9be3ff;
+  --c4: #e8394a;
+}
+
+.pp-megafx > i {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: block;
+  border-radius: 50%;
+}
+
+.pp-megafx-orb {
+  width: 150px;
+  height: 150px;
+  margin: -75px 0 0 -75px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.9) 0%, color-mix(in srgb, var(--c2) 55%, transparent) 35%, transparent 68%);
+  animation: ppFxOrb 1.9s ease-in forwards;
+}
+
+.pp-megafx-ring {
+  width: 120px;
+  height: 120px;
+  margin: -60px 0 0 -60px;
+  background: conic-gradient(from 0deg, var(--c1), transparent 20%, var(--c2) 33%, transparent 50%, var(--c3) 66%, transparent 80%, var(--c4));
+  -webkit-mask: radial-gradient(circle, transparent 58%, #000 60%, #000 66%, transparent 68%);
+  mask: radial-gradient(circle, transparent 58%, #000 60%, #000 66%, transparent 68%);
+  animation: ppFxRing 1.9s cubic-bezier(0.5, 0, 0.7, 1) forwards;
+}
+
+.pp-megafx-ring.is-b {
+  width: 90px;
+  height: 90px;
+  margin: -45px 0 0 -45px;
+  animation-name: ppFxRingB;
+}
+
+.pp-megafx-p {
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  background: #fff;
+  box-shadow: 0 0 8px 2px var(--c3);
+  opacity: 0;
+  animation: ppFxGather 0.7s ease-in infinite;
+}
+
+.pp-megafx.is-burst .pp-megafx-p,
+.pp-megafx.is-burst .pp-megafx-orb,
+.pp-megafx.is-burst .pp-megafx-ring {
+  display: none;
+}
+
+.pp-megafx-flash,
+.pp-megafx-wave,
+.pp-megafx-sym {
+  display: none !important;
+}
+
+.pp-megafx.is-burst .pp-megafx-flash {
+  display: block !important;
+  width: 200px;
+  height: 200px;
+  margin: -100px 0 0 -100px;
+  background: radial-gradient(circle, #fff 0%, rgba(255, 255, 255, 0.85) 22%, color-mix(in srgb, var(--c2) 50%, transparent) 45%, transparent 70%);
+  animation: ppFxFlash 0.9s ease-out forwards;
+}
+
+.pp-megafx.is-burst .pp-megafx-wave {
+  display: block !important;
+  width: 60px;
+  height: 60px;
+  margin: -30px 0 0 -30px;
+  border: 4px solid var(--c3);
+  box-shadow: 0 0 18px var(--c1), inset 0 0 12px var(--c2);
+  animation: ppFxWave 1s ease-out forwards;
+}
+
+.pp-megafx.is-burst .pp-megafx-sym {
+  display: flex !important;
+  width: 34px;
+  height: 34px;
+  margin: calc(var(--fxh, 64px) * -0.5 - 46px) 0 0 -17px;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: linear-gradient(135deg, var(--c1), var(--c2) 50%, var(--c3));
+  box-shadow: 0 0 16px var(--c2);
+  animation: ppFxSym 1.5s ease-out forwards;
+}
+
+.pp-megafx-sym .pp-mega-ic {
+  width: 24px;
+  height: 24px;
+}
+
+/* El Pokémon se vuelve una silueta de luz que palpita */
+.pp-mon.is-transforming .pp-mon-img,
+.pp-mon.is-transforming .pp-mon-img.is-static {
+  animation: ppFxGlow 0.38s ease-in-out infinite alternate !important;
+}
+
+.pp-mon.is-transforming .pp-mon-name {
+  opacity: 0;
+}
+
+@keyframes ppFxGlow {
+  from {
+    filter: brightness(1.6) saturate(0.6) drop-shadow(0 0 6px #fff);
+  }
+  to {
+    filter: brightness(6) saturate(0) drop-shadow(0 0 14px #fff);
+  }
+}
+
+@keyframes ppFxOrb {
+  0% {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+  60% {
+    opacity: 0.7;
+    transform: scale(0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(0.45);
+  }
+}
+
+@keyframes ppFxRing {
+  0% {
+    opacity: 0;
+    transform: scale(1.6) rotate(0deg);
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: scale(0.5) rotate(900deg);
+  }
+}
+
+@keyframes ppFxRingB {
+  0% {
+    opacity: 0;
+    transform: scale(1.8) rotate(0deg) scaleY(0.45);
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: scale(0.6) rotate(-720deg) scaleY(0.45);
+  }
+}
+
+@keyframes ppFxGather {
+  0% {
+    opacity: 0;
+    transform: rotate(var(--a)) translateX(var(--r)) scale(1);
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--a)) translateX(0) scale(0.3);
+  }
+}
+
+@keyframes ppFxFlash {
+  0% {
+    opacity: 1;
+    transform: scale(0.3);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.6);
+  }
+}
+
+@keyframes ppFxWave {
+  0% {
+    opacity: 1;
+    transform: scale(0.4);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(4);
+  }
+}
+
+@keyframes ppFxSym {
+  0% {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+  20% {
+    opacity: 1;
+    transform: scale(1.25);
+  }
+  35% {
+    transform: scale(1);
+  }
+  75% {
+    opacity: 1;
+    transform: translateY(-6px);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-14px);
+  }
+}
+
+/* ------------------------------------------------------------ Caja */
+.pp-team-head .pp-team-count {
+  margin-left: auto;
+}
+
+.pp-team-head .pp-box-btn {
+  margin-left: 8px;
+  align-self: center;
+}
+
+.pp-box-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--ink-700);
+  background: none;
+  color: var(--ink-200);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+}
+
+.pp-box-btn .i {
+  width: 13px;
+  height: 13px;
+}
+
+.pp-box-btn em {
+  font-style: normal;
+  color: var(--ink-300);
+  font-weight: 600;
+}
+
+.pp-box-btn:hover {
+  border-color: var(--red-500);
+  color: var(--washi-100);
+  background: rgba(var(--red-500-rgb), 0.1);
+}
+
+.pp-pc {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+}
+
+.pp-pc-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--washi-100);
+}
+
+.pp-pc-head em {
+  font-style: normal;
+  font-size: 12px;
+  color: var(--ink-300);
+}
+
+.pp-pc .pp-pc-head input.pp-pc-search {
+  margin-left: auto;
+  flex: 0 0 180px;
+  width: 180px;
+  max-width: 180px;
+  padding: 7px 14px;
+  font-size: 12px;
+}
+
+.pp-pc-sort {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--ink-700);
+  background: var(--ink-900);
+  color: var(--washi-100);
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+}
+
+.pp-pc-sort {
+  cursor: pointer;
+}
+
+.pp-pc-sort:focus {
+  border-color: var(--red-500);
+}
+
+.pp-pc-team {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+}
+
+.pp-pc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  align-content: start;
+  gap: 6px;
+  min-height: 150px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 8px;
+  border-radius: 14px;
+  border: 1px solid var(--ink-800);
+  background: rgba(0, 0, 0, 0.18);
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.pp-pc-grid.is-over {
+  border-color: var(--red-500);
+  background: rgba(var(--red-500-rgb), 0.06);
+}
+
+.pp-pc-cell {
+  position: relative;
+  aspect-ratio: 1;
+  padding: 0;
+  border-radius: 12px;
+  border: 1px solid var(--ink-700);
+  background: rgba(var(--red-500-rgb), 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  cursor: grab;
+  transition: border-color 0.2s, background 0.2s, transform 0.15s, opacity 0.2s;
+}
+
+.pp-pc-cell:hover {
+  transform: translateY(-2px);
+  border-color: rgba(var(--red-500-rgb), 0.5);
+}
+
+.pp-pc-cell.is-picked {
+  border-color: var(--red-500);
+  background: rgba(var(--red-500-rgb), 0.18);
+  box-shadow: 0 0 0 2px rgba(var(--red-500-rgb), 0.25);
+}
+
+.pp-pc-cell.is-over {
+  border-color: var(--red-500);
+  transform: scale(1.06);
+}
+
+.pp-pc-cell.is-dragging {
+  opacity: 0.35;
+}
+
+.pp-pc-cell.is-trading {
+  border-style: dashed;
+  opacity: 0.7;
+}
+
+.pp-pc-cell.is-empty {
+  border-style: dashed;
+  background: none;
+  color: var(--ink-700);
+  cursor: default;
+}
+
+.pp-pc-cell.is-empty .i {
+  width: 18px;
+  height: 18px;
+}
+
+.pp-pc-cell img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+  transform: scale(1.2);
+  pointer-events: none;
+}
+
+.pp-pc-empty {
+  grid-column: 1 / -1;
+  margin: auto;
+  padding: 30px 10px;
+  font-size: 12px;
+  color: var(--ink-300);
+  text-align: center;
+}
+
+.pp-pc-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 60px;
+  padding: 6px 12px 6px 6px;
+  border-radius: 14px;
+  border: 1px solid var(--ink-800);
+}
+
+.pp-pc-info > img {
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.pp-pc-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+  font-size: 13px;
+  color: var(--washi-100);
+}
+
+.pp-pc-text .pp-shiny-mark {
+  position: static;
+}
+
+.pp-pc-text small {
+  font-size: 11px;
+  color: var(--ink-300);
+}
+
+.pp-pc-text .pp-pc-tip {
+  color: var(--ink-200);
+}
+
+.pp-pc-btns {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.pp-pc-hint {
+  margin: 0 auto;
+  font-size: 12px;
+  color: var(--ink-300);
 }
