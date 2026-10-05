@@ -1051,7 +1051,7 @@
           : "";
         // Sin vincular: "Descargar" abre una búsqueda en Google para comprarlo.
         const buyBtn = !playable && mode !== "completed"
-          ? `<button class="primary" onclick="buyGame('${id}')" title="Buscar dónde comprarlo">${icon("download")}<span>Descargar</span></button>`
+          ? `<button class="primary" onclick="buyGame('${id}')" title="Descargar">${icon("download")}<span>Descargar</span></button>`
           : "";
 
         const saga = sagaForGame(id);
@@ -1138,7 +1138,7 @@
       function buyGame(id) {
         const g = [...libraryGamesCache, ...completedGamesCache].find((x) => String(x.id) === String(id));
         if (!g) return;
-        window.electronAPI.openExternal(`https://www.google.com/search?q=${encodeURIComponent(`comprar ${g.name} PC`)}`);
+        window.electronAPI.openExternal(`https://1337x.to/category-search/${encodeURIComponent(`${g.name}`)}/Games/1/`);
       }
 
       async function setExecutable(id) {
