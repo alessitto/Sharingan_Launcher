@@ -1043,15 +1043,9 @@
           ? `<button class="linked-btn is-icon" onclick="confirmUnlink('${id}')" title="Ejecutable vinculado (clic para desvincular)" aria-label="Ejecutable vinculado">${icon("link")}</button>`
           : playable
           ? ""
-          : mode === "completed"
-          ? `<button onclick="setExecutable('${id}')">${icon("link")}<span>Vincular</span></button>`
-          : `<button class="is-icon" onclick="setExecutable('${id}')" title="Vincular ejecutable" aria-label="Vincular ejecutable">${icon("link")}</button>`;
+          : `<button onclick="setExecutable('${id}')">${icon("link")}<span>Vincular</span></button>`;
         const playBtn = playable
           ? `<button class="primary" onclick="launchGame('${id}')">${icon("play")}<span>Jugar</span></button>`
-          : "";
-        // Sin vincular: "Descargar" abre una búsqueda en Google para comprarlo.
-        const buyBtn = !playable && mode !== "completed"
-          ? `<button class="primary" onclick="buyGame('${id}')" title="Descargar">${icon("download")}<span>Descargar</span></button>`
           : "";
 
         const saga = sagaForGame(id);
@@ -1081,7 +1075,6 @@
         return `
           ${linkBtn}
           ${playBtn}
-          ${buyBtn}
           <div class="action-menu">
             <button class="more-btn" onclick="toggleDropdown(event, '${id}')" title="Más opciones" aria-label="Más opciones">${icon("more")}</button>
             <div id="dropdown-${id}" class="dropdown-content">${items}</div>
@@ -1135,12 +1128,6 @@
       // se detecta sola por la ruta del ejecutable, solo para mostrarla; no
       // hace falta preguntarla porque un juego vinculado a mano siempre se
       // lanza directamente, no cambia nada en el arranque.
-      function buyGame(id) {
-        const g = [...libraryGamesCache, ...completedGamesCache].find((x) => String(x.id) === String(id));
-        if (!g) return;
-        window.electronAPI.openExternal(`https://1337x.to/category-search/${encodeURIComponent(`${g.name}`)}/Games/1/`);
-      }
-
       async function setExecutable(id) {
         try {
           const result = await window.electronAPI.openFileDialog();
