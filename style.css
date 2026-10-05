@@ -2639,7 +2639,9 @@ button:disabled:active {
   }
 }
 
-.linked-btn.is-icon {
+.linked-btn.is-icon,
+.card-actions button.is-icon {
+  flex-shrink: 0;
   width: 30px;
   height: 30px;
   padding: 0;
