@@ -163,7 +163,8 @@ const GAMES_PER_PAGE_MAX = 200;
 // 10 se vuelven ilegibles (miniaturas minúsculas) en una ventana normal.
 const GRID_COLUMNS_MIN = 3;
 const GRID_COLUMNS_MAX = 10;
-let appSettings = { gamesPerPage: 60, gridColumns: 5, theme: "itachi", themeEffect: "default" };
+const DEFAULT_PREFS = { gamesPerPage: 60, gridColumns: 5, theme: "itachi", themeEffect: "default" };
+let appSettings = { ...DEFAULT_PREFS };
 
 function clampGamesPerPage(value) {
   const n = Number(value);
@@ -205,6 +206,60 @@ function saveSettings() {
     writeFileAtomic(settingsFilePath, JSON.stringify(appSettings, null, 2));
   } catch (err) {
     console.error("Error saving settings.json", err);
+  }
+  // Ajustes y claves van con la cuenta: se sube si ha cambiado algo.
+  cloud?.markProfile();
+}
+
+// -------------------- Perfil de la cuenta --------------------
+// Lo que viaja con la cuenta además de biblioteca/PokéPark: ajustes de
+// aspecto y las claves (IA, Spotify, tiendas). En el PC siguen cifradas con
+// safeStorage; a la API van en claro por HTTPS y allí se cifran.
+const PROFILE_PREFS = ["theme", "themeEffect", "gridColumns", "gamesPerPage"];
+const PROFILE_SECRETS = ["aiKey", "spotifyAuth", "storeAuth"];
+
+function decryptSetting(key) {
+  if (!appSettings[key]) return null;
+  try {
+    return safeStorage.decryptString(Buffer.from(appSettings[key], "base64"));
+  } catch {
+    return null;
+  }
+}
+
+function getProfile() {
+  const prefs = {};
+  for (const k of PROFILE_PREFS) if (appSettings[k] !== undefined) prefs[k] = appSettings[k];
+  const secrets = { spotifyClientId: appSettings.spotifyClientId || null };
+  for (const k of PROFILE_SECRETS) secrets[k] = decryptSetting(k);
+  return { prefs, secrets };
+}
+
+function setProfile(data) {
+  const p = data?.prefs || {};
+  if (p.gamesPerPage !== undefined) appSettings.gamesPerPage = clampGamesPerPage(p.gamesPerPage);
+  if (p.gridColumns !== undefined) appSettings.gridColumns = clampGridColumns(p.gridColumns);
+  if (p.theme !== undefined || p.themeEffect !== undefined) {
+    Object.assign(appSettings, clampTheme(p.theme ?? appSettings.theme, p.themeEffect ?? appSettings.themeEffect));
+  }
+  const s = data?.secrets || {};
+  if (s.spotifyClientId) appSettings.spotifyClientId = String(s.spotifyClientId);
+  else delete appSettings.spotifyClientId;
+  for (const k of PROFILE_SECRETS) {
+    if (typeof s[k] === "string" && s[k] && safeStorage.isEncryptionAvailable()) {
+      appSettings[k] = safeStorage.encryptString(s[k]).toString("base64");
+    } else delete appSettings[k];
+  }
+}
+
+// Al cerrar sesión (o cambiar de cuenta) no se queda ninguna clave en el PC
+// y el aspecto vuelve al de serie. Las ventanas de login de las tiendas
+// también se olvidan.
+function clearProfile() {
+  for (const k of [...PROFILE_SECRETS, "spotifyClientId"]) delete appSettings[k];
+  Object.assign(appSettings, DEFAULT_PREFS);
+  for (const p of ["steam", "epic", "gog"]) {
+    session.fromPartition(`persist:store-${p}`).clearStorageData().catch(() => {});
   }
 }
 
@@ -810,7 +865,13 @@ app.whenReady().then(() => {
   setupStores();
   loadData();
   createWindow();
-  win.on("focus", () => checkPendingInstalls());
+  win.on("focus", () => {
+    checkPendingInstalls();
+    if (Date.now() - profileCheckAt > 5 * 60 * 1000) {
+      profileCheckAt = Date.now();
+      cloud?.syncProfile();
+    }
+  });
   setupAutoUpdates();
   // Con sesión iniciada, se trae lo de la cuenta en cuanto la ventana está lista.
   win.webContents.once("did-finish-load", () => cloud.start());
@@ -1313,6 +1374,9 @@ function setupCloud() {
     safeStorage,
     settings: appSettings,
     saveSettings,
+    getProfile,
+    setProfile,
+    clearProfile,
     notify: (channel, data) => win && !win.isDestroyed() && win.webContents.send(channel, data),
     getLibrary: () => ({ games, completedGames, sagas }),
     setLibrary: (lib) => {
@@ -2192,6 +2256,7 @@ ipcMain.handle("stores:install", async (e, id) => {
 // Con juegos pendientes de instalar, al volver a la ventana se comprueba si
 // ya están (como mucho cada 15 s) y se reimporta solo esa tienda.
 let pendingCheckAt = 0;
+let profileCheckAt = Date.now();
 let pendingChecking = false;
 async function checkPendingInstalls() {
   if (pendingChecking || Date.now() - pendingCheckAt < 15000) return;

@@ -804,6 +804,7 @@
       } else setOpen(true);
     },
     close: () => open && setOpen(false),
+    refresh: () => refreshConfig(),
     buttonShown: () => showBtn,
     showButton: (on) => {
       showBtn = !!on;

@@ -167,6 +167,7 @@
   };
 
   function toast(def) {
+    if (document.body.classList.contains("is-guest")) return;
     const el = document.createElement("div");
     el.className = "ach-toast";
     el.innerHTML = `

@@ -6071,6 +6071,7 @@ body.pad-in-use {
 }
 
 /* 3.2.2: lo personal solo con sesión iniciada */
-body.is-guest .needs-account {
+body.is-guest .needs-account,
+body.is-guest .cm-myrate {
   display: none !important;
 }

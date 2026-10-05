@@ -137,7 +137,7 @@
               Importar instalados
             </button>
 
-            <button class="filter-btn" onclick="openSagasModal()">
+            <button class="filter-btn needs-account" onclick="openSagasModal()">
               <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></svg>
               Sagas
             </button>
@@ -1016,7 +1016,7 @@
           <span class="saga-group-icon">${icon("layers")}</span>
           <span class="saga-group-name">${escapeHtml(saga.name)}</span>
           <span class="saga-group-count">${total} ${total === 1 ? "juego" : "juegos"}</span>
-          <button type="button" class="icon-btn saga-group-edit" title="Editar saga" aria-label="Editar saga">${icon("pencil")}</button>
+          <button type="button" class="icon-btn saga-group-edit needs-account" title="Editar saga" aria-label="Editar saga">${icon("pencil")}</button>
         `;
         header.querySelector(".saga-group-edit").onclick = () => openSagasModal(saga.id);
         wrap.appendChild(header);
@@ -1054,8 +1054,8 @@
 
         const saga = sagaForGame(id);
         const sagaItem = saga
-          ? `<div class="dropdown-item" onclick="removeGameFromItsSaga('${id}')">${icon("layers")}Quitar de "${escapeHtml(saga.name)}"</div>`
-          : `<div class="dropdown-item" onclick="openAddToSagaModal('${id}')">${icon("layers")}Añadir a una saga</div>`;
+          ? `<div class="dropdown-item needs-account" onclick="removeGameFromItsSaga('${id}')">${icon("layers")}Quitar de "${escapeHtml(saga.name)}"</div>`
+          : `<div class="dropdown-item needs-account" onclick="openAddToSagaModal('${id}')">${icon("layers")}Añadir a una saga</div>`;
         const exeItem = !game.executable && (playable || game.notInstalled)
           ? `<div class="dropdown-item" onclick="setExecutable('${id}')">${icon("link")}Vincular ejecutable</div>`
           : "";
@@ -2726,9 +2726,9 @@
       const SETTINGS_PAGES = [
         { id: "account", name: "Cuenta", icon: "user" },
         { id: "stores", name: "Tiendas", icon: "link", account: true },
-        { id: "color", name: "Color", icon: "palette" },
-        { id: "style", name: "Estilo", icon: "sparkles" },
-        { id: "discover", name: "Descubrir", icon: "grid" },
+        { id: "color", name: "Color", icon: "palette", account: true },
+        { id: "style", name: "Estilo", icon: "sparkles", account: true },
+        { id: "discover", name: "Descubrir", icon: "grid", account: true },
         { id: "spotify", name: "Spotify", icon: "music", account: true },
         { id: "ai", name: "Inteligencia artificial", icon: "lightbulb", account: true },
         { id: "data", name: "Datos", icon: "save" },
@@ -2749,6 +2749,7 @@
           openSettingsModal(visibleSettingsPages().some((p) => p.id === settingsPage) ? settingsPage : "account");
         }
         if (loggedIn) return;
+        loadAppSettings(); // el aspecto vuelve al de serie
         if (jarvisMode) exitJarvis();
         window.SpotifyUI?.close?.();
         const active = document.querySelector(".section.active")?.id;
@@ -2757,6 +2758,12 @@
         }
       }
       window.electronAPI.onCloudStatus?.((s) => applyAccountGate(!!s?.user));
+      // Llegan los ajustes y claves de la cuenta (otro PC o recién entrado).
+      window.electronAPI.onCloudProfile?.(async () => {
+        await loadAppSettings();
+        window.SpotifyUI?.refresh?.();
+        if (document.querySelector(".st-modal .st-nav")) openSettingsModal(settingsPage);
+      });
       // Al arrancar, la sesión guardada (sin esperar a la API: vale sin conexión).
       window.electronAPI.cloud("status").then((s) => applyAccountGate(!!s?.user)).catch(() => {});
 
@@ -2816,7 +2823,7 @@
           </div>`,
         data: () => `
           <div class="settings-data">
-            <div class="settings-data-row">
+            <div class="settings-data-row needs-account">
               <div><p class="settings-data-title">Copia de partidas</p></div>
               <button type="button" id="settingsBackupBtn" class="sl-btn sl-btn-ghost">${icon("save")}Hacer copia</button>
             </div>

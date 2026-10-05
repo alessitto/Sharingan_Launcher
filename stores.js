@@ -259,14 +259,9 @@ function createStores({ safeStorage, settings, saveSettings, BrowserWindow, sess
     const a = readAuth().epic;
     if (!a) throw new StoreError("not_linked");
     if (a.expiresAt > Date.now() + 60e3) return a.access;
-    try {
-      const t = await epicToken({ grant_type: "refresh_token", refresh_token: a.refresh });
-      setAuth("epic", { ...t, name: t.name || a.name });
-      return t.access;
-    } catch (err) {
-      if (err.code === "relink") setAuth("epic", null);
-      throw err;
-    }
+    const t = await epicToken({ grant_type: "refresh_token", refresh_token: a.refresh });
+    setAuth("epic", { ...t, name: t.name || a.name });
+    return t.access;
   }
 
   // Los títulos y carátulas salen del catálogo, uno por juego: se guardan en
@@ -382,14 +377,9 @@ function createStores({ safeStorage, settings, saveSettings, BrowserWindow, sess
     const a = readAuth().gog;
     if (!a) throw new StoreError("not_linked");
     if (a.expiresAt > Date.now() + 60e3) return a.access;
-    try {
-      const t = await gogToken({ grant_type: "refresh_token", refresh_token: a.refresh });
-      setAuth("gog", { ...t, name: a.name });
-      return t.access;
-    } catch (err) {
-      if (err.code === "relink") setAuth("gog", null);
-      throw err;
-    }
+    const t = await gogToken({ grant_type: "refresh_token", refresh_token: a.refresh });
+    setAuth("gog", { ...t, name: a.name });
+    return t.access;
   }
 
   async function ownedGog() {

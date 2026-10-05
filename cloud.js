@@ -17,6 +17,12 @@
 //  - Después: si hay cambios locales sin subir (p. ej. sin conexión) se
 //    combinan con los de la nube; si no, se baja la versión de la nube si
 //    es más nueva que la última sincronización.
+//
+// Perfil (desde 3.2.3): ajustes y claves (IA, Spotify, tiendas) también van
+// con la cuenta (ruta "profile", cifradas en el servidor). Lo de la nube
+// gana si ha cambiado desde la última vez; al cerrar sesión las claves se
+// borran del PC.
+const crypto = require("crypto");
 const API_URL = process.env.SL_CLOUD_URL || "https://alejandrodev.es/sharingan_api/index.php";
 const PUSH_DELAY_MS = 4000;
 
@@ -87,6 +93,8 @@ function createCloud(hooks) {
   function setSession(tok, user) {
     if (tok) settings.cloudToken = safeStorage.encryptString(tok).toString("base64");
     else delete settings.cloudToken;
+    // Sin sesión no se queda ninguna clave de la cuenta en el PC.
+    if (!tok && settings.cloudProfileUser != null) clearProfile();
     if (user) settings.cloudUser = user;
     else delete settings.cloudUser;
     saveSettings();
@@ -284,6 +292,74 @@ function createCloud(hooks) {
     }
   }
 
+  // ------------------------------------------------------------ Perfil
+  const hashOf = (p) => crypto.createHash("sha1").update(JSON.stringify(p || {})).digest("hex");
+  let profileTimer = null;
+  let profilePushing = false;
+
+  function clearProfile() {
+    hooks.clearProfile?.();
+    delete settings.cloudProfileUser;
+    delete settings.cloudProfileSync;
+    delete settings.cloudProfileHash;
+  }
+
+  async function pushProfile() {
+    clearTimeout(profileTimer);
+    profileTimer = null;
+    // Hasta haber bajado el perfil de esta cuenta no se sube nada (podría
+    // ser de otra).
+    if (!token() || entering || !hooks.getProfile || settings.cloudProfileUser !== settings.cloudUser?.id) return;
+    if (profilePushing) {
+      profileTimer = setTimeout(() => pushProfile().catch(() => {}), 2000);
+      return;
+    }
+    const data = hooks.getProfile();
+    const h = hashOf(data);
+    if (h === settings.cloudProfileHash) return;
+    profilePushing = true;
+    try {
+      const res = await api("profile", { body: data });
+      settings.cloudProfileSync = res.updatedAt;
+      settings.cloudProfileHash = h;
+      saveSettings();
+    } catch (err) {
+      if (err.code === "network") profileTimer = setTimeout(() => pushProfile().catch(() => {}), 60000);
+      throw err;
+    } finally {
+      profilePushing = false;
+    }
+  }
+
+  // Sin reiniciar la espera: settings.json se guarda a menudo (sync, stats)
+  // y si no, el perfil no llegaba a subirse nunca.
+  function markProfile() {
+    if (!token() || entering || profileTimer) return;
+    profileTimer = setTimeout(() => {
+      profileTimer = null;
+      pushProfile().catch(() => {});
+    }, PUSH_DELAY_MS);
+  }
+
+  async function syncProfile() {
+    if (!token() || !hooks.getProfile) return;
+    const me = settings.cloudUser?.id;
+    // Claves de otra cuenta (p. ej. caducó su sesión): fuera antes de nada.
+    if (settings.cloudProfileUser != null && settings.cloudProfileUser !== me) clearProfile();
+    const remote = await api("profile");
+    settings.cloudProfileUser = me;
+    if (remote.data && remote.updatedAt !== settings.cloudProfileSync) {
+      hooks.setProfile(remote.data);
+      settings.cloudProfileSync = remote.updatedAt;
+      settings.cloudProfileHash = hashOf(hooks.getProfile());
+      saveSettings();
+      notify("cloud:profile", {});
+    } else {
+      saveSettings();
+      await pushProfile();
+    }
+  }
+
   // ------------------------------------------------------------ Acciones
   async function enter(route, username, password) {
     const res = await api(route, { body: { username, password }, auth: false });
@@ -295,6 +371,7 @@ function createCloud(hooks) {
     } finally {
       entering = false;
     }
+    await syncProfile().catch((err) => console.error("perfil", err.code || err));
     return { user: res.user };
   }
 
@@ -304,6 +381,7 @@ function createCloud(hooks) {
     login: (username, password) => enter("auth/login", username, password),
     logout: async () => {
       await push().catch(() => {});
+      await pushProfile().catch(() => {});
       await api("auth/logout", { body: {} }).catch(() => {});
       delete settings.cloudLinkedUser;
       delete settings.cloudLastSync;
@@ -322,6 +400,7 @@ function createCloud(hooks) {
     syncNow: async () => {
       await push();
       await reconcile();
+      await syncProfile();
       return status();
     },
     ratingsAvg: async (ids) => api("ratings/avg", { query: { ids: (ids || []).slice(0, 300).join(",") }, auth: false }),
@@ -372,9 +451,16 @@ function createCloud(hooks) {
           notify("cloud:status", status());
         })
         .catch(() => {});
-      reconcile().catch((err) => console.error("sync inicial", err.code || err));
+      reconcile()
+        .catch((err) => console.error("sync inicial", err.code || err))
+        .then(() => syncProfile())
+        .catch((err) => console.error("perfil", err.code || err));
     },
-    flush: () => push().catch(() => {}),
+    // Al volver a la ventana (como mucho cada 5 min): por si se cambió algo
+    // en otro PC (p. ej. un token renovado allí).
+    syncProfile: () => syncProfile().catch(() => {}),
+    markProfile,
+    flush: () => Promise.all([push().catch(() => {}), pushProfile().catch(() => {})]),
     // Client ID de Spotify del dueño (solo se lo da la API a él).
     spotifyClient: async () => (await api("spotify/client")).clientId || null,
   };

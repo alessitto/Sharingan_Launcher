@@ -92,6 +92,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   cloud: (action, ...args) => ipcRenderer.invoke('cloud:' + action, ...args),
   onCloudStatus: (cb) => ipcRenderer.on('cloud:status', (_e, s) => cb(s)),
   onCloudData: (cb) => ipcRenderer.on('cloud:dataChanged', (_e, d) => cb(d)),
+  onCloudProfile: (cb) => ipcRenderer.on('cloud:profile', () => cb()),
   getStats: () => ipcRenderer.invoke('stats:get'),
   saveStats: (stats) => ipcRenderer.invoke('stats:save', stats),
 
