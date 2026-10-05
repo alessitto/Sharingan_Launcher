@@ -2106,7 +2106,7 @@ async function runImport(config = {}) {
   if (!config.localOnly && !config.steamRoot && !config.epicManifestsDir && !config.gogRoot) {
     await Promise.all(
       ["steam", "epic", "gog"]
-        .filter((p) => want.has(p) && stores?.isLinked(p))
+        .filter((p) => want.has(p) && stores?.isLinked(p) && cloud?.loggedIn())
         .map(async (p) => {
           const r = report[p] || (report[p] = newImportReport());
           const acc = (r.account = { status: "ok", added: [], error: null });

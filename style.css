@@ -6069,3 +6069,8 @@ body.pad-in-use {
 .st-stores .st-actions {
   margin-top: 16px;
 }
+
+/* 3.2.2: lo personal solo con sesión iniciada */
+body.is-guest .needs-account {
+  display: none !important;
+}

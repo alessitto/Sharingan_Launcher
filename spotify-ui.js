@@ -803,6 +803,7 @@
         render();
       } else setOpen(true);
     },
+    close: () => open && setOpen(false),
     buttonShown: () => showBtn,
     showButton: (on) => {
       showBtn = !!on;

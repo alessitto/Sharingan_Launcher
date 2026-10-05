@@ -15,7 +15,7 @@
     <link rel="stylesheet" href="spotify.css" />
     <link rel="stylesheet" href="spotify-setup.css" />
   </head>
-  <body>
+  <body class="is-guest">
     <div class="theme-bg" aria-hidden="true"></div>
     <audio id="easter-audio" src="assets/dartacan.mp3" preload="auto"></audio>
 
@@ -48,18 +48,18 @@
           <svg viewBox="0 0 24 24"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0V4Z"/><path d="M7 6H4a2 2 0 0 0 0 4h1"/><path d="M17 6h3a2 2 0 0 1 0 4h-1"/></svg>
           <span class="topnav-label">Juegos pasados</span>
         </div>
-        <div class="topnav-item" role="button" tabindex="0" aria-label="PokéPark" onclick="showSection('pokepark', this)">
+        <div class="topnav-item needs-account" role="button" tabindex="0" aria-label="PokéPark" onclick="showSection('pokepark', this)">
           <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h6"/><path d="M15 12h6"/><circle cx="12" cy="12" r="3"/></svg>
           <span class="topnav-label">PokéPark</span>
         </div>
-        <div class="topnav-item" data-section="community" role="button" tabindex="0" aria-label="Comunidad" onclick="showSection('community', this)">
+        <div class="topnav-item needs-account" data-section="community" role="button" tabindex="0" aria-label="Comunidad" onclick="showSection('community', this)">
           <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           <span class="topnav-label">Comunidad</span>
         </div>
 
         <span class="topnav-spacer"></span>
         <!-- Spotify (spotify-ui.js); se puede ocultar en Ajustes › Spotify -->
-        <button type="button" id="spotifyBtn" class="sp-btn" hidden aria-haspopup="dialog" aria-expanded="false"></button>
+        <button type="button" id="spotifyBtn" class="sp-btn needs-account" hidden aria-haspopup="dialog" aria-expanded="false"></button>
         <!-- La cuenta y la versión están dentro de Ajustes -->
         <button class="icon-btn settings-btn" onclick="openSettingsModal()" title="Ajustes" aria-label="Ajustes">
           <svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
@@ -79,7 +79,7 @@
               placeholder="Buscar juegos..."
               oninput="onSearchInput()"
             />
-            <button type="button" id="jarvisBtn" class="jarvis-btn" onclick="openJarvis()" title="Recomendaciones según tu biblioteca">
+            <button type="button" id="jarvisBtn" class="jarvis-btn needs-account" onclick="openJarvis()" title="Recomendaciones según tu biblioteca">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9Z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9Z"/></svg>
               <span>Recomendación por Jarvis</span>
             </button>
@@ -687,7 +687,7 @@
       }
 
       async function openJarvis(more = false) {
-        if (jarvisBusy) return;
+        if (jarvisBusy || isGuest()) return;
         const status = await window.electronAPI.aiStatus().catch(() => ({ configured: false }));
         if (!status.configured) {
           const go = await confirmDialog({
@@ -1980,7 +1980,7 @@
                 ${icon("pencil", "sg-name-icon")}
               </div>
               <div class="sg-head-actions">
-                ${confirmingDelete ? "" : `<button type="button" class="sl-btn sl-btn-ghost sl-btn-sm ${aiThinking ? "is-loading" : ""}" data-act="ai-sort" title="Ordenar por historia con IA" ${aiThinking ? "disabled" : ""}>${icon("sparkles")}<span>${aiThinking ? "Pensando…" : "Orden con IA"}</span></button>`}
+                ${confirmingDelete ? "" : `<button type="button" class="sl-btn sl-btn-ghost sl-btn-sm needs-account ${aiThinking ? "is-loading" : ""}" data-act="ai-sort" title="Ordenar por historia con IA" ${aiThinking ? "disabled" : ""}>${icon("sparkles")}<span>${aiThinking ? "Pensando…" : "Orden con IA"}</span></button>`}
                 ${confirmingDelete ? "" : `<button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-act="sort" title="Ordenar por fecha de lanzamiento">${icon("calendar")}<span>Ordenar por lanzamiento</span></button>`}
                 ${deleteHtml}
               </div>
@@ -2725,16 +2725,40 @@
       // sin scroll. Se vuelve a la última página que se miró.
       const SETTINGS_PAGES = [
         { id: "account", name: "Cuenta", icon: "user" },
-        { id: "stores", name: "Tiendas", icon: "link" },
+        { id: "stores", name: "Tiendas", icon: "link", account: true },
         { id: "color", name: "Color", icon: "palette" },
         { id: "style", name: "Estilo", icon: "sparkles" },
         { id: "discover", name: "Descubrir", icon: "grid" },
-        { id: "spotify", name: "Spotify", icon: "music" },
-        { id: "ai", name: "Inteligencia artificial", icon: "lightbulb" },
+        { id: "spotify", name: "Spotify", icon: "music", account: true },
+        { id: "ai", name: "Inteligencia artificial", icon: "lightbulb", account: true },
         { id: "data", name: "Datos", icon: "save" },
         { id: "updates", name: "Actualizaciones", icon: "download" },
       ];
       let settingsPage = "account";
+
+      // Lo personal (PokéPark, Comunidad, IA, Spotify, tiendas) solo se ve
+      // con la sesión iniciada: body.is-guest oculta todo lo .needs-account.
+      const isGuest = () => document.body.classList.contains("is-guest");
+      const visibleSettingsPages = () => SETTINGS_PAGES.filter((p) => !p.account || !isGuest());
+
+      function applyAccountGate(loggedIn) {
+        if (isGuest() === !loggedIn) return;
+        document.body.classList.toggle("is-guest", !loggedIn);
+        // Ajustes abiertos: se repinta el menú con las páginas que tocan.
+        if (document.querySelector(".st-modal .st-nav")) {
+          openSettingsModal(visibleSettingsPages().some((p) => p.id === settingsPage) ? settingsPage : "account");
+        }
+        if (loggedIn) return;
+        if (jarvisMode) exitJarvis();
+        window.SpotifyUI?.close?.();
+        const active = document.querySelector(".section.active")?.id;
+        if (active === "pokepark" || active === "community") {
+          showSection("popular", document.querySelector(".topnav-item"));
+        }
+      }
+      window.electronAPI.onCloudStatus?.((s) => applyAccountGate(!!s?.user));
+      // Al arrancar, la sesión guardada (sin esperar a la API: vale sin conexión).
+      window.electronAPI.cloud("status").then((s) => applyAccountGate(!!s?.user)).catch(() => {});
 
       const settingsPageHtml = {
         account: () => `<div class="st-account"></div>`,
@@ -3033,7 +3057,7 @@
             <div class="st settings-panel theme-picker">
               <nav class="st-nav" aria-label="Secciones de ajustes">
                 <p class="st-nav-title">Ajustes</p>
-                ${SETTINGS_PAGES.map(
+                ${visibleSettingsPages().map(
                   (p) => `<button type="button" class="st-tab" data-page="${p.id}">${icon(p.icon)}<span>${p.name}</span></button>`
                 ).join("")}
               </nav>
@@ -3042,7 +3066,8 @@
           didOpen: (popup) => {
             const pageEl = popup.querySelector(".st-page");
             const show = (id) => {
-              const def = SETTINGS_PAGES.find((p) => p.id === id) || SETTINGS_PAGES[0];
+              const pages = visibleSettingsPages();
+              const def = pages.find((p) => p.id === id) || pages[0];
               settingsPage = def.id;
               popup.querySelectorAll(".st-tab").forEach((t) => {
                 const on = t.dataset.page === def.id;
