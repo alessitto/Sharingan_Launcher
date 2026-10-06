@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, safeStorage, session } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, shell, safeStorage, session, Menu } = require("electron");
 const Fuse = require("fuse.js");
 const path = require("path");
 const { execFile, spawn } = require("child_process");
@@ -7,6 +7,7 @@ const ai = require("./ai");
 const { createCloud } = require("./cloud");
 const { createSpotify } = require("./spotify");
 const { createStores } = require("./stores");
+const { createMinigames } = require("./minigames");
 const themes = require("./themes");
 let cloud = null; // se crea al arrancar (setupCloud)
 let stores = null; // cuentas de Steam/Epic/GOG (setupStores)
@@ -863,8 +864,20 @@ app.whenReady().then(() => {
   setupCloud();
   setupSpotify();
   setupStores();
+  setupMinigames();
   loadData();
+  // En la app instalada: sin menú (fuera Ctrl+R / Ctrl+Shift+I) ni
+  // herramientas de desarrollador, para que no se pueda trastear con el
+  // dinero o los minijuegos desde la consola.
+  if (app.isPackaged) Menu.setApplicationMenu(null);
   createWindow();
+  if (app.isPackaged) {
+    win.webContents.on("devtools-opened", () => win.webContents.closeDevTools());
+    win.webContents.on("before-input-event", (e, input) => {
+      const k = String(input.key || "").toLowerCase();
+      if ((input.control && input.shift && (k === "i" || k === "j" || k === "c")) || k === "f12" || (input.control && k === "r") || k === "f5") e.preventDefault();
+    });
+  }
   win.on("focus", () => {
     checkPendingInstalls();
     if (Date.now() - profileCheckAt > 5 * 60 * 1000) {
@@ -1285,7 +1298,9 @@ ipcMain.handle("pokepark:dex", () => {
 const spriteCacheDir = path.join(app.getPath("userData"), "sprite-cache");
 const spriteMem = new Map();
 
-ipcMain.handle("pokepark:sprite", async (_e, url) => {
+ipcMain.handle("pokepark:sprite", (_e, url) => spriteDataUrl(url));
+
+async function spriteDataUrl(url) {
   if (typeof url !== "string" || !/^https:\/\/(play\.pokemonshowdown\.com|raw\.githubusercontent\.com)\//.test(url)) return null;
   if (spriteMem.has(url)) return spriteMem.get(url);
   const ext = url.toLowerCase().endsWith(".gif") ? "gif" : "png";
@@ -1309,7 +1324,7 @@ ipcMain.handle("pokepark:sprite", async (_e, url) => {
   const dataUrl = `data:image/${ext};base64,${buf.toString("base64")}`;
   spriteMem.set(url, dataUrl);
   return dataUrl;
-});
+}
 
 ipcMain.handle("pokepark:get", () => {
   try {
@@ -1430,6 +1445,27 @@ function setupSpotify() {
     userAgent: `Sharingan Launcher/${app.getVersion()} (https://alejandrodev.es/sharingan_launcher/)`,
   });
   for (const [name, fn] of Object.entries(spotify.ipc)) ipcMain.handle(`spotify:${name}`, (_e, ...args) => fn(...args));
+}
+
+// Minijuegos del PokéPark (minigames.js): se juegan aquí, la ventana solo ve
+// lo que ya está a la vista.
+function setupMinigames() {
+  let dex = { species: [], types: {} };
+  try {
+    dex = JSON.parse(fs.readFileSync(path.join(__dirname, "assets", "pokepark", "pokedex.json"), "utf8"));
+  } catch (err) {
+    console.error("pokedex.json", err);
+  }
+  const games = createMinigames({
+    fs,
+    path,
+    fetch,
+    dataDir: app.getPath("userData"),
+    dex,
+    getAccount: () => appSettings.cloudUser?.id ?? null,
+    spriteDataUrl,
+  });
+  for (const [name, fn] of Object.entries(games.ipc)) ipcMain.handle(`minigames:${name}`, (_e, ...args) => fn(...args));
 }
 
 function setupStores() {

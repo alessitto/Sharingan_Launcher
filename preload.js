@@ -72,6 +72,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   pokeparkGet: () => ipcRenderer.invoke('pokepark:get'),
   pokeparkSave: (state) => ipcRenderer.invoke('pokepark:save', state),
   pokeparkSprite: (url) => ipcRenderer.invoke('pokepark:sprite', url),
+  // Minijuegos (minigames.js en main)
+  minigames: (action, ...args) => ipcRenderer.invoke('minigames:' + action, ...args),
+  // Guardar el parque ya (al cobrar una apuesta no se espera al guardado normal)
+  pokeparkSaveNow: (state) => ipcRenderer.invoke('pokepark:save', state),
 
   // Borrar todos los datos
   clearAllData: () => ipcRenderer.invoke('data:clearAll'),

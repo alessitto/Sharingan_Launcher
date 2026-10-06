@@ -4278,3 +4278,712 @@ b > .pp-shiny-ic {
 .pp-g.is-toggle:hover {
   border-color: var(--washi-50);
 }
+
+/* =====================================================================
+   3.3.8: Minijuegos (Pokédle, Voltorb Flip, Blackjack)
+   ===================================================================== */
+.pp-games-btn {
+  position: absolute;
+  left: 22px;
+  bottom: 22px;
+  z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 46px;
+  padding: 0 18px 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(var(--ink-900-rgb), 0.78);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+  color: var(--washi-50);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s var(--ease-smooth), border-color 0.2s;
+}
+
+.pp-games-btn:hover {
+  transform: translateY(-2px);
+  border-color: var(--red-500);
+}
+
+.pp-games-btn .i {
+  width: 20px;
+  height: 20px;
+  color: var(--accent-text);
+}
+
+.mg-popup.swal2-popup {
+  width: min(780px, 96vw) !important;
+}
+
+.mg {
+  text-align: left;
+}
+
+.mg-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mg-head .pp-bag-tabs {
+  flex: 1;
+}
+
+.mg-body {
+  margin-top: 14px;
+  min-height: 420px;
+}
+
+.mg-loading,
+.mg-empty {
+  margin: 60px 0;
+  text-align: center;
+  color: var(--ink-300);
+}
+
+.mg-msg {
+  margin: 6px 0 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--danger, #e5534b);
+}
+
+.mg-banner {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  text-align: center;
+  font-weight: 700;
+  animation: mg-pop 0.35s var(--ease-smooth, ease);
+}
+
+.mg-banner.is-win {
+  color: #5cc98a;
+  background: rgba(92, 201, 138, 0.12);
+  border: 1px solid rgba(92, 201, 138, 0.35);
+}
+
+.mg-banner.is-lose {
+  color: #ef6b62;
+  background: rgba(239, 107, 98, 0.1);
+  border: 1px solid rgba(239, 107, 98, 0.35);
+}
+
+.mg-banner.is-push {
+  color: var(--washi-100);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--ink-700);
+}
+
+@keyframes mg-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+/* Apuesta */
+/* Todo en una fila (cabe bajo el tablero sin tener que bajar) */
+.mg-bet {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  border: 1px solid var(--ink-800);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.mg-bet-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-300);
+}
+
+.mg-bet-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.mg-bet-input {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(244, 197, 66, 0.4);
+  background: rgba(244, 197, 66, 0.08);
+  color: #f4c542;
+}
+
+.mg-bet-input .i {
+  width: 16px;
+  height: 16px;
+}
+
+.mg .mg-bet-input input.mg-bet-val {
+  width: 110px;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  color: var(--washi-50);
+  font: inherit;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  outline: none;
+}
+
+.mg-chip {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--ink-700);
+  background: var(--ink-900);
+  color: var(--washi-100);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.mg-chip:hover {
+  border-color: #f4c542;
+  color: #f4c542;
+}
+
+.mg-go {
+  margin-left: auto;
+  min-width: 150px;
+  justify-content: center;
+}
+
+.mg-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.mg-hint {
+  margin-right: auto;
+  font-size: 12px;
+  color: var(--ink-300);
+}
+
+/* ------------------------------------------------------------ Pokédle */
+.mg-pk {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.mg-pk-dots {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.mg-pk-dot {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--ink-700);
+  background: var(--ink-900);
+  color: var(--washi-100);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.mg-pk-dot .i {
+  width: 16px;
+  height: 16px;
+}
+
+.mg-pk-dot.is-current {
+  border-color: var(--washi-50);
+  box-shadow: 0 0 0 2px var(--red-500);
+}
+
+.mg-pk-dot.is-win {
+  background: rgba(92, 201, 138, 0.18);
+  border-color: rgba(92, 201, 138, 0.6);
+  color: #5cc98a;
+}
+
+.mg-pk-dot.is-fail {
+  background: rgba(239, 107, 98, 0.12);
+  border-color: rgba(239, 107, 98, 0.5);
+  color: #ef6b62;
+}
+
+.mg-pk-score {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 700;
+  color: #f4c542;
+}
+
+.mg-pk-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 230px;
+  border-radius: 20px;
+  background: radial-gradient(circle at 50% 55%, rgba(255, 255, 255, 0.92), rgba(186, 214, 240, 0.9) 45%, rgba(54, 103, 168, 0.95) 80%);
+  overflow: hidden;
+}
+
+.mg-pk-stage::before {
+  content: "";
+  position: absolute;
+  inset: -50%;
+  background: repeating-conic-gradient(rgba(255, 255, 255, 0.14) 0 10deg, transparent 10deg 20deg);
+  animation: mg-rays 30s linear infinite;
+}
+
+@keyframes mg-rays {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.mg-pk-img {
+  position: relative;
+  width: 190px;
+  height: 190px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 6px 4px rgba(0, 0, 0, 0.25));
+  transition: filter 0.6s ease, transform 0.6s var(--ease-smooth, ease);
+}
+
+.mg-pk-stage.is-open .mg-pk-img {
+  filter: brightness(0) drop-shadow(0 6px 4px rgba(0, 0, 0, 0.25));
+}
+
+.mg-pk-stage.is-win .mg-pk-img {
+  transform: scale(1.08);
+}
+
+.mg-pk-reward {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-weight: 800;
+  color: #3a2b00;
+  background: #f4c542;
+  animation: mg-pop 0.4s ease;
+}
+
+.mg-pk-answer {
+  margin: 2px 0 0;
+  font-size: 18px;
+  color: var(--washi-100);
+}
+
+.mg-pk-answer b {
+  font-family: "Shippori Mincho", "Zen Kaku Gothic New", serif;
+  font-size: 22px;
+  color: var(--washi-50);
+}
+
+.mg-pk-tries {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mg-pk-tries i {
+  width: 22px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--red-500);
+}
+
+.mg-pk-tries i.is-used {
+  background: var(--ink-700);
+}
+
+.mg-pk-tries span {
+  margin-left: 6px;
+  font-size: 12px;
+  color: var(--ink-300);
+}
+
+.mg-pk-hints {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+
+.mg-pk-hints span {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--washi-100);
+  background: rgba(var(--red-500-rgb), 0.12);
+  border: 1px solid rgba(var(--red-500-rgb), 0.35);
+}
+
+.mg-pk-guesses {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 12px;
+  color: var(--ink-300);
+}
+
+.mg-pk-form {
+  display: flex;
+  gap: 8px;
+  width: min(100%, 460px);
+}
+
+.mg .mg-pk-form input.mg-pk-input {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+
+.mg-pk-next {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--ink-300);
+}
+
+/* ------------------------------------------------------------ Voltorb Flip */
+.mg-vf-head {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.mg-vf .mg-banner {
+  margin-bottom: 10px;
+  padding: 7px 12px;
+}
+
+.mg-stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--ink-800);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.mg-stat small {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-300);
+}
+
+.mg-stat b {
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+  color: var(--washi-50);
+}
+
+.mg-vf-board {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+  /* Que quepa entero con la cabecera y los botones: el ancho sale del alto. */
+  width: min(100%, 430px, calc(100vh - 470px));
+  margin: 0 auto;
+  padding: 12px;
+  border-radius: 18px;
+  background: linear-gradient(160deg, #2f8a5a, #1d5e3c);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.08);
+}
+
+.mg-vf-tile {
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  padding: 0;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.25), transparent 55%), #3bb273;
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.25);
+  color: #1f3b2c;
+  font: inherit;
+  font-size: 22px;
+  font-weight: 900;
+  cursor: pointer;
+  transition: transform 0.12s, background 0.2s;
+}
+
+.mg-vf-tile:not(:disabled):hover {
+  transform: translateY(-2px);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.35), transparent 55%), #49c584;
+}
+
+.mg-vf-tile:disabled {
+  cursor: default;
+}
+
+.mg-vf-tile.is-open {
+  background: #f2ead8;
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.12);
+  animation: mg-flip 0.3s ease;
+}
+
+.mg-vf-tile.is-good {
+  color: #b5531b;
+}
+
+.mg-vf-tile.is-voltorb {
+  background: #f6d9d4;
+}
+
+.mg-vf-board.is-over .mg-vf-tile.is-open:not(.is-good):not(.is-voltorb) {
+  opacity: 0.6;
+}
+
+@keyframes mg-flip {
+  from {
+    transform: rotateY(90deg);
+  }
+}
+
+.mg-voltorb {
+  width: 70%;
+  height: 70%;
+}
+
+.mg-vf-clue {
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  border-radius: 10px;
+  color: #fff;
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.2);
+}
+
+.mg-vf-clue b {
+  font-size: 16px;
+  font-weight: 900;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.mg-vf-clue em {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-style: normal;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.mg-vf-clue .mg-voltorb {
+  width: 14px;
+  height: 14px;
+}
+
+.mg-vf-clue.is-row-0,
+.mg-vf-clue.is-col-0 {
+  background: #e0634f;
+}
+
+.mg-vf-clue.is-row-1,
+.mg-vf-clue.is-col-1 {
+  background: #44a05a;
+}
+
+.mg-vf-clue.is-row-2,
+.mg-vf-clue.is-col-2 {
+  background: #e39a32;
+}
+
+.mg-vf-clue.is-row-3,
+.mg-vf-clue.is-col-3 {
+  background: #3b86d6;
+}
+
+.mg-vf-clue.is-row-4,
+.mg-vf-clue.is-col-4 {
+  background: #a35bc8;
+}
+
+.mg-vf-intro {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px;
+  border-radius: 16px;
+  border: 1px solid var(--ink-800);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.mg-vf-intro .mg-voltorb {
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+}
+
+.mg-vf-intro p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink-200);
+}
+
+/* ------------------------------------------------------------ Blackjack */
+.mg-bj-table {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 20px;
+  border-radius: 20px;
+  background: radial-gradient(ellipse at 50% 30%, rgba(255, 255, 255, 0.08), transparent 60%), linear-gradient(170deg, #1f6b46, #0f4229);
+  box-shadow: inset 0 0 0 6px rgba(0, 0, 0, 0.18), inset 0 0 0 7px rgba(244, 197, 66, 0.25);
+}
+
+.mg-bj-table.is-empty {
+  align-items: center;
+  text-align: center;
+}
+
+.mg-bj-table.is-empty p {
+  margin: 0;
+  max-width: 360px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.mg-bj-hand {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mg-bj-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.mg-bj-label b {
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  color: #13311f;
+  background: #f4f1ea;
+}
+
+.mg-bj-cards {
+  display: flex;
+  gap: 10px;
+  min-height: 92px;
+}
+
+.mg-card {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 92px;
+  border-radius: 10px;
+  background: #fbf8f1;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+  animation: mg-deal 0.35s ease backwards;
+  animation-delay: calc(var(--i, 0) * 0.08s);
+}
+
+@keyframes mg-deal {
+  from {
+    opacity: 0;
+    transform: translateY(-18px) rotate(-6deg);
+  }
+}
+
+.mg-card.is-red {
+  color: #c8242c;
+}
+
+.mg-card.is-black {
+  color: #1d1b1c;
+}
+
+.mg-card > b {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.mg-card > b.mg-card-br {
+  top: auto;
+  left: auto;
+  right: 8px;
+  bottom: 6px;
+  transform: rotate(180deg);
+}
+
+.mg-card svg {
+  width: 34px;
+  height: 34px;
+  fill: currentColor;
+}
+
+.mg-card.is-back {
+  background: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.08) 0 6px, transparent 6px 12px), var(--red-500);
+  color: #fff;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35), inset 0 0 0 4px #fbf8f1;
+}
+
+.mg-card.is-back .i {
+  width: 34px;
+  height: 34px;
+  fill: none;
+}
+
+@media (max-width: 640px) {
+  .mg-card {
+    width: 56px;
+    height: 82px;
+  }
+}

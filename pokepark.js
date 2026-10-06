@@ -2021,6 +2021,7 @@
           </span>
         </div>
         <div class="pp-empty"></div>
+        <button type="button" class="pp-games-btn" data-pp="games" title="Minijuegos: Pokédle, Voltorb Flip y Blackjack">${GAMES_SVG}<span>Minijuegos</span></button>
         <button type="button" class="pp-tool-btn is-berry" data-pp="berries" title="Dar una baya" aria-label="Dar una baya">${itemImg("oran-berry")}</button>
         <button type="button" class="pp-tool-btn is-comb" data-pp="comb" title="Cepillar" aria-label="Cepillar"><img src="${combSrc()}" alt="" draggable="false"></button>
         <button type="button" class="pp-tool-btn pp-ball-btn" data-pp="ball" title="Sacar una Poké Ball" aria-label="Sacar una Poké Ball">${POKEBALL_IMG}</button>
@@ -2761,6 +2762,7 @@
       }
     }
     else if (act === "shop") openShop();
+    else if (act === "games") openGames();
     else if (act === "gate") toggleClosed();
     else if (act === "mega" && mon && !mon.wild && !mon.visitor) megaEvolve(mon);
     else if (act === "bond" && mon && !mon.wild && !mon.visitor) megaEvolve(mon, true);
@@ -3718,6 +3720,418 @@
     });
   }
 
+  // ------------------------------------------------------------ Minijuegos
+  // Pokédle, Voltorb Flip y Blackjack. Se juegan en el proceso principal
+  // (minigames.js): aquí solo se pinta lo que llega y se cobra/paga en el
+  // monedero del parque. La apuesta se cobra y se guarda en el acto, antes de
+  // ver nada; el premio lo calcula main con la apuesta que guardó.
+  const mg = (action, ...args) =>
+    window.electronAPI.minigames(action, ...args).catch(() => ({ ok: false, error: "Algo ha fallado. Prueba otra vez." }));
+  const gameBets = { voltorb: 500, bj: 500 };
+
+  function spend(n) {
+    if (unlimited()) return true;
+    if (!(n > 0) || state.money < n) return false;
+    state.money -= n;
+    window.electronAPI.pokeparkSave(state); // ya, sin esperar al guardado normal
+    render();
+    return true;
+  }
+
+  function earn(n) {
+    if (!(n > 0)) return;
+    if (!unlimited()) state.money += n;
+    window.electronAPI.pokeparkSave(state);
+    render();
+  }
+
+  const SUIT_SVG = {
+    s: '<path d="M12 2C9 6 4 9 4 13.5A4 4 0 0 0 11 16l-1.5 5h5L13 16a4 4 0 0 0 7-2.5C20 9 15 6 12 2Z"/>',
+    h: '<path d="M12 21s-8-5.2-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.8-8 11-8 11Z"/>',
+    d: '<path d="M12 2 20 12 12 22 4 12Z"/>',
+    c: '<path d="M12 2.5a4 4 0 0 1 3.6 5.7A4 4 0 1 1 13 15l1.5 6h-5L11 15a4 4 0 1 1-2.6-6.8A4 4 0 0 1 12 2.5Z"/>',
+  };
+  const RANKS = ["", "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+  const cardHtml = (c, i = 0) =>
+    c
+      ? `<span class="mg-card is-${c.s === "h" || c.s === "d" ? "red" : "black"}" style="--i:${i}">
+          <b>${RANKS[c.r]}</b><svg viewBox="0 0 24 24" aria-hidden="true">${SUIT_SVG[c.s]}</svg><b class="mg-card-br">${RANKS[c.r]}</b>
+        </span>`
+      : `<span class="mg-card is-back" style="--i:${i}">${POKEBALL_SVG}</span>`;
+  const VOLTORB_SVG =
+    '<svg class="mg-voltorb" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#f4f1ea"/><path d="M2 12a10 10 0 0 1 20 0Z" fill="#d6322b"/><path d="M2 12h20" stroke="#2a1d1a" stroke-width="1.2"/><path d="M6.5 8.8l3.6 1.4M17.5 8.8l-3.6 1.4" stroke="#2a1d1a" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="12" r="10" fill="none" stroke="#2a1d1a" stroke-width="1.2"/></svg>';
+
+  function betPanel(game, label) {
+    const v = gameBets[game];
+    const max = unlimited() ? Infinity : state.money;
+    const chips = [100, 500, 1000, 5000].filter((n) => n <= max || unlimited());
+    return `
+      <div class="mg-bet" data-game="${game}">
+        <span class="mg-bet-label">Apuesta</span>
+        <div class="mg-bet-row">
+          <label class="mg-bet-input">${COIN_SVG}<input type="number" class="mg-bet-val" min="100" step="100" value="${v}" aria-label="Apuesta"></label>
+          ${chips.map((n) => `<button type="button" class="mg-chip" data-bet="${n}">${fmtMoney(n)}</button>`).join("")}
+          ${Number.isFinite(max) && max >= 100 ? `<button type="button" class="mg-chip" data-bet="${Math.floor(max)}">Todo</button>` : ""}
+        </div>
+        <button type="button" class="sl-btn sl-btn-primary mg-go" data-mg="${game}-start">${label}</button>
+      </div>`;
+  }
+
+  async function openGames(start = "pokedle") {
+    let tab = start;
+    let popupEl = null;
+    let busy = false;
+    let pk = null; // Pokédle de hoy
+    let pkIdx = 0;
+    const pkImgs = new Map();
+    let pkMsg = "";
+    let vt = null; // Voltorb Flip
+    let bjv = null; // Blackjack
+    const names = [...new Set(dex.species.filter((s) => s.id <= 1025).map((s) => s.n))].sort((a, b) => a.localeCompare(b, "es"));
+
+    const banner = (cls, text) => `<p class="mg-banner is-${cls}">${text}</p>`;
+
+    // ---------------- Pokédle
+    function pokedleHtml() {
+      if (!pk) return `<p class="mg-loading">Cargando…</p>`;
+      if (pk.error) return `<p class="mg-empty">${esc(pk.error)}</p>`;
+      const slot = pk.slots[pkIdx];
+      const allDone = pk.slots.every((s) => s.state !== "open");
+      const won = pk.slots.filter((s) => s.state === "win").length;
+      const img = pkImgs.get(pkIdx);
+      const left = Math.max(0, pk.nextIn - (Date.now() - pk.at));
+      return `
+        <div class="mg-pk">
+          <div class="mg-pk-dots">${pk.slots
+            .map(
+              (s, i) => `<button type="button" class="mg-pk-dot is-${s.state}${i === pkIdx ? " is-current" : ""}" data-pk="${i}" title="Silueta ${i + 1}">
+                ${s.state === "win" ? icon("check") : s.state === "fail" ? icon("x") : i + 1}</button>`
+            )
+            .join("")}
+            <span class="mg-pk-score">${won}/${pk.slots.length} · ${fmtMoney(won * pk.reward)}</span>
+          </div>
+          <div class="mg-pk-stage is-${slot.state}">
+            ${img ? `<img class="mg-pk-img" src="${img}" alt="" draggable="false">` : `<span class="mg-loading">Cargando…</span>`}
+            ${slot.state === "win" ? `<span class="mg-pk-reward">+${fmtMoney(pk.reward)}</span>` : ""}
+          </div>
+          ${
+            slot.answer
+              ? `<p class="mg-pk-answer">${slot.state === "win" ? "¡Es" : "Era"} <b>${esc(slot.answer.name)}</b>${slot.state === "win" ? "!" : "."}</p>`
+              : `<div class="mg-pk-tries" title="Intentos">${Array.from({ length: pk.tries }, (_, i) => `<i class="${i < slot.tries ? "is-used" : ""}"></i>`).join("")}<span>${slot.left} ${slot.left === 1 ? "intento" : "intentos"}</span></div>`
+          }
+          ${slot.hints.length ? `<div class="mg-pk-hints">${slot.hints.map((h) => `<span>${esc(h.v)}</span>`).join("")}</div>` : ""}
+          ${slot.guesses.length && slot.state === "open" ? `<p class="mg-pk-guesses">${slot.guesses.map((g) => `<s>${esc(g)}</s>`).join("")}</p>` : ""}
+          ${
+            slot.state === "open"
+              ? `<form class="mg-pk-form" autocomplete="off">
+                   <input type="text" class="mg-pk-input" list="mgNames" placeholder="¿Quién es ese Pokémon?" spellcheck="false" maxlength="30">
+                   <button type="submit" class="sl-btn sl-btn-primary" ${busy ? "disabled" : ""}>Adivinar</button>
+                 </form>`
+              : allDone
+                ? `<p class="mg-pk-next">Vuelve mañana: nuevas siluetas en ${fmtDuration(left)}.</p>`
+                : `<button type="button" class="sl-btn sl-btn-primary mg-pk-go" data-pk-next>Siguiente silueta</button>`
+          }
+          ${pkMsg ? `<p class="mg-msg">${esc(pkMsg)}</p>` : ""}
+          <datalist id="mgNames">${names.map((n) => `<option value="${esc(n)}">`).join("")}</datalist>
+        </div>`;
+    }
+
+    async function loadPokedle() {
+      const res = await mg("pokedleToday", state.pokedle || null);
+      if (!res.ok) {
+        pk = { error: res.error };
+        return paint();
+      }
+      pk = { ...res, at: Date.now() };
+      state.pokedle = res.progress;
+      save();
+      const firstOpen = pk.slots.findIndex((s) => s.state === "open");
+      pkIdx = firstOpen >= 0 ? firstOpen : 0;
+      paint();
+      loadSilhouette(pkIdx);
+    }
+
+    async function loadSilhouette(i) {
+      if (pkImgs.has(i)) return;
+      const res = await mg("pokedleSilhouette", i);
+      if (res.ok && res.img) {
+        pkImgs.set(i, res.img);
+        if (tab === "pokedle" && pkIdx === i) paint();
+      }
+    }
+
+    async function guess(text) {
+      if (busy || !text.trim()) return;
+      busy = true;
+      pkMsg = "";
+      const res = await mg("pokedleGuess", pkIdx, text, state.pokedle || null);
+      busy = false;
+      if (!res.ok) {
+        pkMsg = res.error;
+        return paint(true);
+      }
+      pk.slots[pkIdx] = res.slot;
+      state.pokedle = res.progress;
+      if (res.reward) {
+        earn(res.reward);
+        window.Achievements?.track("pokedle");
+      } else save();
+      paint(res.slot.state === "open");
+    }
+
+    // ---------------- Voltorb Flip
+    function voltorbHtml() {
+      if (!vt) return `<p class="mg-loading">Cargando…</p>`;
+      const head = `
+        <div class="mg-vf-head">
+          <span class="mg-stat"><small>Nivel</small><b>${vt.level}</b></span>
+          <span class="mg-stat"><small>Premio</small><b>×${String(vt.mult).replace(".", ",")}</b></span>
+          ${vt.bet ? `<span class="mg-stat"><small>Apuesta</small><b>${fmtMoney(vt.bet)}</b></span>` : ""}
+          ${vt.bet ? `<span class="mg-stat"><small>Monedas</small><b>${vt.coins} / ${vt.maxCoins}</b></span>` : ""}
+        </div>`;
+      const board = vt.revealed
+        ? `<div class="mg-vf-board${vt.active ? "" : " is-over"}">
+            ${[0, 1, 2, 3, 4]
+              .map(
+                (r) => `${[0, 1, 2, 3, 4]
+                  .map((c) => {
+                    const i = r * 5 + c;
+                    const v = vt.revealed[i];
+                    return v === null
+                      ? `<button type="button" class="mg-vf-tile" data-vf="${i}" ${vt.active && !busy ? "" : "disabled"} aria-label="Voltear"></button>`
+                      : `<span class="mg-vf-tile is-open${v === 0 ? " is-voltorb" : v > 1 ? " is-good" : ""}">${v === 0 ? VOLTORB_SVG : v}</span>`;
+                  })
+                  .join("")}<span class="mg-vf-clue is-row-${r}"><b>${String(vt.clues.rows[r].sum).padStart(2, "0")}</b><em>${VOLTORB_SVG}${vt.clues.rows[r].vol}</em></span>`
+              )
+              .join("")}
+            ${[0, 1, 2, 3, 4]
+              .map((c) => `<span class="mg-vf-clue is-col-${c}"><b>${String(vt.clues.cols[c].sum).padStart(2, "0")}</b><em>${VOLTORB_SVG}${vt.clues.cols[c].vol}</em></span>`)
+              .join("")}
+          </div>`
+        : `<div class="mg-vf-intro">${VOLTORB_SVG}<p>Voltea las casillas buscando los ×2 y ×3 sin tocar un Voltorb. Los números de cada fila y columna suman sus valores y dicen cuántos Voltorb hay. Si limpias el tablero, ganas la apuesta ×${String(vt.mult).replace(".", ",")} y subes de nivel.</p></div>`;
+      const result = vt.result
+        ? vt.result === "won"
+          ? banner("win", `¡Tablero limpio! +${fmtMoney(vt.payout)}`)
+          : vt.result === "retired"
+            ? banner("push", vt.payout ? `Te retiras con ${fmtMoney(vt.payout)}.` : "Te retiras sin premio.")
+            : banner("lose", `¡Voltorb! Pierdes ${fmtMoney(vt.bet)}.`)
+        : "";
+      const actions = vt.active
+        ? `<div class="mg-actions">
+            <span class="mg-hint">Limpia el tablero: ${fmtMoney(vt.prize)}</span>
+            <button type="button" class="sl-btn sl-btn-ghost" data-mg="voltorb-retire" ${busy ? "disabled" : ""}>Retirarse${vt.retireNow ? ` · ${fmtMoney(vt.retireNow)}` : ""}</button>
+          </div>`
+        : betPanel("voltorb", vt.result ? "Otra partida" : "Jugar");
+      return `<div class="mg-vf">${head}${result}${board}${actions}</div>`;
+    }
+
+    async function voltorbStart() {
+      const bet = Math.floor(Number(gameBets.voltorb));
+      if (!(bet >= 100)) return showNotification("La apuesta mínima es de 100 ₽.", "error");
+      if (!spend(bet)) return showNotification("No tienes Pokédólares suficientes.", "error");
+      busy = true;
+      const res = await mg("voltorbStart", bet);
+      busy = false;
+      if (!res.ok) {
+        earn(bet); // no ha empezado: se devuelve
+        return showNotification(res.error, "error");
+      }
+      vt = res;
+      paint();
+    }
+
+    async function voltorbAct(action, arg) {
+      if (busy) return;
+      busy = true;
+      const res = await mg(action, arg);
+      busy = false;
+      if (!res.ok) return showNotification(res.error, "error"), paint();
+      vt = res;
+      if (res.payout) earn(res.payout);
+      if (res.result === "won") window.Achievements?.track("voltorbWins");
+      paint();
+    }
+
+    // ---------------- Blackjack
+    function bjHtml() {
+      if (!bjv) return `<p class="mg-loading">Cargando…</p>`;
+      const has = !!bjv.player;
+      const result = bjv.result
+        ? {
+            blackjack: banner("win", `¡Blackjack! +${fmtMoney(bjv.payout)}`),
+            win: banner("win", `¡Ganas! +${fmtMoney(bjv.payout)}`),
+            push: banner("push", "Empate: recuperas la apuesta."),
+            lose: banner("lose", `Pierdes ${fmtMoney(bjv.bet * (bjv.doubled ? 2 : 1))}.`),
+          }[bjv.result]
+        : "";
+      const table = has
+        ? `<div class="mg-bj-table">
+            <div class="mg-bj-hand"><span class="mg-bj-label">Crupier <b>${bjv.dealerTotal}${bjv.active ? "+" : ""}</b></span><div class="mg-bj-cards">${bjv.dealer.map(cardHtml).join("")}</div></div>
+            <div class="mg-bj-hand"><span class="mg-bj-label">Tú <b>${bjv.playerTotal}</b>${bjv.doubled ? " · doblado" : ""}</span><div class="mg-bj-cards">${bjv.player.map(cardHtml).join("")}</div></div>
+          </div>`
+        : `<div class="mg-bj-table is-empty"><div class="mg-bj-cards">${cardHtml(null, 0)}${cardHtml(null, 1)}</div><p>Acércate a 21 sin pasarte. El crupier se planta en 17. Blackjack paga 3:2.</p></div>`;
+      const actions = bjv.active
+        ? `<div class="mg-actions">
+            <span class="mg-hint">Apuesta ${fmtMoney(bjv.bet * (bjv.doubled ? 2 : 1))}</span>
+            <button type="button" class="sl-btn sl-btn-ghost" data-mg="bj-double" ${bjv.canDouble && !busy && (unlimited() || state.money >= bjv.bet) ? "" : "disabled"}>Doblar</button>
+            <button type="button" class="sl-btn sl-btn-ghost" data-mg="bj-hit" ${busy ? "disabled" : ""}>Pedir</button>
+            <button type="button" class="sl-btn sl-btn-primary" data-mg="bj-stand" ${busy ? "disabled" : ""}>Plantarse</button>
+          </div>`
+        : betPanel("bj", has ? "Otra mano" : "Repartir");
+      return `<div class="mg-bj">${result}${table}${actions}</div>`;
+    }
+
+    async function bjDeal() {
+      const bet = Math.floor(Number(gameBets.bj));
+      if (!(bet >= 100)) return showNotification("La apuesta mínima es de 100 ₽.", "error");
+      if (!spend(bet)) return showNotification("No tienes Pokédólares suficientes.", "error");
+      busy = true;
+      const res = await mg("bjDeal", bet);
+      busy = false;
+      if (!res.ok) {
+        earn(bet);
+        return showNotification(res.error, "error");
+      }
+      bjv = res;
+      if (res.payout) earn(res.payout);
+      paint();
+    }
+
+    async function bjAct(action) {
+      if (busy || !bjv?.active) return;
+      if (action === "bjDouble" && !spend(bjv.bet)) return showNotification("No tienes Pokédólares suficientes para doblar.", "error");
+      busy = true;
+      paint();
+      const res = await mg(action);
+      busy = false;
+      if (!res.ok) {
+        if (action === "bjDouble") earn(bjv.bet);
+        showNotification(res.error, "error");
+        return paint();
+      }
+      bjv = res;
+      if (res.payout) earn(res.payout);
+      if (res.result === "win" || res.result === "blackjack") window.Achievements?.track("bjWins");
+      paint();
+    }
+
+    // ---------------- Ventana
+    function paint(keepFocus) {
+      const p = popupEl;
+      if (!p) return;
+      p.querySelectorAll(".mg-tab").forEach((b) => b.classList.toggle("is-active", b.dataset.tab === tab));
+      p.querySelector(".mg-money b").textContent = unlimited() ? "∞" : fmtMoney(state.money);
+      const body = p.querySelector(".mg-body");
+      const typed = p.querySelector(".mg-pk-input")?.value || "";
+      body.innerHTML = tab === "pokedle" ? pokedleHtml() : tab === "voltorb" ? voltorbHtml() : bjHtml();
+      const input = p.querySelector(".mg-pk-input");
+      if (input && keepFocus) {
+        input.value = typed;
+        input.focus();
+        input.select();
+      }
+    }
+
+    await openModal({
+      eyebrow: "PokéPark",
+      title: "Minijuegos",
+      width: 780,
+      html: `
+        <div class="mg">
+          <div class="mg-head">
+            <div class="pp-bag-tabs">
+              <button type="button" class="pp-bag-tab mg-tab" data-tab="pokedle">Pokédle</button>
+              <button type="button" class="pp-bag-tab mg-tab" data-tab="voltorb">Voltorb Flip</button>
+              <button type="button" class="pp-bag-tab mg-tab" data-tab="bj">Blackjack</button>
+            </div>
+            <span class="pp-shop-money mg-money" title="Tus Pokédólares">${COIN_SVG}<b></b></span>
+          </div>
+          <div class="mg-body"></div>
+        </div>`,
+      showConfirmButton: false,
+      showCloseButton: true,
+      customClass: { popup: "pp-bag-popup mg-popup" },
+      didOpen: async (popup) => {
+        popupEl = popup;
+        paint();
+        popup.addEventListener("click", (e) => {
+          const t = e.target.closest(".mg-tab");
+          if (t) {
+            tab = t.dataset.tab;
+            return paint();
+          }
+          const chip = e.target.closest("[data-bet]");
+          if (chip) {
+            const game = chip.closest("[data-game]").dataset.game;
+            gameBets[game] = Number(chip.dataset.bet);
+            return paint();
+          }
+          const dot = e.target.closest("[data-pk]");
+          if (dot && pk?.slots) {
+            pkIdx = Number(dot.dataset.pk);
+            pkMsg = "";
+            paint();
+            return loadSilhouette(pkIdx);
+          }
+          if (e.target.closest("[data-pk-next]") && pk?.slots) {
+            const next = pk.slots.findIndex((s, i) => i > pkIdx && s.state === "open");
+            pkIdx = next >= 0 ? next : pk.slots.findIndex((s) => s.state === "open");
+            pkMsg = "";
+            paint();
+            return loadSilhouette(pkIdx);
+          }
+          const tile = e.target.closest("[data-vf]");
+          if (tile) return voltorbAct("voltorbFlip", Number(tile.dataset.vf));
+          const a = e.target.closest("[data-mg]")?.dataset.mg;
+          if (a === "voltorb-start") voltorbStart();
+          else if (a === "voltorb-retire") voltorbAct("voltorbRetire");
+          else if (a === "bj-start") bjDeal();
+          else if (a === "bj-hit") bjAct("bjHit");
+          else if (a === "bj-stand") bjAct("bjStand");
+          else if (a === "bj-double") bjAct("bjDouble");
+        });
+        popup.addEventListener("input", (e) => {
+          if (!e.target.matches(".mg-bet-val")) return;
+          const game = e.target.closest("[data-game]").dataset.game;
+          gameBets[game] = Math.max(0, Math.floor(Number(e.target.value) || 0));
+        });
+        popup.addEventListener("submit", (e) => {
+          if (!e.target.matches(".mg-pk-form")) return;
+          e.preventDefault();
+          guess(popup.querySelector(".mg-pk-input").value);
+        });
+        // Una partida a medias (p. ej. tras recargar) se retoma.
+        const [v, b] = await Promise.all([mg("voltorbState"), mg("bjState")]);
+        vt = v.ok ? v : { level: 1, mult: 1.1 };
+        bjv = b.ok ? b : {};
+        paint();
+        loadPokedle();
+      },
+      willClose: () => {
+        popupEl = null;
+      },
+    });
+
+    // Cerrar con una partida a medias la resuelve: en Voltorb te retiras y en
+    // Blackjack te plantas (así no se puede escapar de una mala mano).
+    if (vt?.active) {
+      const r = await mg("voltorbRetire");
+      if (r.ok && r.payout) {
+        earn(r.payout);
+        showNotification(`Te has retirado de Voltorb Flip con ${fmtMoney(r.payout)}.`);
+      }
+    }
+    if (bjv?.active) {
+      const r = await mg("bjStand");
+      if (r.ok) {
+        if (r.payout) earn(r.payout);
+        showNotification(
+          r.result === "win" ? `Blackjack: te has plantado y ganas ${fmtMoney(r.payout)}.` : r.result === "push" ? "Blackjack: empate, recuperas la apuesta." : "Blackjack: te has plantado y pierdes la mano."
+        );
+      }
+    }
+  }
+
   // ------------------------------------------------------------ SVG
   const FS_SVG =
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>';
@@ -3744,6 +4158,8 @@
     '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>';
   const PALETTE_SVG =
     '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.9 0 1.7-.7 1.7-1.7 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1a1.6 1.6 0 0 1 1.6-1.7h2c3.1 0 5.6-2.5 5.6-5.6C22 6 17.5 2 12 2Z"/></svg>';
+  const GAMES_SVG =
+    '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.2" fill="currentColor"/><circle cx="16" cy="8" r="1.2" fill="currentColor"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/><circle cx="8" cy="16" r="1.2" fill="currentColor"/><circle cx="16" cy="16" r="1.2" fill="currentColor"/></svg>';
   const COIN_SVG =
     '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15 9.5a3 3 0 0 0-3-1.5c-1.7 0-3 .9-3 2s1.3 1.7 3 2 3 .9 3 2-1.3 2-3 2a3 3 0 0 1-3-1.5"/><path d="M12 6v2M12 16v2"/></svg>';
   const BOX_SVG =
@@ -3856,6 +4272,7 @@
     // Depuración / pruebas.
     _state: () => state,
     _openTrades: () => openTrades(),
+    _openGames: (tab) => openGames(tab),
     _tick: () => tick(),
     _syncTrades: () => syncTrades(),
     _trades: () => trades,
