@@ -33,8 +33,11 @@
   const BOX_SIZE = BOX_COLS * 5;
   // Colección Eevee: Eevee en el centro y sus 8 evoluciones alrededor.
   const EEVEE_LINE = [133, 134, 135, 136, 196, 197, 470, 471, 700];
-  // Fondos de las cajas (clases .pp-wall-N de pokepark.css).
-  const WALLS = ["Bosque", "Ciudad", "Desierto", "Sabana", "Cueva", "Volcán", "Nieve", "Playa", "Mar", "Cielo"];
+  // Fondos de las cajas: los de Pokémon Esmeralda (assets/pokepark/walls/NN.png,
+  // clases .pp-wall-N de pokepark.css), en el orden del juego.
+  const WALLS = ["Bosque", "Ciudad", "Desierto", "Sabana", "Peñasco", "Volcán", "Nieve", "Cueva", "Playa", "Fondo marino", "Río", "Cielo", "Lunares", "Centro Pokémon", "Máquina", "Sencillo"];
+  // Los 10 fondos dibujados de antes de la 3.4.1, a su equivalente de Esmeralda.
+  const OLD_WALLS = [0, 1, 2, 3, 7, 5, 6, 8, 9, 11];
   const START_LEVEL = 5;
   const START_FRIENDSHIP = 70;
   const FRIENDSHIP_MAX = 255;
@@ -199,6 +202,7 @@
       boxes: Array.from({ length: BOX_COUNT }, () => Array(BOX_SIZE).fill(null)),
       boxNames: Array(BOX_COUNT).fill(""),
       boxWalls: Array.from({ length: BOX_COUNT }, (_, i) => i),
+      wallsV: 2,
       eevee: {},
       lastBox: 0,
       bag: { "oran-berry": 3, "pecha-berry": 2, "razz-berry": 1, "poke-ball": START_BALLS },
@@ -251,10 +255,13 @@
     }
     st.eevee = eevee;
     st.boxNames = Array.from({ length: BOX_COUNT }, (_, b) => String((st.boxNames || [])[b] || "").slice(0, 20));
+    const oldWalls = !(st.wallsV >= 2) && Array.isArray(st.boxWalls);
     st.boxWalls = Array.from({ length: BOX_COUNT }, (_, b) => {
       const w = Number((st.boxWalls || [])[b]);
-      return Number.isInteger(w) && w >= 0 ? w % WALLS.length : b % WALLS.length;
+      if (!Number.isInteger(w) || w < 0) return b % WALLS.length;
+      return oldWalls ? (w === b ? b : OLD_WALLS[w % OLD_WALLS.length]) : w % WALLS.length;
     });
+    st.wallsV = 2;
     st.lastBox = Number.isInteger(st.lastBox) && st.lastBox >= 0 && st.lastBox < BOX_COUNT ? st.lastBox : 0;
     const seen = new Set((st.party || []).map((m) => m.uid));
     for (const b of st.boxes) for (const m of b) if (m) seen.add(m.uid);
@@ -3752,12 +3759,12 @@
     c: '<path d="M12 2.5a4 4 0 0 1 3.6 5.7A4 4 0 1 1 13 15l1.5 6h-5L11 15a4 4 0 1 1-2.6-6.8A4 4 0 0 1 12 2.5Z"/>',
   };
   const RANKS = ["", "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
-  const cardHtml = (c, i = 0) =>
+  const cardHtml = (c, i = 0, fresh = true) =>
     c
-      ? `<span class="mg-card is-${c.s === "h" || c.s === "d" ? "red" : "black"}" style="--i:${i}">
+      ? `<span class="mg-card${fresh ? " is-new" : ""} is-${c.s === "h" || c.s === "d" ? "red" : "black"}" style="--i:${i}">
           <b>${RANKS[c.r]}</b><svg viewBox="0 0 24 24" aria-hidden="true">${SUIT_SVG[c.s]}</svg><b class="mg-card-br">${RANKS[c.r]}</b>
         </span>`
-      : `<span class="mg-card is-back" style="--i:${i}">${POKEBALL_SVG}</span>`;
+      : `<span class="mg-card${fresh ? " is-new" : ""} is-back" style="--i:${i}">${POKEBALL_SVG}</span>`;
   const VOLTORB_SVG =
     '<svg class="mg-voltorb" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#f4f1ea"/><path d="M2 12a10 10 0 0 1 20 0Z" fill="#d6322b"/><path d="M2 12h20" stroke="#2a1d1a" stroke-width="1.2"/><path d="M6.5 8.8l3.6 1.4M17.5 8.8l-3.6 1.4" stroke="#2a1d1a" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="12" r="10" fill="none" stroke="#2a1d1a" stroke-width="1.2"/></svg>';
 
@@ -3786,6 +3793,8 @@
     const pkImgs = new Map();
     let pkMsg = "";
     let vt = null; // Voltorb Flip
+    let vtSeen = new Set(); // casillas ya pintadas destapadas (solo se anima la nueva)
+    let bjSeen = { player: [], dealer: [] }; // cartas ya pintadas (solo se reparte la nueva)
     let bjv = null; // Blackjack
     const names = [...new Set(dex.species.filter((s) => s.id <= 1025).map((s) => s.n))].sort((a, b) => a.localeCompare(b, "es"));
 
@@ -3906,9 +3915,10 @@
                   .map((c) => {
                     const i = r * 5 + c;
                     const v = vt.revealed[i];
-                    return v === null
-                      ? `<button type="button" class="mg-vf-tile" data-vf="${i}" ${vt.active && !busy ? "" : "disabled"} aria-label="Voltear"></button>`
-                      : `<span class="mg-vf-tile is-open${v === 0 ? " is-voltorb" : v > 1 ? " is-good" : ""}">${v === 0 ? VOLTORB_SVG : v}</span>`;
+                    if (v === null) return `<button type="button" class="mg-vf-tile" data-vf="${i}" ${vt.active && !busy ? "" : "disabled"} aria-label="Voltear"></button>`;
+                    const fresh = !vtSeen.has(i);
+                    vtSeen.add(i);
+                    return `<span class="mg-vf-tile is-open${fresh ? " is-new" : ""}${v === 0 ? " is-voltorb" : v > 1 ? " is-good" : ""}">${v === 0 ? VOLTORB_SVG : v}</span>`;
                   })
                   .join("")}<span class="mg-vf-clue is-row-${r}"><b>${String(vt.clues.rows[r].sum).padStart(2, "0")}</b><em>${VOLTORB_SVG}${vt.clues.rows[r].vol}</em></span>`
               )
@@ -3946,6 +3956,7 @@
         return showNotification(res.error, "error");
       }
       vt = res;
+      vtSeen = new Set();
       paint();
     }
 
@@ -3973,10 +3984,24 @@
             lose: banner("lose", `Pierdes ${fmtMoney(bjv.bet * (bjv.doubled ? 2 : 1))}.`),
           }[bjv.result]
         : "";
+      // Solo se anima la carta que no estaba (o la del crupier al destaparse).
+      const hand = (who, cards) => {
+        const prev = bjSeen[who];
+        let k = 0;
+        const html = cards
+          .map((c, i) => {
+            const key = c ? `${c.r}${c.s}` : "back";
+            const fresh = prev[i] !== key;
+            return cardHtml(c, fresh ? k++ : 0, fresh);
+          })
+          .join("");
+        bjSeen[who] = cards.map((c) => (c ? `${c.r}${c.s}` : "back"));
+        return html;
+      };
       const table = has
         ? `<div class="mg-bj-table">
-            <div class="mg-bj-hand"><span class="mg-bj-label">Crupier <b>${bjv.dealerTotal}${bjv.active ? "+" : ""}</b></span><div class="mg-bj-cards">${bjv.dealer.map(cardHtml).join("")}</div></div>
-            <div class="mg-bj-hand"><span class="mg-bj-label">Tú <b>${bjv.playerTotal}</b>${bjv.doubled ? " · doblado" : ""}</span><div class="mg-bj-cards">${bjv.player.map(cardHtml).join("")}</div></div>
+            <div class="mg-bj-hand"><span class="mg-bj-label">Crupier <b>${bjv.dealerTotal}${bjv.active ? "+" : ""}</b></span><div class="mg-bj-cards">${hand("dealer", bjv.dealer)}</div></div>
+            <div class="mg-bj-hand"><span class="mg-bj-label">Tú <b>${bjv.playerTotal}</b>${bjv.doubled ? " · doblado" : ""}</span><div class="mg-bj-cards">${hand("player", bjv.player)}</div></div>
           </div>`
         : `<div class="mg-bj-table is-empty"><div class="mg-bj-cards">${cardHtml(null, 0)}${cardHtml(null, 1)}</div><p>Acércate a 21 sin pasarte. El crupier se planta en 17. Blackjack paga 3:2.</p></div>`;
       const actions = bjv.active
@@ -4002,6 +4027,7 @@
         return showNotification(res.error, "error");
       }
       bjv = res;
+      bjSeen = { player: [], dealer: [] };
       if (res.payout) earn(res.payout);
       paint();
     }

@@ -3559,16 +3559,6 @@ body.in-pokepark .main-content {
 }
 
 /* Fondos de las cajas */
-.pp-wall-0 { background: radial-gradient(circle at 20% 15%, rgba(255, 255, 255, 0.12), transparent 40%), repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0 12px, transparent 12px 24px), linear-gradient(160deg, #3f7a3a, #1d4423 70%, #12301a); }
-.pp-wall-1 { background: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0 2px, transparent 2px 40px), repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.05) 0 2px, transparent 2px 40px), linear-gradient(170deg, #58607a, #2e3346 70%, #1d2030); }
-.pp-wall-2 { background: radial-gradient(ellipse at 80% 10%, rgba(255, 230, 160, 0.35), transparent 45%), repeating-linear-gradient(170deg, rgba(0, 0, 0, 0.06) 0 18px, transparent 18px 36px), linear-gradient(170deg, #d6a95f, #9c6a32 70%, #6b4520); }
-.pp-wall-3 { background: radial-gradient(circle at 75% 20%, rgba(255, 200, 80, 0.45), transparent 30%), linear-gradient(175deg, #e3a35a 0%, #b9783c 45%, #6f5a2c 46%, #4e3f1f 100%); }
-.pp-wall-4 { background: radial-gradient(circle at 30% 70%, rgba(130, 110, 180, 0.25), transparent 40%), repeating-radial-gradient(circle at 70% 30%, rgba(255, 255, 255, 0.03) 0 6px, transparent 6px 20px), linear-gradient(160deg, #4a3f52, #2a2330 70%, #18131c); }
-.pp-wall-5 { background: radial-gradient(circle at 50% 110%, rgba(255, 120, 40, 0.65), transparent 55%), repeating-linear-gradient(120deg, rgba(0, 0, 0, 0.15) 0 10px, transparent 10px 30px), linear-gradient(170deg, #5a1d17, #2d0e0c 75%); }
-.pp-wall-6 { background: radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.5) 0 2px, transparent 3px) 0 0 / 34px 34px, radial-gradient(circle at 60% 70%, rgba(255, 255, 255, 0.4) 0 1.5px, transparent 2.5px) 0 0 / 26px 26px, linear-gradient(170deg, #a9c7dd, #6c8fae 60%, #44607c); }
-.pp-wall-7 { background: radial-gradient(ellipse at 50% 100%, rgba(255, 236, 190, 0.6), transparent 50%), linear-gradient(180deg, #5fc4d8 0%, #3aa0bd 45%, #e8d29a 46%, #c9ad6c 100%); }
-.pp-wall-8 { background: radial-gradient(circle at 30% 20%, rgba(150, 220, 255, 0.25), transparent 40%), repeating-linear-gradient(170deg, rgba(255, 255, 255, 0.04) 0 4px, transparent 4px 22px), linear-gradient(180deg, #1f6c9c, #0f3d66 65%, #08223d); }
-.pp-wall-9 { background: radial-gradient(ellipse at 25% 30%, rgba(255, 255, 255, 0.55), transparent 22%), radial-gradient(ellipse at 70% 60%, rgba(255, 255, 255, 0.4), transparent 20%), linear-gradient(180deg, #7fb6ea, #4c86c8 70%, #3a6aa8); }
 
 /* Ficha del elegido */
 .pp-pc-info {
@@ -4760,6 +4750,10 @@ b > .pp-shiny-ic {
 .mg-vf-tile.is-open {
   background: #f2ead8;
   box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.12);
+}
+
+/* Solo la casilla que se acaba de voltear */
+.mg-vf-tile.is-new {
   animation: mg-flip 0.3s ease;
 }
 
@@ -4927,8 +4921,12 @@ b > .pp-shiny-ic {
   border-radius: 10px;
   background: #fbf8f1;
   box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+}
+
+/* Solo la carta que se acaba de repartir */
+.mg-card.is-new {
   animation: mg-deal 0.35s ease backwards;
-  animation-delay: calc(var(--i, 0) * 0.08s);
+  animation-delay: calc(var(--i, 0) * 0.12s);
 }
 
 @keyframes mg-deal {
@@ -5126,4 +5124,146 @@ b > .pp-shiny-ic {
   top: auto;
   bottom: 14px;
   right: 16px;
+}
+
+/* =====================================================================
+   3.4.1: fondos de las cajas de Pokémon Esmeralda
+   ===================================================================== */
+.pp-wall-0 {
+  background: url("assets/pokepark/walls/00.png") center / 100% 100% no-repeat;
+}
+
+.pp-wall-1 {
+  background: url("assets/pokepark/walls/01.png") center / 100% 100% no-repeat;
+}
+
+.pp-wall-2 {
+  background: url("assets/pokepark/walls/02.png") center / 100% 100% no-repeat;
+}
+
+.pp-wall-3 {
+  background: url("assets/pokepark/walls/03.png") center / 100% 100% no-repeat;
+}
+
+.pp-wall-4 {
+  background: url("assets/pokepark/walls/04.png") center / 100% 100% no-repeat;
+}
+
+.pp-wall-5 {
+  background: url("assets/pokepark/walls/05.png") center / 100% 100% no-repeat;
+}
+
+.pp-wall-6 {
+  background: url("assets/pokepark/walls/06.png") center / 100% 100% no-repeat;
+}
+
+.pp-wall-7 {
+  background: url("assets/pokepark/walls/07.png") center / 100% 100% no-repeat;
+}
+
+.pp-wall-8 {
+  background: url("assets/pokepark/walls/08.png") center / 100% 100% no-repeat;
+}
+
+.pp-wall-9 {
+  background: url("assets/pokepark/walls/09.png") center / 100% 100% no-repeat;
+}
+
+.pp-wall-10 {
+  background: url("assets/pokepark/walls/10.png") center / 100% 100% no-repeat;
+}
+
+.pp-wall-11 {
+  background: url("assets/pokepark/walls/11.png") center / 100% 100% no-repeat;
+}
+
+.pp-wall-12 {
+  background: url("assets/pokepark/walls/12.png") center / 100% 100% no-repeat;
+}
+
+.pp-wall-13 {
+  background: url("assets/pokepark/walls/13.png") center / 100% 100% no-repeat;
+}
+
+.pp-wall-14 {
+  background: url("assets/pokepark/walls/14.png") center / 100% 100% no-repeat;
+}
+
+.pp-wall-15 {
+  background: url("assets/pokepark/walls/15.png") center / 100% 100% no-repeat;
+}
+
+/* La caja es el fondo entero del juego (156×141, con su franja de arriba)
+   escalado sin suavizar, y los 30 huecos van en la zona de abajo. */
+.pp-pc-stage:not(.is-eevee) {
+  aspect-ratio: 156 / 141;
+  width: min(100%, calc((100vh - 360px) * 156 / 141));
+  margin: 0 auto;
+  padding: 15% 5.5% 4.5% 5.5%;
+  border: none;
+  border-radius: 6px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  image-rendering: pixelated;
+}
+
+.pp-pc-stage:not(.is-eevee) .pp-pc-grid {
+  width: 100%;
+  height: 100%;
+  grid-template-rows: repeat(5, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.pp-pc-stage:not(.is-eevee) .pp-pc-cell {
+  aspect-ratio: auto;
+  border-radius: 8px;
+  border-color: transparent;
+  background: transparent;
+  backdrop-filter: none;
+}
+
+.pp-pc-stage:not(.is-eevee) .pp-pc-cell:hover {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.pp-pc-stage:not(.is-eevee) .pp-pc-cell.is-empty {
+  border: none;
+  background: transparent;
+}
+
+.pp-pc-stage:not(.is-eevee) .pp-pc-cell.is-over,
+.pp-pc-popup.is-dragging .pp-pc-stage:not(.is-eevee) .pp-pc-cell.is-empty.is-over {
+  background: rgba(255, 255, 255, 0.28);
+  border: 2px solid #fff;
+}
+
+.pp-pc-popup.is-dragging .pp-pc-stage:not(.is-eevee) .pp-pc-cell.is-empty {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.pp-pc-stage:not(.is-eevee) .pp-pc-cell.is-picked {
+  background: rgba(255, 255, 255, 0.22);
+  border: 2px solid #fff;
+}
+
+.pp-pc-stage:not(.is-eevee) .pp-pc-cell {
+  overflow: visible;
+}
+
+/* Los sprites de 5ª gen traen mucho margen: más grandes para que llenen el hueco */
+.pp-pc-stage:not(.is-eevee) .pp-pc-cell > img:first-child {
+  transform: scale(1.7);
+  filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.3));
+}
+
+/* Como en Esmeralda: sin el nivel encima (está en la ficha y al pasar el ratón) */
+.pp-pc-stage:not(.is-eevee) .pp-slot-lv {
+  display: none;
+}
+
+/* Pestañas: miniatura del fondo (la zona de abajo, sin la franja) */
+.pp-pc-tab[class*="pp-wall-"] {
+  background-size: 160% auto;
+  background-position: center 70%;
+  image-rendering: pixelated;
 }
