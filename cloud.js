@@ -182,7 +182,8 @@ function createCloud(hooks) {
 
   // PokéPark: no se puede mezclar con sentido; se queda el que más progreso tiene.
   function pickPokepark(local, remote) {
-    const score = (p) => [...(p?.party || []), ...(p?.box || [])].reduce((acc, m) => acc + (m.lv || 0), 0) + Object.keys(p?.legends || {}).length;
+    const mons = (p) => [...(p?.party || []), ...(p?.box || []), ...(p?.boxes || []).flat(), ...Object.values(p?.eevee || {})].filter(Boolean);
+    const score = (p) => mons(p).reduce((acc, m) => acc + (m.lv || 0), 0) + Object.keys(p?.legends || {}).length;
     if (!remote) return local;
     if (!local) return remote;
     return score(local) >= score(remote) ? local : remote;

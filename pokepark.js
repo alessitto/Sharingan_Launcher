@@ -2,8 +2,9 @@
 // PokéPark
 // =====================================================================
 // Un parque con tu equipo (hasta 6 Pokémon) y hasta 10 Pokémon salvajes.
-// Con el equipo lleno, lo que se captura va a la Caja (hasta 60), desde donde
-// se elige quién está en el equipo (y por tanto en el parque).
+// Con el equipo lleno, lo que se captura va a las Cajas (10 de 6×5, más la
+// colección Eevee), desde donde se elige quién está en el equipo (y por
+// tanto en el parque).
 // Al principio solo se elige el inicial; el resto se captura con Poké Balls
 // entre los salvajes que van apareciendo (siempre en su primera etapa).
 // Mientras la app está abierta tu equipo gana experiencia, se le da de comer
@@ -24,9 +25,16 @@
 
   // ------------------------------------------------------------ Constantes
   const PARTY_MAX = 6;
-  // Caja: los capturados con el equipo lleno van aquí. No están en el parque
-  // (no ganan exp ni amistad, no comen ni evolucionan) hasta que vuelven al equipo.
-  const BOX_MAX = 60;
+  // Cajas: los capturados con el equipo lleno van aquí. No están en el parque
+  // (no ganan exp ni amistad, no comen ni evolucionan) hasta que vuelven al
+  // equipo. 10 cajas de 6×5 (5 equipos por caja) con huecos fijos.
+  const BOX_COUNT = 10;
+  const BOX_COLS = 6;
+  const BOX_SIZE = BOX_COLS * 5;
+  // Colección Eevee: Eevee en el centro y sus 8 evoluciones alrededor.
+  const EEVEE_LINE = [133, 134, 135, 136, 196, 197, 470, 471, 700];
+  // Fondos de las cajas (clases .pp-wall-N de pokepark.css).
+  const WALLS = ["Bosque", "Ciudad", "Desierto", "Sabana", "Cueva", "Volcán", "Nieve", "Playa", "Mar", "Cielo"];
   const START_LEVEL = 5;
   const START_FRIENDSHIP = 70;
   const FRIENDSHIP_MAX = 255;
@@ -61,8 +69,8 @@
   const SHINY_CHARM_ODDS = 3 / 4096;
   const CHARM_CHANCE = 0.01; // de cada objeto que aparece en el suelo
 
-  // Liberar: 3 al mes, y los demás pierden un corazón de amistad.
-  const RELEASES_PER_MONTH = 3;
+  // Liberar no tiene límite; si se va uno del equipo, los demás pierden un
+  // corazón de amistad.
   const RELEASE_PENALTY = FRIENDSHIP_MAX / 5;
 
   // Iniciales de las 9 generaciones.
@@ -188,7 +196,11 @@
     return {
       v: 2,
       party: [],
-      box: [],
+      boxes: Array.from({ length: BOX_COUNT }, () => Array(BOX_SIZE).fill(null)),
+      boxNames: Array(BOX_COUNT).fill(""),
+      boxWalls: Array.from({ length: BOX_COUNT }, (_, i) => i),
+      eevee: {},
+      lastBox: 0,
       bag: { "oran-berry": 3, "pecha-berry": 2, "razz-berry": 1, "poke-ball": START_BALLS },
       ground: [],
       wild: [],
@@ -210,7 +222,7 @@
     st.bag ||= {};
     st.ground = (st.ground || []).filter((g) => g && g.slug).map((g) => ({ ...g, at: g.at || now() }));
     st.wild ||= [];
-    if (!Array.isArray(st.box)) st.box = [];
+    normalizeBoxes(st);
     st.legends ||= {};
     st.visitor ||= null;
     st.releases ||= { m: "", n: 0 };
@@ -224,16 +236,57 @@
     return st;
   }
 
+  // Cajas con la forma buena (10 × 30 huecos, colección Eevee) y la caja
+  // antigua (una lista de hasta 60, antes de la 3.3.1) repartida en ellas.
+  function normalizeBoxes(st) {
+    const old = Array.isArray(st.boxes) ? st.boxes : [];
+    st.boxes = Array.from({ length: BOX_COUNT }, (_, b) =>
+      Array.from({ length: BOX_SIZE }, (_, i) => (Array.isArray(old[b]) && old[b][i] && old[b][i].sp ? old[b][i] : null))
+    );
+    const legacy = Array.isArray(st.box) ? st.box.filter((m) => m && m.sp) : [];
+    const eevee = {};
+    for (const [k, m] of Object.entries(st.eevee && typeof st.eevee === "object" ? st.eevee : {})) {
+      if (m && m.sp && EEVEE_LINE.includes(Number(k)) && m.sp === Number(k)) eevee[k] = m;
+      else if (m && m.sp) legacy.push(m);
+    }
+    st.eevee = eevee;
+    st.boxNames = Array.from({ length: BOX_COUNT }, (_, b) => String((st.boxNames || [])[b] || "").slice(0, 20));
+    st.boxWalls = Array.from({ length: BOX_COUNT }, (_, b) => {
+      const w = Number((st.boxWalls || [])[b]);
+      return Number.isInteger(w) && w >= 0 ? w % WALLS.length : b % WALLS.length;
+    });
+    st.lastBox = Number.isInteger(st.lastBox) && st.lastBox >= 0 && st.lastBox < BOX_COUNT ? st.lastBox : 0;
+    const seen = new Set((st.party || []).map((m) => m.uid));
+    for (const b of st.boxes) for (const m of b) if (m) seen.add(m.uid);
+    for (const m of Object.values(st.eevee)) seen.add(m.uid);
+    const left = [];
+    for (const m of legacy) {
+      if (seen.has(m.uid)) continue;
+      seen.add(m.uid);
+      let placed = false;
+      for (const b of st.boxes) {
+        const i = b.indexOf(null);
+        if (i >= 0) {
+          b[i] = m;
+          placed = true;
+          break;
+        }
+      }
+      if (!placed) left.push(m);
+    }
+    // Lo que no cabe (no debería pasar) se queda aquí para no perderlo.
+    st.box = left;
+  }
+
   // Equipo + visitante (si hay): los que ganan exp, comen y hacen amigos.
   const parkMons = () => (state.visitor ? [...state.party, state.visitor] : state.party);
   // Todo lo que anda por el parque (también los salvajes).
   const allMons = () => [...parkMons(), ...state.wild];
   const monByUid = (uid) => allMons().find((m) => m.uid === uid) || null;
-  const boxMax = () => (unlimited() ? Infinity : BOX_MAX);
   const partyFull = () => state.party.length >= PARTY_MAX;
-  // Sin hueco ni en el equipo ni en la caja: no se puede capturar.
-  const noRoom = () => partyFull() && state.box.length >= boxMax();
-  const FULL_MSG = () => `Tu equipo y tu caja están llenos (${PARTY_MAX} + ${BOX_MAX}).`;
+  // Sin hueco ni en el equipo ni en las cajas: no se puede capturar.
+  const noRoom = () => partyFull() && !boxFree();
+  const FULL_MSG = () => "Tu equipo y todas tus cajas están llenos.";
   const newUid = (p) => `${p}${now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
   function rollShiny(s) {
@@ -902,15 +955,15 @@
       const caught = { ...mon, at: now(), caught: now() };
       delete caught.wild;
       delete caught.leaves;
-      const toBox = partyFull();
-      if (toBox) state.box.push(caught);
-      else state.party.push(caught);
+      const slot = partyFull() ? storeMon(caught) : null;
+      const toBox = !!slot;
+      if (!toBox) state.party.push(caught);
       if (!state.starter) state.starter = true;
       a?.el.classList.remove("is-wild");
       if (!toBox) selectedUid = caught.uid;
       else if (selectedUid === mon.uid) selectedUid = null;
       window.Achievements?.track("catches");
-      showNotification(`¡Ya está! ¡${name}${mon.shiny ? " variocolor" : ""} atrapado!${toBox ? " Se ha enviado a la Caja." : ""}`);
+      showNotification(`¡Ya está! ¡${name}${mon.shiny ? " variocolor" : ""} atrapado!${toBox ? ` Se ha enviado a ${boxName(slot.b)}.` : ""}`);
       floatText(caught, toBox ? "¡A la Caja!" : "¡Atrapado!", true);
       sparkle(caught);
       if (hand?.kind === "ball" && noRoom()) cancelHand();
@@ -1231,41 +1284,125 @@
   }
 
   // ------------------------------------------------------------ Liberar
-  const monthKey = () => new Date().toISOString().slice(0, 7);
-  function releasesLeft() {
-    if (unlimited()) return Infinity;
-    const r = state.releases || {};
-    return r.m === monthKey() ? Math.max(0, RELEASES_PER_MONTH - (r.n || 0)) : RELEASES_PER_MONTH;
-  }
-
+  // Sin límite. Si se va uno del equipo, los demás lo echan de menos.
   async function release(mon) {
-    const inBox = state.box.includes(mon);
+    const loc = locate(mon);
+    if (!loc) return;
     if (mon.trade) return showNotification(`${displayName(mon)} está en una oferta de intercambio.`, "error");
-    if (!inBox && state.party.length <= 1 && !unlimited()) return showNotification("No puedes quedarte sin Pokémon.", "error");
-    const left = releasesLeft();
-    if (!left) return showNotification(`Ya has liberado ${RELEASES_PER_MONTH} Pokémon este mes.`, "error");
+    if (loc.kind === "party" && state.party.length <= 1) return showNotification("No puedes quedarte sin Pokémon.", "error");
+    const fromParty = loc.kind === "party";
     const ok = await confirmDialog({
       title: `¿Liberar a ${displayName(mon)}?`,
-      text: `Se irá del parque para siempre${mon.held ? ` (su ${itemName(mon.held)} vuelve a la bolsa)` : ""}. Los demás Pokémon de tu equipo lo echarán de menos y perderán un corazón de amistad. ${left === Infinity ? "" : `Este mes te ${left === 1 ? "queda 1 liberación" : `quedan ${left} liberaciones`}.`}`,
+      text: `Se irá del parque para siempre${mon.held ? ` (su ${itemName(mon.held)} vuelve a la bolsa)` : ""}.${
+        fromParty ? " Los demás Pokémon de tu equipo lo echarán de menos y perderán un corazón de amistad." : ""
+      }`,
       confirmText: "Liberar",
       danger: true,
       iconName: "trash",
     });
-    if (!ok || !(state.party.includes(mon) || state.box.includes(mon))) return;
+    const at = ok && locate(mon);
+    if (!at) return;
     if (mon.held) addToBag(mon.held);
-    state.party = state.party.filter((m) => m !== mon);
-    state.box = state.box.filter((m) => m !== mon);
-    for (const m of state.party) addFriendship(m, -RELEASE_PENALTY);
-    const r = state.releases?.m === monthKey() ? state.releases : { m: monthKey(), n: 0 };
-    if (!unlimited()) r.n++;
-    state.releases = r;
+    setAt(at, null);
+    if (at.kind === "party") for (const m of state.party) addFriendship(m, -RELEASE_PENALTY);
     if (selectedUid === mon.uid) selectedUid = null;
     showNotification(`Adiós, ${displayName(mon)}. ¡Cuídate!`);
     save();
     render();
   }
 
-  // ------------------------------------------------------------ Caja
+  // ------------------------------------------------------------ Cajas
+  // 10 cajas de 6×5 con huecos fijos (state.boxes[b][i], null si está libre)
+  // y la colección Eevee (state.eevee[especie]): un hueco para Eevee y uno
+  // por cada evolución, y solo admite a esa especie.
+  const boxName = (b) => state.boxNames[b] || `Caja ${b + 1}`;
+
+  function boxedMons() {
+    const out = [];
+    for (const b of state.boxes) for (const m of b) if (m) out.push(m);
+    for (const sp of EEVEE_LINE) if (state.eevee[sp]) out.push(state.eevee[sp]);
+    return out;
+  }
+  const boxFree = () => state.boxes.reduce((n, b) => n + b.filter((m) => !m).length, 0);
+
+  function locate(mon) {
+    let i = state.party.indexOf(mon);
+    if (i >= 0) return { kind: "party", i };
+    for (let b = 0; b < state.boxes.length; b++) {
+      i = state.boxes[b].indexOf(mon);
+      if (i >= 0) return { kind: "box", b, i };
+    }
+    for (const sp of EEVEE_LINE) if (state.eevee[sp] === mon) return { kind: "eevee", sp };
+    return null;
+  }
+
+  function getAt(loc) {
+    if (loc.kind === "party") return state.party[loc.i] || null;
+    if (loc.kind === "box") return state.boxes[loc.b][loc.i] || null;
+    return state.eevee[loc.sp] || null;
+  }
+
+  // En el equipo no hay huecos: quitar uno lo saca de la lista y poner uno
+  // más allá del último lo añade al final.
+  function setAt(loc, mon) {
+    if (loc.kind === "party") {
+      if (!mon) state.party.splice(loc.i, 1);
+      else if (loc.i < state.party.length) state.party[loc.i] = mon;
+      else state.party.push(mon);
+    } else if (loc.kind === "box") state.boxes[loc.b][loc.i] = mon || null;
+    else if (mon) state.eevee[loc.sp] = mon;
+    else delete state.eevee[loc.sp];
+  }
+
+  const sameLoc = (a, b) => a.kind === b.kind && a.i === b.i && a.b === b.b && a.sp === b.sp;
+
+  // Primer hueco libre, empezando por la caja "from".
+  function freeSlot(from = 0) {
+    for (let k = 0; k < BOX_COUNT; k++) {
+      const b = (from + k) % BOX_COUNT;
+      const i = state.boxes[b].indexOf(null);
+      if (i >= 0) return { kind: "box", b, i };
+    }
+    return null;
+  }
+
+  function storeMon(mon, from = state.lastBox || 0) {
+    const slot = freeSlot(from);
+    if (slot) setAt(slot, mon);
+    return slot;
+  }
+
+  // Mueve "mon" a "to"; si ahí hay otro, se cambian de sitio. Devuelve true
+  // si se ha podido.
+  function moveTo(mon, to) {
+    const fail = (msg) => (showNotification(msg, "error"), false);
+    const from = locate(mon);
+    if (!from || !to || sameLoc(from, to)) return false;
+    const other = getAt(to);
+    if (other === mon) return false;
+    if (to.kind === "eevee" && mon.sp !== to.sp) return fail(`Ese hueco es para ${speciesName(to.sp)}.`);
+    if (other && from.kind === "eevee" && other.sp !== from.sp) return fail(`${displayName(other)} no puede ir al hueco de ${speciesName(from.sp)}.`);
+
+    if (from.kind === "party" && to.kind === "party") {
+      // Reordenar el equipo.
+      const j = Math.min(to.i, state.party.length - 1);
+      [state.party[from.i], state.party[j]] = [state.party[j], state.party[from.i]];
+      return true;
+    }
+    const leaving = from.kind === "party"; // "mon" sale del equipo
+    const otherLeaving = to.kind === "party" && !!other; // "other" sale del equipo
+    if (leaving && mon.trade) return fail(`${displayName(mon)} está en una oferta de intercambio.`);
+    if (otherLeaving && other.trade) return fail(`${displayName(other)} está en una oferta de intercambio.`);
+    if (leaving && !other && state.party.length <= 1) return fail("Tu equipo necesita al menos un Pokémon.");
+    if (to.kind === "party" && !other && partyFull()) return fail(`Tu equipo está lleno (${PARTY_MAX}).`);
+
+    if (leaving) leaveParty(mon);
+    if (otherLeaving) leaveParty(other);
+    setAt(to, mon);
+    setAt(from, other);
+    return true;
+  }
+
   // Al guardarlo en la caja deja de estar megaevolucionado (empieza la recarga).
   function leaveParty(mon) {
     if (megaActive(mon)) {
@@ -1275,157 +1412,309 @@
     if (selectedUid === mon.uid) selectedUid = null;
   }
 
-  // Mueve "mon" del equipo a la caja. Devuelve true si se ha podido.
+  // Del equipo al primer hueco libre de las cajas.
   function toBox(mon) {
     if (!state.party.includes(mon)) return false;
-    if (mon.trade) return showNotification(`${displayName(mon)} está en una oferta de intercambio.`, "error"), false;
-    if (state.party.length <= 1) return showNotification("Tu equipo necesita al menos un Pokémon.", "error"), false;
-    if (state.box.length >= boxMax()) return showNotification(`La caja está llena (${BOX_MAX}).`, "error"), false;
-    leaveParty(mon);
-    state.party = state.party.filter((m) => m !== mon);
-    state.box.push(mon);
-    return true;
+    const slot = freeSlot(state.lastBox || 0);
+    if (!slot) return showNotification("Todas tus cajas están llenas.", "error"), false;
+    return moveTo(mon, slot);
   }
 
-  // Saca "mon" de la caja al equipo (si hay hueco).
+  // De la caja al equipo (si hay hueco).
   function toParty(mon) {
-    if (!state.box.includes(mon)) return false;
-    if (partyFull()) return showNotification(`Tu equipo está lleno (${PARTY_MAX}).`, "error"), false;
-    state.box = state.box.filter((m) => m !== mon);
-    state.party.push(mon);
-    return true;
+    return moveTo(mon, { kind: "party", i: state.party.length });
   }
 
-  // Intercambia uno del equipo por uno de la caja (cada uno ocupa el sitio del otro).
-  function swapBox(partyMon, boxMon) {
-    const pi = state.party.indexOf(partyMon);
-    const bi = state.box.indexOf(boxMon);
-    if (pi < 0 || bi < 0) return false;
-    if (partyMon.trade) return showNotification(`${displayName(partyMon)} está en una oferta de intercambio.`, "error"), false;
-    leaveParty(partyMon);
-    state.party[pi] = boxMon;
-    state.box[bi] = partyMon;
-    return true;
+  function sortBox(b, how) {
+    const list = state.boxes[b].filter(Boolean);
+    const by = {
+      dex: (x, y) => x.sp - y.sp || y.lv - x.lv,
+      lv: (x, y) => y.lv - x.lv || x.sp - y.sp,
+      name: (x, y) => displayName(x).localeCompare(displayName(y), "es"),
+      shiny: (x, y) => Number(!!y.shiny) - Number(!!x.shiny) || x.sp - y.sp,
+      recent: (x, y) => (y.caught || y.at || 0) - (x.caught || x.at || 0),
+    }[how];
+    if (by) list.sort(by);
+    state.boxes[b] = Array.from({ length: BOX_SIZE }, (_, i) => list[i] || null);
   }
 
-  const BOX_SORTS = { recent: "Llegada", lv: "Nivel", dex: "Nº Pokédex", name: "Nombre" };
+  // ------------------------------------------------------------ Caja (PC)
+  const BOX_SORTS = { dex: "Nº Pokédex", lv: "Nivel", name: "Nombre", shiny: "Variocolor primero", recent: "Más recientes" };
+  let boxView = null; // caja que se estaba mirando (número o "eevee")
 
   async function openBox() {
+    let cur = boxView ?? state.lastBox ?? 0;
     let picked = null; // uid elegido
     let dragUid = null;
     let q = "";
-    let sort = "recent";
+    let renaming = false;
     let releaseMon = null;
+    let hoverTimer = null;
+    let popupEl = null;
     const norm = (s) => String(s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-    const find = (uid) => state.party.find((m) => m.uid === uid) || state.box.find((m) => m.uid === uid) || null;
-    const where = (m) => (state.party.includes(m) ? "party" : state.box.includes(m) ? "box" : null);
+    const find = (uid) => (uid && [...state.party, ...boxedMons()].find((m) => m.uid === uid)) || null;
+    const matches = (m) => !!m && (norm(displayName(m)).includes(q) || norm(speciesName(m.sp)).includes(q) || String(m.sp) === q);
+    const tcOf = (m) => TYPE_COLORS[species(lookSp(m)).t[0]] || "#888";
 
-    const cell = (m, w) => `
-      <button type="button" class="pp-pc-cell ${m.uid === picked ? "is-picked" : ""} ${m.trade ? "is-trading" : ""}" data-uid="${m.uid}" data-where="${w}" draggable="true" title="${esc(displayName(m))}">
-        ${thumbHtml(m, 'draggable="false"')}
-        ${m.shiny ? SHINY_MARK : ""}
-        <span class="pp-slot-lv">Nv.${m.lv}</span>
-      </button>`;
+    const attrs = (loc) =>
+      loc.kind === "party" ? `data-k="party" data-i="${loc.i}"` : loc.kind === "box" ? `data-k="box" data-b="${loc.b}" data-i="${loc.i}"` : `data-k="eevee" data-sp="${loc.sp}"`;
+    const locOf = (el) => {
+      const d = el?.dataset || {};
+      if (d.k === "party") return { kind: "party", i: Number(d.i) };
+      if (d.k === "box") return { kind: "box", b: Number(d.b), i: Number(d.i) };
+      if (d.k === "eevee") return { kind: "eevee", sp: Number(d.sp) };
+      return null;
+    };
+    const cell = (m, loc) =>
+      m
+        ? `<button type="button" class="pp-pc-cell${m.uid === picked ? " is-picked" : ""}${m.trade ? " is-trading" : ""}${q ? (matches(m) ? " is-match" : " is-dim") : ""}" ${attrs(loc)} data-uid="${m.uid}" draggable="true" style="--tc:${tcOf(m)}" title="${esc(displayName(m))} · Nv. ${m.lv}${m.trade ? " · en una oferta" : ""}">
+            ${thumbHtml(m, 'draggable="false"')}
+            ${m.shiny ? SHINY_MARK : ""}
+            ${m.held ? `<img class="pp-pc-held" src="${ITEM_IMG(m.held)}" alt="" draggable="false" onerror="this.remove()">` : ""}
+            <span class="pp-slot-lv">Nv.${m.lv}</span>
+          </button>`
+        : `<span class="pp-pc-cell is-empty" ${attrs(loc)}></span>`;
 
-    // Mueve o cambia "a" según dónde se suelte/toque: otro Pokémon o un hueco.
-    function act(a, targetUid, targetWhere) {
-      if (!a) return false;
-      const b = targetUid ? find(targetUid) : null;
-      const wa = where(a);
-      if (b && b !== a) {
-        const wb = where(b);
-        if (wa === wb) return false;
-        return wa === "party" ? swapBox(a, b) : swapBox(b, a);
+    function teamHtml() {
+      return Array.from({ length: PARTY_MAX }, (_, i) => {
+        const m = state.party[i];
+        return m ? cell(m, { kind: "party", i }) : `<span class="pp-pc-cell is-empty is-team" data-k="party" data-i="${i}">${POKEBALL_SVG}</span>`;
+      }).join("");
+    }
+
+    function tabsHtml() {
+      const tabs = state.boxes.map((b, i) => {
+        const n = b.filter(Boolean).length;
+        const hits = q ? b.filter(matches).length : 0;
+        return `<button type="button" class="pp-pc-tab pp-wall-${state.boxWalls[i]}${cur === i ? " is-active" : ""}${n >= BOX_SIZE ? " is-full" : ""}" data-tab="${i}" title="${esc(boxName(i))} · ${n}/${BOX_SIZE}">
+          <span>${i + 1}</span><i><em style="width:${(n / BOX_SIZE) * 100}%"></em></i>${hits ? `<b>${hits}</b>` : ""}
+        </button>`;
+      });
+      const ev = EEVEE_LINE.filter((sp) => state.eevee[sp]);
+      const evHits = q ? ev.filter((sp) => matches(state.eevee[sp])).length : 0;
+      tabs.push(`<button type="button" class="pp-pc-tab is-eevee${cur === "eevee" ? " is-active" : ""}${ev.length === EEVEE_LINE.length ? " is-full" : ""}" data-tab="eevee" title="Colección Eevee · ${ev.length}/${EEVEE_LINE.length}">
+        <img src="${pngOf(133)}" alt="" draggable="false"><i><em style="width:${(ev.length / EEVEE_LINE.length) * 100}%"></em></i>${evHits ? `<b>${evHits}</b>` : ""}
+      </button>`);
+      return tabs.join("");
+    }
+
+    function headHtml() {
+      if (cur === "eevee") {
+        const n = EEVEE_LINE.filter((sp) => state.eevee[sp]).length;
+        return `
+          <button type="button" class="pp-pc-arrow" data-nav="-1" title="Caja anterior">${CHEVRON_L}</button>
+          <div class="pp-pc-title"><b>Colección Eevee</b><small>${n}/${EEVEE_LINE.length}</small></div>
+          <button type="button" class="pp-pc-arrow" data-nav="1" title="Caja siguiente">${CHEVRON_R}</button>`;
       }
-      if (targetWhere === "box" && wa === "party") return toBox(a);
-      if (targetWhere === "party" && wa === "box") return toParty(a);
-      return false;
+      const n = state.boxes[cur].filter(Boolean).length;
+      return `
+        <button type="button" class="pp-pc-arrow" data-nav="-1" title="Caja anterior">${CHEVRON_L}</button>
+        <div class="pp-pc-title">${
+          renaming
+            ? `<input type="text" class="pp-pc-rename" value="${esc(boxName(cur))}" maxlength="20" spellcheck="false" aria-label="Nombre de la caja">`
+            : `<button type="button" class="pp-pc-name" data-act="rename" title="Cambiar el nombre">${esc(boxName(cur))}${icon("pencil", "pp-pc-pen")}</button>`
+        }<small>${n}/${BOX_SIZE}</small></div>
+        <button type="button" class="pp-pc-arrow" data-nav="1" title="Caja siguiente">${CHEVRON_R}</button>
+        <span class="pp-pc-tools">
+          <button type="button" class="pp-pc-tool" data-act="wall" title="Cambiar el fondo (${esc(WALLS[state.boxWalls[cur]])})">${PALETTE_SVG}</button>
+          <select class="pp-pc-sort" aria-label="Ordenar la caja" ${n ? "" : "disabled"}>
+            <option value="">Ordenar…</option>
+            ${Object.entries(BOX_SORTS)
+              .map(([k, v]) => `<option value="${k}">${v}</option>`)
+              .join("")}
+          </select>
+        </span>`;
+    }
+
+    // Colección Eevee: Eevee en el centro y sus 8 evoluciones en octógono.
+    function eeveeHtml() {
+      const ring = EEVEE_LINE.slice(1);
+      const have = EEVEE_LINE.filter((sp) => state.eevee[sp]).length;
+      const pts = ring.map((_, k) => {
+        const a = ((-90 + k * 45) * Math.PI) / 180;
+        return [50 + 39 * Math.cos(a), 50 + 39 * Math.sin(a)];
+      });
+      const slot = (sp, pos, center) => {
+        const m = state.eevee[sp];
+        const tc = TYPE_COLORS[species(sp).t[0]] || "#888";
+        const loc = { kind: "eevee", sp };
+        return `<div class="pp-ev-slot${center ? " is-center" : ""}${m ? " is-filled" : ""}" style="left:${pos[0]}%;top:${pos[1]}%;--tc:${tc}">
+          ${m ? cell(m, loc) : `<span class="pp-pc-cell is-empty pp-ev-empty" ${attrs(loc)} title="Falta ${esc(speciesName(sp))}"><img class="pp-ev-ghost" src="${pngOf(sp)}" alt="" draggable="false"></span>`}
+          <span class="pp-ev-name">${esc(speciesName(sp))}</span>
+        </div>`;
+      };
+      return `
+        <div class="pp-ev${have === EEVEE_LINE.length ? " is-complete" : ""}">
+          <div class="pp-ev-stage">
+            <svg class="pp-ev-lines" viewBox="0 0 100 100" aria-hidden="true">
+              <polygon points="${pts.map((p) => p.map((v) => v.toFixed(2)).join(",")).join(" ")}"/>
+              ${pts.map(([x, y]) => `<line x1="50" y1="50" x2="${x.toFixed(2)}" y2="${y.toFixed(2)}"/>`).join("")}
+            </svg>
+            ${slot(133, [50, 50], true)}
+            ${ring.map((sp, k) => slot(sp, pts[k], false)).join("")}
+          </div>
+          <p class="pp-ev-note">${have === EEVEE_LINE.length ? "¡Colección completa!" : "Arrastra aquí a Eevee y sus evoluciones: cada uno tiene su hueco."}</p>
+        </div>`;
+    }
+
+    function infoHtml() {
+      const sel = find(picked);
+      if (!sel) return `<p class="pp-pc-hint">${icon("info")}<span>Toca un Pokémon y luego un hueco para moverlo, o arrástralo. También puedes soltarlo sobre una pestaña.</span></p>`;
+      const loc = locate(sel);
+      const s = species(sel.sp);
+      const look = species(lookSp(sel));
+      const where = loc.kind === "party" ? "En tu equipo" : loc.kind === "eevee" ? "En la colección Eevee" : `En ${esc(boxName(loc.b))}`;
+      const inParty = loc.kind === "party";
+      return `
+        <div class="pp-pc-card" style="--tc:${tcOf(sel)}">
+          <div class="pp-pc-card-img">${thumbHtml(sel, 'draggable="false"')}${sel.shiny ? SHINY_MARK : ""}</div>
+          <div class="pp-pc-card-text">
+            <b>${esc(displayName(sel))}</b>
+            <small>${sel.nick ? `${esc(s.n)} · ` : ""}Nº ${String(s.id).padStart(4, "0")} · Nv. ${sel.lv}</small>
+            <div class="pp-types">${look.t.map((t) => `<span class="pp-type" style="--tc:${TYPE_COLORS[t] || "#888"}">${esc(dex.types[t] || t)}</span>`).join("")}</div>
+            <span class="pp-pc-card-hearts" title="Amistad">${heartsHtml(sel.fr)}</span>
+            ${sel.held ? `<small class="pp-pc-card-held">${itemImg(sel.held)}${esc(itemName(sel.held))}</small>` : ""}
+            <small class="pp-pc-where">${where}</small>
+          </div>
+        </div>
+        <div class="pp-pc-btns">
+          ${
+            inParty
+              ? `<button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-pc="tobox" ${sel.trade || state.party.length <= 1 || !boxFree() ? "disabled" : ""}>${BOX_SVG}A la caja</button>`
+              : `<button type="button" class="sl-btn sl-btn-primary sl-btn-sm" data-pc="toparty" ${partyFull() ? "disabled" : ""}>${icon("plus")}Al equipo</button>`
+          }
+          <button type="button" class="sl-btn sl-btn-danger-ghost sl-btn-sm" data-pc="release" ${sel.trade || (inParty && state.party.length <= 1) ? "disabled" : ""}>${icon("trash")}Liberar</button>
+        </div>`;
+    }
+
+    function paint() {
+      const p = popupEl;
+      if (!p) return;
+      p.querySelector(".pp-pc-team").innerHTML = teamHtml();
+      p.querySelector(".pp-pc-tcount").textContent = `${state.party.length}/${PARTY_MAX}`;
+      p.querySelector(".pp-pc-total").textContent = `${boxedMons().length} guardados`;
+      p.querySelector(".pp-pc-info").innerHTML = infoHtml();
+      p.querySelector(".pp-pc-tabs").innerHTML = tabsHtml();
+      p.querySelector(".pp-pc-boxhead").innerHTML = headHtml();
+      const stage = p.querySelector(".pp-pc-stage");
+      stage.className = `pp-pc-stage ${cur === "eevee" ? "is-eevee" : `pp-wall-${state.boxWalls[cur]}`}`;
+      stage.innerHTML =
+        cur === "eevee"
+          ? eeveeHtml()
+          : `<div class="pp-pc-grid">${state.boxes[cur].map((m, i) => cell(m, { kind: "box", b: cur, i })).join("")}</div>`;
+      const ren = p.querySelector(".pp-pc-rename");
+      if (ren) {
+        ren.focus();
+        ren.select();
+      }
+    }
+
+    function go(to) {
+      cur = to;
+      boxView = cur;
+      if (cur !== "eevee") state.lastBox = cur;
+      renaming = false;
+      paint();
     }
 
     function commit() {
-      picked = null;
       save();
       render();
+      paint();
     }
 
-    function body(popup) {
-      const team = [];
-      for (let i = 0; i < PARTY_MAX; i++) {
-        const m = state.party[i];
-        team.push(m ? cell(m, "party") : `<span class="pp-pc-cell is-empty" data-where="party">${POKEBALL_SVG}</span>`);
+    function finishRename(keep) {
+      const input = popupEl?.querySelector(".pp-pc-rename");
+      if (!renaming || !input) return;
+      renaming = false;
+      if (keep) {
+        const v = input.value.trim().slice(0, 20);
+        state.boxNames[cur] = v && v !== `Caja ${cur + 1}` ? v : "";
+        save();
       }
-      const nq = norm(q);
-      const list = state.box
-        .map((m, i) => ({ m, i }))
-        .filter(({ m }) => !nq || norm(displayName(m)).includes(nq) || norm(speciesName(m.sp)).includes(nq) || String(m.sp) === nq);
-      if (sort === "lv") list.sort((x, y) => y.m.lv - x.m.lv || x.i - y.i);
-      else if (sort === "dex") list.sort((x, y) => x.m.sp - y.m.sp || x.i - y.i);
-      else if (sort === "name") list.sort((x, y) => displayName(x.m).localeCompare(displayName(y.m), "es"));
-      popup.querySelector(".pp-pc-team").innerHTML = team.join("");
-      popup.querySelector(".pp-pc-tcount").textContent = `${state.party.length}/${PARTY_MAX}`;
-      popup.querySelector(".pp-pc-bcount").textContent = `${state.box.length}/${unlimited() ? "∞" : BOX_MAX}`;
-      popup.querySelector(".pp-pc-grid").innerHTML = list.length
-        ? list.map(({ m }) => cell(m, "box")).join("")
-        : `<p class="pp-pc-empty">${state.box.length ? "Ningún Pokémon coincide." : "La caja está vacía. Con el equipo lleno, lo que captures vendrá aquí."}</p>`;
+      paint();
+    }
 
-      const sel = picked ? find(picked) : null;
-      const info = popup.querySelector(".pp-pc-info");
-      if (!sel) {
-        info.innerHTML = `<p class="pp-pc-hint">Toca un Pokémon o arrástralo para moverlo.</p>`;
-        return;
+    // Soltar sobre una pestaña: al primer hueco libre de esa caja.
+    function dropOnTab(mon, tab) {
+      if (tab === "eevee") {
+        if (!EEVEE_LINE.includes(mon.sp)) return showNotification("La colección Eevee es solo para Eevee y sus evoluciones.", "error"), false;
+        return moveTo(mon, { kind: "eevee", sp: mon.sp });
       }
-      const inBox = where(sel) === "box";
-      const s = species(sel.sp);
-      const btns = inBox
-        ? `<button type="button" class="sl-btn sl-btn-primary sl-btn-sm" data-pc="toparty" ${partyFull() ? "disabled" : ""}>Al equipo</button>
-           <button type="button" class="sl-btn sl-btn-danger-ghost sl-btn-sm" data-pc="release" ${releasesLeft() ? "" : "disabled"}>${icon("trash")}Liberar</button>`
-        : `<button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-pc="tobox" ${sel.trade || state.party.length <= 1 || state.box.length >= boxMax() ? "disabled" : ""}>A la caja</button>`;
-      const hint = inBox && partyFull() ? "Toca a uno de tu equipo para cambiarlos." : !inBox && state.box.length ? "Toca uno de la caja para cambiarlos." : "";
-      info.innerHTML = `
-        ${thumbHtml(sel)}
-        <span class="pp-pc-text">
-          <b>${esc(displayName(sel))}${sel.shiny ? ` ${SHINY_MARK}` : ""}</b>
-          <small>${sel.nick ? `${esc(s.n)} · ` : ""}Nv. ${sel.lv}${sel.held ? ` · ${esc(itemName(sel.held))}` : ""}</small>
-          ${hint ? `<small class="pp-pc-tip">${hint}</small>` : ""}
-        </span>
-        <span class="pp-pc-btns">${btns}</span>`;
+      const b = Number(tab);
+      const i = state.boxes[b].indexOf(null);
+      if (i < 0) return showNotification(`${boxName(b)} está llena.`, "error"), false;
+      return moveTo(mon, { kind: "box", b, i });
     }
 
     await openModal({
       eyebrow: "PokéPark",
-      title: "Caja",
-      width: 720,
+      title: "Cajas",
+      width: 1100,
       html: `
         <div class="pp-pc">
-          <div class="pp-pc-head"><b>Equipo</b><em class="pp-pc-tcount"></em></div>
-          <div class="pp-pc-team"></div>
-          <div class="pp-pc-head">
-            <b>Caja</b><em class="pp-pc-bcount"></em>
-            <input type="text" class="pp-pc-search" placeholder="Buscar" spellcheck="false">
-            <select class="pp-pc-sort">${Object.entries(BOX_SORTS)
-              .map(([k, n]) => `<option value="${k}">${n}</option>`)
-              .join("")}</select>
-          </div>
-          <div class="pp-pc-grid" data-where="box"></div>
-          <div class="pp-pc-info"></div>
+          <aside class="pp-pc-left">
+            <div class="pp-pc-sec"><b>Equipo</b><em class="pp-pc-tcount"></em></div>
+            <div class="pp-pc-team"></div>
+            <div class="pp-pc-info"></div>
+          </aside>
+          <section class="pp-pc-main">
+            <div class="pp-pc-toolbar">
+              <label class="pp-pc-searchbox">${icon("search")}<input type="text" class="pp-pc-search" placeholder="Buscar en todas las cajas" spellcheck="false" autocomplete="off"></label>
+              <span class="pp-pc-total"></span>
+            </div>
+            <div class="pp-pc-tabs"></div>
+            <div class="pp-pc-boxhead"></div>
+            <div class="pp-pc-stage"></div>
+          </section>
         </div>`,
       showConfirmButton: false,
       showCloseButton: true,
       customClass: { popup: "pp-pc-popup" },
       didOpen: (popup) => {
-        body(popup);
+        popupEl = popup;
+        paint();
         popup.querySelector(".pp-pc-search").addEventListener("input", (e) => {
-          q = e.target.value.trim();
-          body(popup);
+          q = norm(e.target.value.trim());
+          paint();
         });
-        popup.querySelector(".pp-pc-sort").addEventListener("change", (e) => {
-          sort = e.target.value;
-          body(popup);
+        popup.addEventListener("change", (e) => {
+          if (!e.target.matches(".pp-pc-sort") || !e.target.value || cur === "eevee") return;
+          sortBox(cur, e.target.value);
+          commit();
         });
+        popup.addEventListener("keydown", (e) => {
+          if (!e.target.matches(".pp-pc-rename")) return;
+          if (e.key === "Enter") finishRename(true);
+          else if (e.key === "Escape") {
+            e.stopPropagation();
+            e.preventDefault();
+            finishRename(false);
+          }
+        });
+        popup.addEventListener("focusout", (e) => e.target.matches(".pp-pc-rename") && finishRename(true));
         popup.addEventListener("click", (e) => {
+          const tab = e.target.closest("[data-tab]");
+          if (tab) return go(tab.dataset.tab === "eevee" ? "eevee" : Number(tab.dataset.tab));
+          const nav = e.target.closest("[data-nav]");
+          if (nav) {
+            const order = [...state.boxes.keys(), "eevee"];
+            const k = order.indexOf(cur);
+            return go(order[(k + Number(nav.dataset.nav) + order.length) % order.length]);
+          }
+          const act = e.target.closest("[data-act]")?.dataset.act;
+          if (act === "rename") {
+            renaming = true;
+            return paint();
+          }
+          if (act === "wall") {
+            state.boxWalls[cur] = (state.boxWalls[cur] + 1) % WALLS.length;
+            save();
+            return paint();
+          }
           const b = e.target.closest("[data-pc]");
           if (b) {
-            const mon = picked && find(picked);
+            const mon = find(picked);
             if (!mon) return;
             const k = b.dataset.pc;
             if (k === "release") {
@@ -1433,16 +1722,19 @@
               return Swal.close();
             }
             if ((k === "tobox" && toBox(mon)) || (k === "toparty" && toParty(mon))) commit();
-            return body(popup);
+            return paint();
           }
           const c = e.target.closest(".pp-pc-cell");
           if (!c) return;
           const uid = c.dataset.uid || null;
-          const a = picked && find(picked);
-          // Con uno elegido, tocar uno del otro lado (o un hueco del equipo) los mueve.
-          if (a && uid !== picked && (c.dataset.where !== where(a) || !uid) && act(a, uid, c.dataset.where)) commit();
-          else picked = uid && uid !== picked ? uid : null;
-          body(popup);
+          const a = find(picked);
+          // Con uno elegido, tocar otro sitio lo mueve (o los cambia).
+          if (a && uid !== picked && moveTo(a, locOf(c))) {
+            picked = a.uid;
+            return commit();
+          }
+          picked = uid && uid !== picked ? uid : null;
+          paint();
         });
         popup.addEventListener("dragstart", (e) => {
           const c = e.target.closest?.(".pp-pc-cell[data-uid]");
@@ -1451,26 +1743,46 @@
           e.dataTransfer.effectAllowed = "move";
           e.dataTransfer.setData("text/plain", dragUid);
           c.classList.add("is-dragging");
+          popup.classList.add("is-dragging");
         });
-        popup.addEventListener("dragend", () => {
+        const endDrag = () => {
           dragUid = null;
+          clearTimeout(hoverTimer);
+          popup.classList.remove("is-dragging");
           popup.querySelectorAll(".is-dragging, .is-over").forEach((el) => el.classList.remove("is-dragging", "is-over"));
-        });
+        };
+        popup.addEventListener("dragend", endDrag);
         popup.addEventListener("dragover", (e) => {
-          const t = dragUid && e.target.closest(".pp-pc-cell, .pp-pc-grid");
+          const t = dragUid && e.target.closest(".pp-pc-cell, .pp-pc-tab");
           if (!t) return;
           e.preventDefault();
-          popup.querySelectorAll(".is-over").forEach((el) => el !== t && el.classList.remove("is-over"));
-          t.classList.add("is-over");
+          if (!t.classList.contains("is-over")) {
+            popup.querySelectorAll(".is-over").forEach((el) => el.classList.remove("is-over"));
+            t.classList.add("is-over");
+            clearTimeout(hoverTimer);
+            // Quedarse encima de una pestaña la abre (para soltarlo en un hueco concreto).
+            if (t.dataset.tab) {
+              const to = t.dataset.tab === "eevee" ? "eevee" : Number(t.dataset.tab);
+              if (to !== cur) hoverTimer = setTimeout(() => dragUid && go(to), 650);
+            }
+          }
         });
         popup.addEventListener("drop", (e) => {
-          const t = dragUid && e.target.closest(".pp-pc-cell, .pp-pc-grid");
-          if (!t) return;
+          const t = dragUid && e.target.closest(".pp-pc-cell, .pp-pc-tab");
+          const mon = find(dragUid);
+          if (!t || !mon) return endDrag();
           e.preventDefault();
-          if (act(find(dragUid), t.dataset.uid || null, t.dataset.where)) commit();
-          dragUid = null;
-          body(popup);
+          const ok = t.dataset.tab ? dropOnTab(mon, t.dataset.tab) : moveTo(mon, locOf(t));
+          endDrag();
+          if (ok) {
+            picked = mon.uid;
+            commit();
+          } else paint();
         });
+      },
+      willClose: () => {
+        clearTimeout(hoverTimer);
+        popupEl = null;
       },
     });
     if (releaseMon) {
@@ -1761,6 +2073,12 @@
     return `${btns ? `<div class="pp-mega">${btns}</div>` : ""}${wrong}${bondHint}`;
   }
 
+  function expPct(m) {
+    if (m.lv >= 100) return 100;
+    const cur = expForLevel(m.lv);
+    return Math.max(0, Math.min(100, ((m.exp - cur) / (expForLevel(m.lv + 1) - cur)) * 100));
+  }
+
   function renderSide() {
     const team = root.querySelector(".pp-team");
     const sel = selected();
@@ -1769,10 +2087,11 @@
       const m = state.party[i];
       slots.push(
         m
-          ? `<button type="button" class="pp-slot ${sel && m.uid === sel.uid ? "is-active" : ""} ${m.trade ? "is-trading" : ""}" data-pp="select" data-uid="${m.uid}" title="${esc(displayName(m))}${m.trade ? " (en intercambio)" : ""}">
+          ? `<button type="button" class="pp-slot ${sel && m.uid === sel.uid ? "is-active" : ""} ${m.trade ? "is-trading" : ""}" style="--tc:${TYPE_COLORS[species(lookSp(m)).t[0]] || "#888"}" data-pp="select" data-uid="${m.uid}" title="${esc(displayName(m))}${m.trade ? " (en intercambio)" : ""}">
                ${thumbHtml(m)}
                ${m.shiny ? SHINY_MARK : ""}
                <span class="pp-slot-lv">Nv.${m.lv}</span>
+               <i class="pp-slot-exp"><em style="width:${expPct(m)}%"></em></i>
              </button>`
           : state.starter && !unlimited()
             ? `<span class="pp-slot is-empty is-locked" title="Hueco libre">${POKEBALL_SVG}</span>`
@@ -1791,7 +2110,7 @@
         : `<p class="pp-visit is-empty" title="Vienen de visita al azar durante 8 horas">Ningún legendario de visita</p>`;
     team.innerHTML = `
       <div class="pp-team-head"><span class="section-eyebrow">PokéPark</span><span class="pp-team-count">${state.party.length}/${PARTY_MAX}</span>${
-        state.party.length || state.box.length ? `<button type="button" class="pp-box-btn" data-pp="box" title="Caja: guarda Pokémon y elige tu equipo">${BOX_SVG}Caja<em>${state.box.length}</em></button>` : ""
+        state.party.length || boxedMons().length ? `<button type="button" class="pp-box-btn" data-pp="box" title="Cajas: guarda Pokémon y elige tu equipo">${BOX_SVG}Cajas<em>${boxedMons().length}</em></button>` : ""
       }</div>
       <div class="pp-slots">${slots.join("")}</div>
       ${state.party.length || v ? visit : ""}`;
@@ -1933,9 +2252,8 @@
                  ${sel.trade ? `<p class="pp-trade-note">${TRADE_SVG}En una oferta de intercambio.</p>` : ""}
                  <div class="pp-more-btns">
                    <button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-pp="trade" ${sel.trade ? "disabled" : ""}>${TRADE_SVG}Intercambiar</button>
-                   <button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-pp="tobox" ${sel.trade || state.party.length <= 1 || state.box.length >= boxMax() ? "disabled" : ""} title="Sale del parque y se guarda en la caja">${BOX_SVG}A la caja</button>
-                   <button type="button" class="sl-btn sl-btn-danger-ghost sl-btn-sm" data-pp="release" ${sel.trade || (state.party.length <= 1 && !unlimited()) || !releasesLeft() ? "disabled" : ""}
-                     title="${unlimited() ? "Sin límite (tester)" : `${releasesLeft()} de ${RELEASES_PER_MONTH} liberaciones este mes`}">${icon("trash")}Liberar (${unlimited() ? "∞" : `${releasesLeft()}/${RELEASES_PER_MONTH}`})</button>
+                   <button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-pp="tobox" ${sel.trade || state.party.length <= 1 || !boxFree() ? "disabled" : ""} title="Sale del parque y se guarda en la caja">${BOX_SVG}A la caja</button>
+                   <button type="button" class="sl-btn sl-btn-danger-ghost sl-btn-sm" data-pp="release" ${sel.trade || state.party.length <= 1 ? "disabled" : ""}>${icon("trash")}Liberar</button>
                  </div>
                </div>`
         }
@@ -2432,7 +2750,8 @@
     else if (act === "tobox" && mon && state.party.includes(mon)) {
       const name = displayName(mon);
       if (toBox(mon)) {
-        showNotification(`${name} se ha guardado en la Caja.`);
+        const at = locate(mon);
+        showNotification(`${name} se ha guardado en ${at?.kind === "box" ? boxName(at.b) : "la caja"}.`);
         save();
         render();
       }
@@ -2686,7 +3005,7 @@
         other: "No tienes Poké Balls.",
       };
       box.innerHTML = list.length
-        ? `<div class="pp-bag-list">${list
+        ? `<div class="pp-bag-grid">${list
             .map(([slug, n]) => {
               const btn =
                 tab === "other"
@@ -2706,10 +3025,10 @@
                   : tab === "use"
                     ? "Se gasta al usarlo para evolucionar."
                     : heldNote(slug);
-              return `<div class="pp-bag-row">${itemImg(slug)}<span class="pp-bag-name"><b>${esc(itemName(slug))}</b><small>${esc(sub)}</small></span><em>×${fmtCount(n)}</em>${btn}</div>`;
+              return `<div class="pp-bag-card"><span class="pp-shop-img">${itemImg(slug)}<em>×${fmtCount(n)}</em></span><span class="pp-bag-name"><b>${esc(itemName(slug))}</b><small>${esc(sub)}</small></span>${btn}</div>`;
             })
             .join("")}</div>`
-        : `<p class="pp-bag-empty">${empty[tab]}</p>`;
+        : `<p class="pp-bag-empty">${BAG_SVG}${empty[tab]}</p>`;
     }
 
     function heldNote(slug) {
@@ -2724,7 +3043,7 @@
     await openModal({
       eyebrow: "PokéPark",
       title: "Bolsa",
-      width: 560,
+      width: 760,
       html: `
         <div class="pp-bag">
           <div class="pp-bag-tabs">
@@ -2825,9 +3144,44 @@
 
   async function openShop() {
     let tab = "buy";
+    const qty = new Map(); // cantidad elegida por objeto
+
+    // Tarjeta de la tienda: imagen, nombre, nota, precio y cantidad.
+    function card(slug, { price, note, mode, max = 99, team = false }) {
+      const owned = have(slug);
+      const n = Math.max(1, Math.min(qty.get(slug) || 1, max));
+      const total = price * n;
+      const can = mode === "sell" || unlimited() || state.money >= total;
+      return `
+        <div class="pp-shop-card${team ? " is-team" : ""}${can ? "" : " is-poor"}" data-slug="${slug}">
+          <div class="pp-shop-top">
+            <span class="pp-shop-img">${itemImg(slug)}</span>
+            ${owned ? `<span class="pp-shop-own" title="En la bolsa">×${fmtCount(owned)}</span>` : ""}
+            ${team ? `<span class="pp-team-tag">Tu equipo</span>` : ""}
+          </div>
+          <b class="pp-shop-name">${esc(itemName(slug))}</b>
+          <small class="pp-shop-note">${esc(note)}</small>
+          <div class="pp-shop-foot">
+            <em class="pp-price">${mode === "sell" ? "+" : ""}${fmtMoney(price)}</em>
+            ${
+              max > 1
+                ? `<span class="pp-qty">
+                    <button type="button" data-qty="-1" ${n <= 1 ? "disabled" : ""} aria-label="Menos">−</button>
+                    <span>${n}</span>
+                    <button type="button" data-qty="1" ${n >= max ? "disabled" : ""} aria-label="Más">+</button>
+                  </span>`
+                : ""
+            }
+          </div>
+          <button type="button" class="sl-btn ${mode === "sell" ? "sl-btn-ghost" : "sl-btn-primary"} sl-btn-sm pp-shop-go" data-shop="${mode}" data-slug="${slug}" data-n="${n}" ${can ? "" : "disabled"}>
+            ${mode === "sell" ? "Vender" : "Comprar"}${n > 1 ? ` · ${fmtMoney(total)}` : ""}
+          </button>
+        </div>`;
+    }
+
     function body(popup) {
       popup.querySelectorAll(".pp-bag-tab").forEach((b) => b.classList.toggle("is-active", b.dataset.tab === tab));
-      popup.querySelector(".pp-shop-money").textContent = unlimited() ? "∞" : fmtMoney(state.money);
+      popup.querySelector(".pp-shop-money b").textContent = unlimited() ? "∞" : fmtMoney(state.money);
       const box = popup.querySelector(".pp-bag-body");
       if (tab === "mega") {
         // Primero las que le sirven a tu equipo (o le servirán al evolucionar).
@@ -2835,69 +3189,40 @@
         const forTeam = (slug) => [...stoneTargets(slug)].some((sp) => team.has(sp));
         const list = [...megaStones].sort((a, b) => Number(forTeam(b)) - Number(forTeam(a)) || stoneOwner(a).localeCompare(stoneOwner(b), "es") || a.localeCompare(b));
         box.innerHTML = `<p class="pp-mega-intro">${MEGA_SVG}<span>Equípale a un Pokémon su megapiedra y megaevoluciónalo desde su ficha. Dura 2 horas; después necesita descansar otras 2.</span></p>
-          <div class="pp-bag-list">${list
-          .map((slug) => {
-            const p = buyPrice(slug);
-            const owned = have(slug);
-            const mine = forTeam(slug);
-            return `<div class="pp-bag-row ${mine ? "is-team" : ""}">${itemImg(slug)}<span class="pp-bag-name"><b>${esc(itemName(slug))}${mine ? ` <span class="pp-team-tag">Tu equipo</span>` : ""}</b><small>Para ${esc(stoneOwner(slug))}.${owned ? ` Tienes ${fmtCount(owned)}.` : ""}</small></span>
-              <em class="pp-price">${fmtMoney(p)}</em>
-              <span class="pp-shop-btns">
-                <button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-shop="buy" data-slug="${slug}" data-n="1" ${state.money < p && !unlimited() ? "disabled" : ""}>Comprar</button>
-              </span></div>`;
-          })
-          .join("")}</div>`;
+          <div class="pp-shop-grid">${list.map((slug) => card(slug, { price: buyPrice(slug), note: `Para ${stoneOwner(slug)}.`, mode: "buy", max: 1, team: forTeam(slug) })).join("")}</div>`;
         return;
       }
       if (tab === "buy") {
-        box.innerHTML = `<div class="pp-bag-list">${shopStock()
-          .map((slug) => {
-            const p = buyPrice(slug);
-            const owned = have(slug);
-            return `<div class="pp-bag-row">${itemImg(slug)}<span class="pp-bag-name"><b>${esc(itemName(slug))}</b><small>${esc(itemNote(slug))}${owned ? ` Tienes ${fmtCount(owned)}.` : ""}</small></span>
-              <em class="pp-price">${fmtMoney(p)}</em>
-              <span class="pp-shop-btns">
-                <button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-shop="buy" data-slug="${slug}" data-n="1" ${state.money < p && !unlimited() ? "disabled" : ""}>Comprar</button>
-                ${slug === "poke-ball" ? `<button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-shop="buy" data-slug="${slug}" data-n="10" ${state.money < p * 10 && !unlimited() ? "disabled" : ""}>×10</button>` : ""}
-              </span></div>`;
-          })
+        box.innerHTML = `<div class="pp-shop-grid">${shopStock()
+          .map((slug) => card(slug, { price: buyPrice(slug), note: itemNote(slug), mode: "buy", max: slug === "poke-ball" ? 50 : 10 }))
           .join("")}</div>`;
         return;
       }
       const items = Object.entries(state.bag).filter(([s, n]) => n > 0 && sellPrice(s) > 0 && s !== "poke-ball");
       items.sort(([a], [b]) => Number(!isBerry(a)) - Number(!isBerry(b)) || itemName(a).localeCompare(itemName(b), "es"));
       box.innerHTML = items.length
-        ? `<div class="pp-bag-list">${items
-            .map(
-              ([slug, n]) => `<div class="pp-bag-row">${itemImg(slug)}<span class="pp-bag-name"><b>${esc(itemName(slug))}</b><small>Tienes ${n} · ${fmtMoney(sellPrice(slug))} cada una</small></span>
-                <em class="pp-price">+${fmtMoney(sellPrice(slug))}</em>
-                <span class="pp-shop-btns">
-                  <button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-shop="sell" data-slug="${slug}" data-n="1">Vender</button>
-                  ${n > 1 ? `<button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-shop="sell" data-slug="${slug}" data-n="${n}" title="Vender las ${n} por ${fmtMoney(sellPrice(slug) * n)}">Todas</button>` : ""}
-                </span></div>`
-            )
-            .join("")}</div>`
-        : `<p class="pp-bag-empty">No tienes nada que vender.</p>`;
+        ? `<div class="pp-shop-grid">${items.map(([slug, n]) => card(slug, { price: sellPrice(slug), note: isBerry(slug) ? BERRIES[slug].desc : itemNote(slug), mode: "sell", max: n })).join("")}</div>`
+        : `<p class="pp-bag-empty">${BAG_SVG}No tienes nada que vender.</p>`;
     }
     await openModal({
       eyebrow: "PokéPark",
       title: "Tienda",
-      width: 600,
+      width: 860,
       html: `
         <div class="pp-bag pp-shop">
           <div class="pp-shop-head">
             <div class="pp-bag-tabs">
-              <button type="button" class="pp-bag-tab" data-tab="buy">Comprar</button>
-              <button type="button" class="pp-bag-tab" data-tab="mega">Megapiedras</button>
-              <button type="button" class="pp-bag-tab" data-tab="sell">Vender</button>
+              <button type="button" class="pp-bag-tab" data-tab="buy">${SHOP_SVG}Comprar</button>
+              <button type="button" class="pp-bag-tab" data-tab="mega">${MEGA_SVG}Megapiedras</button>
+              <button type="button" class="pp-bag-tab" data-tab="sell">${COIN_SVG}Vender</button>
             </div>
-            <span class="pp-chip pp-shop-money" title="Tus Pokédólares"></span>
+            <span class="pp-shop-money" title="Tus Pokédólares">${COIN_SVG}<b></b></span>
           </div>
           <div class="pp-bag-body"></div>
         </div>`,
       showConfirmButton: false,
       showCloseButton: true,
-      customClass: { popup: "pp-bag-popup" },
+      customClass: { popup: "pp-bag-popup pp-shop-popup" },
       didOpen: (popup) => {
         body(popup);
         popup.addEventListener("click", (e) => {
@@ -2906,11 +3231,20 @@
             tab = tabBtn.dataset.tab;
             return body(popup);
           }
+          const q = e.target.closest("[data-qty]");
+          if (q) {
+            const slug = q.closest("[data-slug]").dataset.slug;
+            qty.set(slug, Math.max(1, (qty.get(slug) || 1) + Number(q.dataset.qty)));
+            return body(popup);
+          }
           const b = e.target.closest("[data-shop]");
           if (!b) return;
           if (b.dataset.shop === "buy") buy(b.dataset.slug, Number(b.dataset.n) || 1);
           else sell(b.dataset.slug, Number(b.dataset.n) || 1);
+          qty.delete(b.dataset.slug);
+          // Animación corta en la tarjeta.
           body(popup);
+          popup.querySelector(`.pp-shop-card[data-slug="${b.dataset.slug}"]`)?.classList.add("is-done");
         });
       },
     });
@@ -3173,7 +3507,7 @@
 
   function monLine(m, extra = "") {
     const s = species(m.sp);
-    return `<span class="pp-tr-mon">${thumbHtml(m)}<span><b>${m.shiny ? "✦ " : ""}${esc(m.nick || s?.n || "???")}</b><small>${m.nick ? `${esc(s?.n || "")} · ` : ""}Nv. ${m.lv}${m.held ? ` · ${esc(itemName(m.held))}` : ""}${extra}</small></span></span>`;
+    return `<span class="pp-tr-mon" style="--tc:${TYPE_COLORS[s?.t?.[0]] || "#888"}">${thumbHtml(m)}<span><b>${m.shiny ? "✦ " : ""}${esc(m.nick || s?.n || "???")}</b><small>${m.nick ? `${esc(s?.n || "")} · ` : ""}Nv. ${m.lv}${m.held ? ` · ${esc(itemName(m.held))}` : ""}${extra}</small></span></span>`;
   }
 
   async function openTrades(preselect) {
@@ -3221,7 +3555,7 @@
                   .map((m) => {
                     const busy = !!m.trade;
                     const sel = m.uid === preselect;
-                    return `<button type="button" class="pp-tr-card${sel ? " is-sel" : ""}${busy ? " is-busy" : ""}" data-tr="pick" data-uid="${m.uid}" role="radio" aria-checked="${sel}" ${busy ? "disabled" : ""}
+                    return `<button type="button" class="pp-tr-card${sel ? " is-sel" : ""}${busy ? " is-busy" : ""}" style="--tc:${TYPE_COLORS[species(m.sp).t[0]] || "#888"}" data-tr="pick" data-uid="${m.uid}" role="radio" aria-checked="${sel}" ${busy ? "disabled" : ""}
                       title="${esc(displayName(m))} · Nv. ${m.lv}${m.held ? ` · lleva ${esc(itemName(m.held))} (viaja con él)` : ""}${busy ? " · ya está en una oferta" : ""}">
                       <span class="pp-tr-card-img">${thumbHtml(m)}${m.held ? `<img class="pp-tr-held" src="${ITEM_IMG(m.held)}" alt="" onerror="this.remove()">` : ""}</span>
                       <b>${m.shiny ? "✦ " : ""}${esc(displayName(m))}</b>
@@ -3290,7 +3624,7 @@
     await openModal({
       eyebrow: "PokéPark",
       title: "Intercambios",
-      width: 620,
+      width: 760,
       html: `<div class="pp-trades"><p class="sl-hint">Cargando…</p></div>`,
       showConfirmButton: false,
       showCloseButton: true,
@@ -3395,6 +3729,14 @@
   // Fuerte Afecto: el remolino de agua de Greninja Ash.
   const BOND_SVG =
     '<svg class="pp-mega-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5c3.6 4.2 6 7.6 6 10.8a6 6 0 0 1-12 0c0-3.2 2.4-6.6 6-10.8Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 14.2c.5 1.7 1.9 2.8 3.6 2.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+  const CHEVRON_L =
+    '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>';
+  const CHEVRON_R =
+    '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>';
+  const PALETTE_SVG =
+    '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.9 0 1.7-.7 1.7-1.7 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1a1.6 1.6 0 0 1 1.6-1.7h2c3.1 0 5.6-2.5 5.6-5.6C22 6 17.5 2 12 2Z"/></svg>';
+  const COIN_SVG =
+    '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15 9.5a3 3 0 0 0-3-1.5c-1.7 0-3 .9-3 2s1.3 1.7 3 2 3 .9 3 2-1.3 2-3 2a3 3 0 0 1-3-1.5"/><path d="M12 6v2M12 16v2"/></svg>';
   const BOX_SVG =
     '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v13a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Z"/><path d="M2 3h20v4H2Z"/><path d="M10 11h4"/></svg>';
   const SHOP_SVG =
@@ -3474,7 +3816,7 @@
     },
     _spriteError: spriteError,
     snapshot() {
-      return ready ? { party: state.party, box: state.box, legends: state.legends || {}, shinyCharm: !!state.shinyCharm } : null;
+      return ready ? { party: state.party, box: [...boxedMons(), ...(state.box || [])], legends: state.legends || {}, shinyCharm: !!state.shinyCharm } : null;
     },
     // La cuenta ha traído otro parque: se recarga desde disco.
     async reload() {

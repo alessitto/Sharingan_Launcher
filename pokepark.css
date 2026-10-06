@@ -3094,38 +3094,304 @@ body.in-pokepark .main-content {
   background: rgba(var(--red-500-rgb), 0.1);
 }
 
+/* =====================================================================
+   3.3.1: Cajas (10 de 6×5 + colección Eevee)
+   ===================================================================== */
+.pp-pc-popup.swal2-popup {
+  width: min(1100px, 96vw) !important;
+}
+
 .pp-pc {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr);
+  gap: 18px;
   text-align: left;
 }
 
-.pp-pc-head {
+.pp-pc-left {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.pp-pc-sec {
+  display: flex;
+  align-items: baseline;
   gap: 8px;
   font-size: 13px;
   color: var(--washi-100);
 }
 
-.pp-pc-head em {
+.pp-pc-sec em,
+.pp-pc-total {
   font-style: normal;
   font-size: 12px;
   color: var(--ink-300);
 }
 
-.pp-pc .pp-pc-head input.pp-pc-search {
-  margin-left: auto;
-  flex: 0 0 180px;
-  width: 180px;
-  max-width: 180px;
-  padding: 7px 14px;
+.pp-pc-team {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding: 10px;
+  border-radius: 16px;
+  border: 1px solid var(--ink-800);
+  background: linear-gradient(160deg, rgba(var(--red-500-rgb), 0.1), rgba(0, 0, 0, 0.25));
+}
+
+.pp-pc-main {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.pp-pc-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pp-pc-searchbox {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--ink-700);
+  background: var(--ink-900);
+  color: var(--ink-300);
+  transition: border-color 0.2s;
+}
+
+.pp-pc-searchbox:focus-within {
+  border-color: var(--red-500);
+}
+
+.pp-pc-searchbox .i {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+.pp-pc .pp-pc-searchbox input.pp-pc-search {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  color: var(--washi-50);
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+}
+
+/* Pestañas: una por caja + la colección Eevee */
+.pp-pc-tabs {
+  display: grid;
+  grid-template-columns: repeat(11, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.pp-pc-tab {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 46px;
+  padding: 6px 4px 5px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--washi-50);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform 0.15s, border-color 0.2s, box-shadow 0.2s, filter 0.2s;
+  filter: saturate(0.6) brightness(0.75);
+}
+
+.pp-pc-tab span {
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+}
+
+.pp-pc-tab:hover {
+  transform: translateY(-2px);
+  filter: none;
+}
+
+.pp-pc-tab.is-active {
+  filter: none;
+  border-color: var(--washi-100);
+  box-shadow: 0 0 0 2px rgba(var(--red-500-rgb), 0.6), 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+.pp-pc-tab.is-over {
+  filter: none;
+  transform: scale(1.08);
+  border-color: var(--red-500);
+}
+
+.pp-pc-tab i {
+  width: 70%;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+}
+
+.pp-pc-tab i em {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--washi-50);
+}
+
+.pp-pc-tab.is-full i em {
+  background: #ffcf4a;
+}
+
+.pp-pc-tab > b {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--red-500);
+  color: var(--on-accent, #fff);
+  font-size: 10px;
+  line-height: 16px;
+}
+
+.pp-pc-tab.is-eevee {
+  background: radial-gradient(circle at 50% 30%, #f6d7a7, #b07a45 70%, #6d4628);
+}
+
+.pp-pc-tab.is-eevee img {
+  width: 28px;
+  height: 28px;
+  margin: -4px 0 -2px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+/* Cabecera de la caja: flechas, nombre y herramientas */
+.pp-pc-boxhead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pp-pc-arrow,
+.pp-pc-tool {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  border: 1px solid var(--ink-700);
+  background: var(--ink-900);
+  color: var(--washi-200);
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.pp-pc-arrow:hover,
+.pp-pc-tool:hover {
+  border-color: var(--red-500);
+  color: var(--washi-50);
+}
+
+.pp-pc-arrow .i,
+.pp-pc-tool .i {
+  width: 16px;
+  height: 16px;
+}
+
+.pp-pc-title {
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.pp-pc-title > b,
+.pp-pc-name {
+  font-family: "Shippori Mincho", "Zen Kaku Gothic New", serif;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--washi-50);
+}
+
+.pp-pc-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  padding: 2px 6px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  cursor: text;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.pp-pc-name:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.pp-pc-pen {
+  width: 13px;
+  height: 13px;
+  color: var(--ink-300);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.pp-pc-name:hover .pp-pc-pen {
+  opacity: 1;
+}
+
+.pp-pc .pp-pc-title input.pp-pc-rename {
+  width: 220px;
+  height: 34px;
+  margin: 0;
+  padding: 0 12px;
+  font-size: 15px;
+  text-align: center;
+}
+
+.pp-pc-title small {
   font-size: 12px;
+  color: var(--ink-300);
+  font-variant-numeric: tabular-nums;
+}
+
+.pp-pc-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .pp-pc-sort {
-  padding: 6px 12px;
+  height: 34px;
+  padding: 0 12px;
   border-radius: 999px;
   border: 1px solid var(--ink-700);
   background: var(--ink-900);
@@ -3133,9 +3399,6 @@ body.in-pokepark .main-content {
   font-size: 12px;
   font-family: inherit;
   outline: none;
-}
-
-.pp-pc-sort {
   cursor: pointer;
 }
 
@@ -3143,65 +3406,68 @@ body.in-pokepark .main-content {
   border-color: var(--red-500);
 }
 
-.pp-pc-team {
+.pp-pc-sort:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* La caja: rejilla fija de 6×5 sobre su fondo */
+.pp-pc-stage {
+  position: relative;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.3), inset 0 30px 60px rgba(255, 255, 255, 0.04);
+  overflow: hidden;
+}
+
+/* Que las 5 filas quepan siempre en la ventana: el ancho sale de la altura. */
+.pp-pc-grid {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(6, 1fr);
   gap: 8px;
-}
-
-.pp-pc-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
-  align-content: start;
-  gap: 6px;
-  min-height: 150px;
-  max-height: 300px;
-  overflow-y: auto;
-  padding: 8px;
-  border-radius: 14px;
-  border: 1px solid var(--ink-800);
-  background: rgba(0, 0, 0, 0.18);
-  transition: border-color 0.2s, background 0.2s;
-}
-
-.pp-pc-grid.is-over {
-  border-color: var(--red-500);
-  background: rgba(var(--red-500-rgb), 0.06);
+  width: min(100%, calc((100vh - 380px) * 1.2 + 8px));
+  margin: 0 auto;
 }
 
 .pp-pc-cell {
   position: relative;
   aspect-ratio: 1;
+  min-width: 0;
   padding: 0;
-  border-radius: 12px;
-  border: 1px solid var(--ink-700);
-  background: rgba(var(--red-500-rgb), 0.05);
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background:
+    radial-gradient(circle at 50% 62%, color-mix(in srgb, var(--tc, #888) 38%, transparent), transparent 70%),
+    rgba(10, 8, 9, 0.55);
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
   cursor: grab;
-  transition: border-color 0.2s, background 0.2s, transform 0.15s, opacity 0.2s;
+  backdrop-filter: blur(2px);
+  transition: border-color 0.2s, background 0.2s, transform 0.15s, opacity 0.2s, box-shadow 0.2s;
 }
 
 .pp-pc-cell:hover {
   transform: translateY(-2px);
-  border-color: rgba(var(--red-500-rgb), 0.5);
+  border-color: color-mix(in srgb, var(--tc, #888) 70%, white);
 }
 
 .pp-pc-cell.is-picked {
-  border-color: var(--red-500);
-  background: rgba(var(--red-500-rgb), 0.18);
-  box-shadow: 0 0 0 2px rgba(var(--red-500-rgb), 0.25);
+  border-color: var(--washi-50);
+  box-shadow: 0 0 0 2px var(--red-500), 0 0 18px rgba(var(--red-500-rgb), 0.5);
 }
 
 .pp-pc-cell.is-over {
-  border-color: var(--red-500);
+  border-color: var(--washi-50);
   transform: scale(1.06);
+  box-shadow: 0 0 0 2px var(--red-500);
 }
 
 .pp-pc-cell.is-dragging {
-  opacity: 0.35;
+  opacity: 0.3;
 }
 
 .pp-pc-cell.is-trading {
@@ -3209,83 +3475,679 @@ body.in-pokepark .main-content {
   opacity: 0.7;
 }
 
+.pp-pc-cell.is-dim {
+  opacity: 0.22;
+  filter: grayscale(0.8);
+}
+
+.pp-pc-cell.is-match {
+  box-shadow: 0 0 0 2px #ffcf4a, 0 0 16px rgba(255, 207, 74, 0.45);
+}
+
 .pp-pc-cell.is-empty {
-  border-style: dashed;
-  background: none;
-  color: var(--ink-700);
+  border: 1px dashed rgba(255, 255, 255, 0.16);
+  background: rgba(0, 0, 0, 0.22);
   cursor: default;
+  backdrop-filter: none;
+}
+
+.pp-pc-cell.is-empty:hover {
+  transform: none;
+}
+
+.pp-pc.is-dragging .pp-pc-cell.is-empty,
+.pp-pc-popup.is-dragging .pp-pc-cell.is-empty {
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.pp-pc-cell.is-empty.is-team {
+  color: var(--ink-600);
 }
 
 .pp-pc-cell.is-empty .i {
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
 }
 
-.pp-pc-cell img {
+.pp-pc-cell > img:first-child {
   width: 100%;
   height: 100%;
   object-fit: contain;
   image-rendering: pixelated;
-  transform: scale(1.2);
+  transform: scale(1.18);
+  pointer-events: none;
+  filter: drop-shadow(0 3px 2px rgba(0, 0, 0, 0.45));
+}
+
+.pp-pc-cell .pp-shiny-mark {
+  top: 4px;
+  right: 6px;
+}
+
+.pp-pc-held {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  image-rendering: pixelated;
   pointer-events: none;
 }
 
-.pp-pc-empty {
-  grid-column: 1 / -1;
-  margin: auto;
-  padding: 30px 10px;
+/* Fondos de las cajas */
+.pp-wall-0 { background: radial-gradient(circle at 20% 15%, rgba(255, 255, 255, 0.12), transparent 40%), repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0 12px, transparent 12px 24px), linear-gradient(160deg, #3f7a3a, #1d4423 70%, #12301a); }
+.pp-wall-1 { background: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0 2px, transparent 2px 40px), repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.05) 0 2px, transparent 2px 40px), linear-gradient(170deg, #58607a, #2e3346 70%, #1d2030); }
+.pp-wall-2 { background: radial-gradient(ellipse at 80% 10%, rgba(255, 230, 160, 0.35), transparent 45%), repeating-linear-gradient(170deg, rgba(0, 0, 0, 0.06) 0 18px, transparent 18px 36px), linear-gradient(170deg, #d6a95f, #9c6a32 70%, #6b4520); }
+.pp-wall-3 { background: radial-gradient(circle at 75% 20%, rgba(255, 200, 80, 0.45), transparent 30%), linear-gradient(175deg, #e3a35a 0%, #b9783c 45%, #6f5a2c 46%, #4e3f1f 100%); }
+.pp-wall-4 { background: radial-gradient(circle at 30% 70%, rgba(130, 110, 180, 0.25), transparent 40%), repeating-radial-gradient(circle at 70% 30%, rgba(255, 255, 255, 0.03) 0 6px, transparent 6px 20px), linear-gradient(160deg, #4a3f52, #2a2330 70%, #18131c); }
+.pp-wall-5 { background: radial-gradient(circle at 50% 110%, rgba(255, 120, 40, 0.65), transparent 55%), repeating-linear-gradient(120deg, rgba(0, 0, 0, 0.15) 0 10px, transparent 10px 30px), linear-gradient(170deg, #5a1d17, #2d0e0c 75%); }
+.pp-wall-6 { background: radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.5) 0 2px, transparent 3px) 0 0 / 34px 34px, radial-gradient(circle at 60% 70%, rgba(255, 255, 255, 0.4) 0 1.5px, transparent 2.5px) 0 0 / 26px 26px, linear-gradient(170deg, #a9c7dd, #6c8fae 60%, #44607c); }
+.pp-wall-7 { background: radial-gradient(ellipse at 50% 100%, rgba(255, 236, 190, 0.6), transparent 50%), linear-gradient(180deg, #5fc4d8 0%, #3aa0bd 45%, #e8d29a 46%, #c9ad6c 100%); }
+.pp-wall-8 { background: radial-gradient(circle at 30% 20%, rgba(150, 220, 255, 0.25), transparent 40%), repeating-linear-gradient(170deg, rgba(255, 255, 255, 0.04) 0 4px, transparent 4px 22px), linear-gradient(180deg, #1f6c9c, #0f3d66 65%, #08223d); }
+.pp-wall-9 { background: radial-gradient(ellipse at 25% 30%, rgba(255, 255, 255, 0.55), transparent 22%), radial-gradient(ellipse at 70% 60%, rgba(255, 255, 255, 0.4), transparent 20%), linear-gradient(180deg, #7fb6ea, #4c86c8 70%, #3a6aa8); }
+
+/* Ficha del elegido */
+.pp-pc-info {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid var(--ink-800);
+  background: rgba(0, 0, 0, 0.2);
+  min-height: 200px;
+}
+
+.pp-pc-hint {
+  display: flex;
+  gap: 8px;
+  margin: auto 0;
   font-size: 12px;
+  line-height: 1.5;
   color: var(--ink-300);
+}
+
+.pp-pc-hint .i {
+  flex-shrink: 0;
+  width: 15px;
+  height: 15px;
+  margin-top: 1px;
+}
+
+.pp-pc-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
   text-align: center;
 }
 
-.pp-pc-info {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 60px;
-  padding: 6px 12px 6px 6px;
-  border-radius: 14px;
-  border: 1px solid var(--ink-800);
+.pp-pc-card-img {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--tc) 45%, transparent), transparent 70%);
 }
 
-.pp-pc-info > img {
-  width: 52px;
-  height: 52px;
+.pp-pc-card-img > img:first-child {
+  width: 100px;
+  height: 100px;
   object-fit: contain;
   image-rendering: pixelated;
+  filter: drop-shadow(0 4px 3px rgba(0, 0, 0, 0.5));
 }
 
-.pp-pc-text {
+.pp-pc-card-img .pp-shiny-mark {
+  top: 6px;
+  right: 6px;
+}
+
+.pp-pc-card-text {
   display: flex;
   flex-direction: column;
+  align-items: center;
+  gap: 4px;
   min-width: 0;
-  flex: 1;
-  font-size: 13px;
-  color: var(--washi-100);
+  width: 100%;
 }
 
-.pp-pc-text .pp-shiny-mark {
-  position: static;
+.pp-pc-card-text > b {
+  font-family: "Shippori Mincho", "Zen Kaku Gothic New", serif;
+  font-size: 18px;
+  color: var(--washi-50);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
 }
 
-.pp-pc-text small {
+.pp-pc-card-text small {
   font-size: 11px;
   color: var(--ink-300);
 }
 
-.pp-pc-text .pp-pc-tip {
-  color: var(--ink-200);
+.pp-pc-card-text .pp-types {
+  justify-content: center;
+  margin: 2px 0;
+}
+
+.pp-pc-card-hearts {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.pp-pc-card-held {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pp-pc-card-held .pp-item-img {
+  width: 18px;
+  height: 18px;
+}
+
+.pp-pc-where {
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .pp-pc-btns {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 6px;
+}
+
+.pp-pc-btns .sl-btn .i {
+  width: 14px;
+  height: 14px;
+}
+
+/* ------------------------------------------------------------ Colección Eevee */
+.pp-pc-stage.is-eevee {
+  background:
+    radial-gradient(circle at 50% 48%, rgba(255, 214, 160, 0.22), transparent 55%),
+    radial-gradient(circle at 50% 50%, #3b2a24, #1d1513 75%);
+}
+
+.pp-ev {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.pp-ev-stage {
+  position: relative;
+  width: min(100%, 470px, calc(100vh - 440px));
+  aspect-ratio: 1;
+}
+
+.pp-ev-lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.pp-ev-lines polygon {
+  fill: rgba(255, 220, 170, 0.05);
+  stroke: rgba(255, 220, 170, 0.35);
+  stroke-width: 0.5;
+  stroke-dasharray: 1.4 1.2;
+}
+
+.pp-ev-lines line {
+  stroke: rgba(255, 220, 170, 0.18);
+  stroke-width: 0.4;
+}
+
+.pp-ev-slot {
+  position: absolute;
+  width: 19%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.pp-ev-slot.is-center {
+  width: 25%;
+}
+
+.pp-ev-slot .pp-pc-cell {
+  width: 100%;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--tc) 55%, transparent);
+  background: radial-gradient(circle at 50% 60%, color-mix(in srgb, var(--tc) 40%, transparent), rgba(10, 8, 9, 0.75) 72%);
+}
+
+.pp-ev-slot.is-filled .pp-pc-cell {
+  border-color: var(--tc);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--tc) 55%, transparent);
+}
+
+.pp-ev-slot .pp-pc-cell.is-picked,
+.pp-ev-slot .pp-pc-cell.is-over {
+  border-color: var(--washi-50);
+  box-shadow: 0 0 0 2px var(--red-500), 0 0 22px color-mix(in srgb, var(--tc) 70%, transparent);
+}
+
+.pp-ev-slot .pp-slot-lv {
+  bottom: 8%;
+}
+
+.pp-ev-ghost {
+  width: 80%;
+  height: 80%;
+  object-fit: contain;
+  image-rendering: pixelated;
+  filter: brightness(0) invert(1);
+  opacity: 0.16;
+  pointer-events: none;
+}
+
+.pp-ev-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--tc) 55%, white);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  white-space: nowrap;
+}
+
+.pp-ev-slot:not(.is-filled) .pp-ev-name {
+  color: var(--ink-300);
+}
+
+.pp-ev-note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ink-300);
+}
+
+.pp-ev.is-complete .pp-ev-note {
+  color: #ffcf4a;
+  font-weight: 700;
+}
+
+.pp-ev.is-complete .pp-ev-lines polygon {
+  stroke: #ffcf4a;
+  stroke-dasharray: none;
+  fill: rgba(255, 207, 74, 0.08);
+  animation: pp-ev-glow 2.4s ease-in-out infinite;
+}
+
+@keyframes pp-ev-glow {
+  50% {
+    fill: rgba(255, 207, 74, 0.16);
+    filter: drop-shadow(0 0 3px rgba(255, 207, 74, 0.8));
+  }
+}
+
+@media (max-width: 900px) {
+  .pp-pc {
+    grid-template-columns: 1fr;
+  }
+  .pp-pc-team {
+    grid-template-columns: repeat(6, 1fr);
+  }
+  .pp-pc-tabs {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+/* =====================================================================
+   3.3.1: equipo, tienda, bolsa e intercambios renovados
+   ===================================================================== */
+/* Equipo del lateral: color de su tipo y barra de experiencia */
+.pp-slot:not(.is-empty) {
+  background:
+    radial-gradient(circle at 50% 62%, color-mix(in srgb, var(--tc, #888) 35%, transparent), transparent 72%),
+    rgba(var(--red-500-rgb), 0.04);
+}
+
+.pp-slot:not(.is-empty):hover {
+  border-color: color-mix(in srgb, var(--tc, #888) 70%, white);
+}
+
+.pp-slot.is-active {
+  box-shadow: 0 0 0 1px var(--red-500), 0 0 14px rgba(var(--red-500-rgb), 0.35);
+}
+
+.pp-slot-exp {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: 2px;
+  height: 2px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+.pp-slot-exp em {
+  display: block;
+  height: 100%;
+  background: #5cc9f5;
+}
+
+.pp-slot .pp-slot-lv {
+  bottom: 4px;
+}
+
+/* Pestañas con icono (tienda) */
+.pp-bag-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: background 0.2s, color 0.2s;
+}
+
+.pp-bag-tab:hover:not(.is-active) {
+  color: var(--washi-50);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.pp-bag-tab .i,
+.pp-bag-tab .pp-mega-ic {
+  width: 15px;
+  height: 15px;
+}
+
+/* Monedero */
+.pp-shop-head .pp-shop-money {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(244, 197, 66, 0.35);
+  background: linear-gradient(180deg, rgba(244, 197, 66, 0.16), rgba(244, 197, 66, 0.05));
+  color: #f4c542;
+  font-size: 15px;
+}
+
+.pp-shop-money .i {
+  width: 18px;
+  height: 18px;
+}
+
+.pp-shop-popup .pp-bag-body {
+  max-height: 60vh;
+}
+
+/* Tarjetas de la tienda y de la bolsa */
+.pp-shop-grid,
+.pp-bag-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 10px;
+  padding: 2px;
+}
+
+.pp-shop-card,
+.pp-bag-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid var(--ink-800);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0.15));
+  transition: border-color 0.2s, transform 0.15s;
+}
+
+.pp-shop-card:hover,
+.pp-bag-card:hover {
+  border-color: rgba(var(--red-500-rgb), 0.45);
+  transform: translateY(-2px);
+}
+
+.pp-shop-card.is-team {
+  border-color: rgba(176, 107, 255, 0.55);
+  background: linear-gradient(180deg, rgba(176, 107, 255, 0.12), rgba(0, 0, 0, 0.15));
+}
+
+.pp-shop-card.is-poor .pp-price {
+  color: var(--ink-400);
+}
+
+.pp-shop-card.is-done {
+  animation: pp-shop-done 0.5s ease;
+}
+
+@keyframes pp-shop-done {
+  40% {
+    border-color: #5cc98a;
+    box-shadow: 0 0 0 2px rgba(92, 201, 138, 0.35);
+  }
+}
+
+.pp-shop-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.pp-shop-img {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  flex-shrink: 0;
+  border-radius: 14px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.02) 70%);
+}
+
+.pp-shop-img .pp-item-img {
+  width: 40px;
+  height: 40px;
+}
+
+.pp-shop-img em {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--washi-50);
+  background: var(--ink-700);
+  border: 1px solid var(--ink-600);
+}
+
+.pp-shop-own {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--washi-100);
+  background: var(--ink-800);
+}
+
+.pp-shop-top .pp-team-tag {
+  margin: 0;
+}
+
+.pp-shop-name {
+  font-size: 14px;
+  color: var(--washi-50);
+}
+
+.pp-shop-note {
+  flex: 1;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--ink-300);
+}
+
+.pp-shop-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.pp-shop-foot .pp-price {
+  font-style: normal;
+  font-size: 14px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #f4c542;
+}
+
+.pp-qty {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid var(--ink-700);
+  overflow: hidden;
+}
+
+.pp-qty button {
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: var(--ink-900);
+  color: var(--washi-100);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.pp-qty button:hover:not(:disabled) {
+  background: var(--ink-700);
+}
+
+.pp-qty button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.pp-qty span {
+  min-width: 26px;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: var(--washi-50);
+}
+
+.pp-shop-go {
+  width: 100%;
+  justify-content: center;
+  margin-top: 4px;
+}
+
+.pp-bag-card {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+
+.pp-bag-card .pp-bag-name {
+  flex: 1;
+}
+
+.pp-bag-card .sl-btn {
   flex-shrink: 0;
 }
 
-.pp-pc-hint {
-  margin: 0 auto;
-  font-size: 12px;
-  color: var(--ink-300);
+.pp-bag-card .pp-bag-hint {
+  display: none;
+}
+
+.pp-bag-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.pp-bag-empty svg {
+  width: 34px;
+  height: 34px;
+  opacity: 0.4;
+}
+
+/* Elegir Pokémon para un objeto o un intercambio */
+.pp-bag-targets {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 8px;
+}
+
+.pp-target {
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0.15));
+}
+
+/* Intercambios */
+.pp-tr-sec {
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid var(--ink-800);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.pp-tr-card {
+  background:
+    radial-gradient(circle at 50% 38%, color-mix(in srgb, var(--tc, #888) 32%, transparent), transparent 62%),
+    rgba(255, 255, 255, 0.02);
+}
+
+.pp-tr-row {
+  padding: 10px 12px;
+  border-radius: 14px;
+}
+
+.pp-tr-mon img {
+  width: 52px;
+  height: 52px;
+  padding: 4px;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--tc, #888) 40%, transparent), transparent 70%);
+}
+
+.pp-tr-mon b {
+  font-size: 14px;
+  color: var(--washi-50);
+}
+
+.pp-tr-hist {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.pp-tr-hist .pp-tr-st {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--ink-800);
+  min-width: 0;
+  margin: 0;
+}
+
+.pp-tr-st.is-accepted {
+  background: rgba(92, 201, 138, 0.15);
 }
