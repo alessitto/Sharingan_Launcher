@@ -2726,8 +2726,7 @@
       const SETTINGS_PAGES = [
         { id: "account", name: "Cuenta", icon: "user" },
         { id: "stores", name: "Tiendas", icon: "link", account: true },
-        { id: "color", name: "Color", icon: "palette", account: true },
-        { id: "style", name: "Estilo", icon: "sparkles", account: true },
+        { id: "theme", name: "Tema", icon: "palette", account: true },
         { id: "discover", name: "Descubrir", icon: "grid", account: true },
         { id: "spotify", name: "Spotify", icon: "music", account: true },
         { id: "ai", name: "Inteligencia artificial", icon: "lightbulb", account: true },
@@ -2735,6 +2734,7 @@
         { id: "updates", name: "Actualizaciones", icon: "download" },
       ];
       let settingsPage = "account";
+      const OLD_SETTINGS_PAGES = { color: "theme", style: "theme" };
 
       // Lo personal (PokéPark, Comunidad, IA, Spotify, tiendas) solo se ve
       // con la sesión iniciada: body.is-guest oculta todo lo .needs-account.
@@ -2770,9 +2770,12 @@
       const settingsPageHtml = {
         account: () => `<div class="st-account"></div>`,
         stores: () => `<div class="st-stores"></div>`,
-        color: () => {
+        // Tema: colores y estilos en la misma página (con scroll propio).
+        theme: () => {
           const T = window.SLThemes;
           return `
+            <section class="st-theme-sec">
+              <p class="st-theme-head">Color</p>
             <div class="st-colors" id="themeColors">${T.CATEGORIES.map(
               (cat) => `
                 <div class="tp-cat">
@@ -2786,9 +2789,9 @@
                     .join("")}
                 </div>`
             ).join("")}</div>
-            <p class="tp-soon">${icon("sparkles")}Más colores y estilos llegarán en próximas actualizaciones.</p>`;
-        },
-        style: () => `
+            </section>
+            <section class="st-theme-sec">
+              <p class="st-theme-head">Estilo</p>
           <div class="tp-effects" id="themeEffects">${window.SLThemes.EFFECTS.map(
             (e) => `
               <div class="tp-effect${e.id === themeState.effect ? " is-selected" : ""}" data-effect-id="${e.id}">
@@ -2796,7 +2799,10 @@
                 <span class="tp-effect-name">${e.name}</span>
                 <span class="tp-effect-desc">${e.desc}</span>
               </div>`
-          ).join("")}</div>`,
+          ).join("")}</div>
+            </section>
+            <p class="tp-soon">${icon("sparkles")}Más colores y estilos llegarán en próximas actualizaciones.</p>`;
+        },
         discover: (s) => `
           <div class="st-field">
             <div class="settings-row-head">
@@ -2849,7 +2855,7 @@
       function bindSettingsPage(id, page) {
         if (id === "account") {
           window.Community?.renderAccount(page.querySelector(".st-account"), () => openSettingsModal("account"));
-        } else if (id === "color") {
+        } else if (id === "theme") {
           const colorsEl = page.querySelector("#themeColors");
           colorsEl.addEventListener("click", (e) => {
             const sw = e.target.closest(".theme-swatch");
@@ -2859,7 +2865,6 @@
             smoothTheme({ theme, themeEffect: themeState.effect });
             persistSetting({ theme });
           });
-        } else if (id === "style") {
           const effectsEl = page.querySelector("#themeEffects");
           effectsEl.addEventListener("click", (e) => {
             const card = e.target.closest(".tp-effect");
@@ -3047,6 +3052,7 @@
 
       async function openSettingsModal(start) {
         if (start) settingsPage = start;
+        settingsPage = OLD_SETTINGS_PAGES[settingsPage] || settingsPage;
         const settings = (await window.electronAPI.getSettings()) || {};
         const values = {
           gamesPerPage: settings.gamesPerPage || DISCOVER_PAGE_SIZE || 60,
