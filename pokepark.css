@@ -5496,13 +5496,13 @@ b > .pp-shiny-ic {
   background: url("assets/pokepark/walls/15.png") center / 100% 100% no-repeat;
 }
 
-/* La caja es el fondo entero del juego (156×141, con su franja de arriba)
-   escalado sin suavizar, y los 30 huecos van en la zona de abajo. */
+/* La caja es el fondo del juego sin la franja de dibujo de arriba (156×116)
+   escalado sin suavizar, y los 30 huecos van dentro del marco. */
 .pp-pc-stage:not(.is-eevee) {
-  aspect-ratio: 156 / 141;
-  width: min(100%, calc((100vh - 360px) * 156 / 141));
+  aspect-ratio: 156 / 116;
+  width: min(100%, calc((100vh - 380px) * 156 / 116));
   margin: 0 auto;
-  padding: 15% 5.5% 4.5% 5.5%;
+  padding: 3.5% 5% 4% 5%;
   border: none;
   border-radius: 6px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);

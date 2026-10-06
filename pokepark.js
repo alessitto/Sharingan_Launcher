@@ -285,6 +285,26 @@
     st.box = left;
   }
 
+  // Regalos de una sola vez (state.gifts guarda los ya dados y viaja con el
+  // parque, así no se repiten en otro PC). Para quien ya tenía parque y
+  // para quien empieza, con distinto importe.
+  const GIFTS = [{ id: "regalo-3.4.7", existing: 1000, fresh: 500 }];
+  let giftMsg = "";
+  function applyGifts(st, saved) {
+    const had = !!(saved && Array.isArray(saved.party) && (saved.starter || saved.party.length));
+    st.gifts = Array.isArray(st.gifts) ? st.gifts : [];
+    let given = 0;
+    for (const g of GIFTS) {
+      if (st.gifts.includes(g.id)) continue;
+      const n = had ? g.existing : g.fresh;
+      st.money += n;
+      st.gifts.push(g.id);
+      given += n;
+    }
+    if (given) giftMsg = `¡Regalo! Tienes ${fmtMoney(given)} más en el PokéPark.`;
+    return given > 0;
+  }
+
   // Equipo + visitante (si hay): los que ganan exp, comen y hacen amigos.
   const parkMons = () => (state.visitor ? [...state.party, state.visitor] : state.party);
   // Todo lo que anda por el parque (también los salvajes).
@@ -4304,6 +4324,7 @@
 
     const saved = await window.electronAPI.pokeparkGet().catch(() => null);
     state = normalizeState(saved);
+    if (applyGifts(state, saved)) save();
     ready = true;
     shell();
     checkVisitorLeave();
@@ -4331,6 +4352,10 @@
   window.PokePark = {
     onShow() {
       if (!ready) return;
+      if (giftMsg) {
+        showNotification(giftMsg);
+        giftMsg = "";
+      }
       render();
       syncTrades();
       if (state.visitor && !state.visitor.seen) setTimeout(announceVisitor, 400);
@@ -4346,6 +4371,7 @@
       if (saved === undefined) return;
       // Sin parque guardado (otra cuenta que aún no tiene): parque nuevo.
       state = normalizeState(saved && Array.isArray(saved.party) ? saved : null);
+      if (applyGifts(state, saved)) save();
       if (state.starter && state.party.length) refreshWild();
       selectedUid = null;
       for (const a of actors.values()) a.el.remove();
