@@ -3810,13 +3810,22 @@
             .join("")}
             <span class="mg-pk-score">${won}/${pk.slots.length} · ${fmtMoney(won * pk.reward)}</span>
           </div>
+          <!-- Como el "¿Quién es ese Pokémon?" del anime: silueta sobre el
+               estallido azul y la interrogación en el lado rojo. -->
           <div class="mg-pk-stage is-${slot.state}">
-            ${img ? `<img class="mg-pk-img" src="${img}" alt="" draggable="false">` : `<span class="mg-loading">Cargando…</span>`}
+            <span class="mg-pk-burst" aria-hidden="true"></span>
+            <span class="mg-pk-red" aria-hidden="true"></span>
+            <span class="mg-pk-mon">${img ? `<img class="mg-pk-img" src="${img}" alt="" draggable="false">` : `<span class="mg-loading">Cargando…</span>`}</span>
+            <span class="mg-pk-title">${
+              slot.answer
+                ? `<span class="mg-pk-says">${slot.state === "win" ? "¡Es" : "Era"}</span><span class="mg-pk-logo is-name">${esc(slot.answer.name)}${slot.state === "win" ? "!" : ""}</span>`
+                : `<span class="mg-pk-q">?</span><span class="mg-pk-logo">Pokémon</span>`
+            }</span>
             ${slot.state === "win" ? `<span class="mg-pk-reward">+${fmtMoney(pk.reward)}</span>` : ""}
           </div>
           ${
             slot.answer
-              ? `<p class="mg-pk-answer">${slot.state === "win" ? "¡Es" : "Era"} <b>${esc(slot.answer.name)}</b>${slot.state === "win" ? "!" : "."}</p>`
+              ? ""
               : `<div class="mg-pk-tries" title="Intentos">${Array.from({ length: pk.tries }, (_, i) => `<i class="${i < slot.tries ? "is-used" : ""}"></i>`).join("")}<span>${slot.left} ${slot.left === 1 ? "intento" : "intentos"}</span></div>`
           }
           ${slot.hints.length ? `<div class="mg-pk-hints">${slot.hints.map((h) => `<span>${esc(h.v)}</span>`).join("")}</div>` : ""}

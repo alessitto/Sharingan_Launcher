@@ -4987,3 +4987,143 @@ b > .pp-shiny-ic {
     height: 82px;
   }
 }
+
+/* Pokédle al estilo del anime ("¿Quién es ese Pokémon?") */
+.mg-pk-stage {
+  height: 270px;
+  background: #4aa7d6;
+  isolation: isolate;
+}
+
+.mg-pk-stage::before {
+  content: none;
+}
+
+.mg-pk-burst {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(circle at 30% 52%, #fff 0 14%, rgba(255, 255, 255, 0.85) 22%, rgba(255, 255, 255, 0) 46%),
+    repeating-conic-gradient(from 0deg at 30% 52%, rgba(255, 255, 255, 0.75) 0 2.5deg, rgba(255, 255, 255, 0) 2.5deg 9deg, rgba(255, 255, 255, 0.45) 9deg 10.5deg, rgba(255, 255, 255, 0) 10.5deg 17deg),
+    radial-gradient(circle at 30% 52%, #e6f7ff 0 25%, #8fd3f2 50%, #4fb0de 75%, #3a93c8 100%);
+  animation: mg-burst 6s ease-in-out infinite alternate;
+}
+
+@keyframes mg-burst {
+  to {
+    filter: brightness(1.06) saturate(1.1);
+  }
+}
+
+.mg-pk-red {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  clip-path: polygon(57% 0, 100% 0, 100% 100%, 64% 100%, 60% 90%, 65% 80%, 58% 66%, 64% 54%, 57% 41%, 62% 28%, 55% 15%, 60% 6%);
+  background:
+    repeating-linear-gradient(160deg, rgba(255, 255, 255, 0) 0 22px, rgba(255, 255, 255, 0.16) 22px 24px, rgba(255, 255, 255, 0) 24px 58px, rgba(255, 140, 120, 0.25) 58px 61px),
+    linear-gradient(115deg, #f2452a 0%, #dc1f14 45%, #b90d0b 100%);
+  filter: drop-shadow(-6px 0 0 rgba(255, 255, 255, 0.9));
+}
+
+.mg-pk-mon {
+  position: absolute;
+  z-index: 2;
+  left: 30%;
+  top: 52%;
+  transform: translate(-50%, -50%);
+}
+
+.mg-pk-img {
+  width: 230px;
+  height: 230px;
+}
+
+.mg-pk-stage.is-open .mg-pk-img {
+  filter: brightness(0) drop-shadow(0 0 0 #000);
+}
+
+.mg-pk-stage:not(.is-open) .mg-pk-img {
+  filter: drop-shadow(0 4px 0 rgba(0, 0, 0, 0.15));
+  animation: mg-reveal 0.7s ease;
+}
+
+@keyframes mg-reveal {
+  0% {
+    filter: brightness(0);
+  }
+  40% {
+    filter: brightness(3);
+  }
+}
+
+.mg-pk-title {
+  position: absolute;
+  z-index: 3;
+  left: 61%;
+  right: 3%;
+  top: 50%;
+  transform: translateY(-50%) rotate(-6deg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 0.9;
+  pointer-events: none;
+}
+
+.mg-pk-q,
+.mg-pk-logo,
+.mg-pk-says {
+  font-family: "Arial Black", "Segoe UI Black", "Zen Kaku Gothic New", sans-serif;
+  font-weight: 900;
+  color: #ffcb05;
+  -webkit-text-stroke: 5px #2a62b0;
+  paint-order: stroke fill;
+  text-shadow: 3px 5px 0 #173a75;
+}
+
+.mg-pk-q {
+  font-size: 118px;
+  transform: rotate(10deg);
+  animation: mg-q 1.6s ease-in-out infinite;
+}
+
+@keyframes mg-q {
+  50% {
+    transform: rotate(4deg) scale(1.05);
+  }
+}
+
+.mg-pk-logo {
+  margin-top: 4px;
+  font-size: 44px;
+  letter-spacing: 0.01em;
+}
+
+.mg-pk-logo.is-name {
+  max-width: 100%;
+  font-size: clamp(26px, 4.4vw, 46px);
+  overflow-wrap: anywhere;
+  text-align: center;
+  animation: mg-pop 0.5s ease;
+}
+
+.mg-pk-says {
+  font-size: 30px;
+  -webkit-text-stroke-width: 4px;
+}
+
+.mg-pk-stage.is-fail .mg-pk-logo,
+.mg-pk-stage.is-fail .mg-pk-says {
+  color: #f1ece2;
+  -webkit-text-stroke-color: #6b6461;
+  text-shadow: 3px 5px 0 #3a3436;
+}
+
+.mg-pk-reward {
+  z-index: 4;
+  top: auto;
+  bottom: 14px;
+  right: 16px;
+}
