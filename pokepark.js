@@ -3735,6 +3735,8 @@
   const mg = (action, ...args) =>
     window.electronAPI.minigames(action, ...args).catch(() => ({ ok: false, error: "Algo ha fallado. Prueba otra vez." }));
   const gameBets = { voltorb: 500, bj: 500 };
+  const betTouched = { voltorb: false, bj: false }; // la primera ficha sustituye a la apuesta por defecto
+  const VOLTORB_MULTS = [1.1, 1.25, 1.5, 1.85, 2.5, 2.6, 3.5, 3.5]; // los de minigames.js
 
   function spend(n) {
     if (unlimited()) return true;
@@ -3762,23 +3764,32 @@
   const cardHtml = (c, i = 0, fresh = true) =>
     c
       ? `<span class="mg-card${fresh ? " is-new" : ""} is-${c.s === "h" || c.s === "d" ? "red" : "black"}" style="--i:${i}">
-          <b>${RANKS[c.r]}</b><svg viewBox="0 0 24 24" aria-hidden="true">${SUIT_SVG[c.s]}</svg><b class="mg-card-br">${RANKS[c.r]}</b>
+          <span class="mg-card-corner"><b>${RANKS[c.r]}</b><svg viewBox="0 0 24 24" aria-hidden="true">${SUIT_SVG[c.s]}</svg></span>
+          <svg class="mg-card-pip" viewBox="0 0 24 24" aria-hidden="true">${SUIT_SVG[c.s]}</svg>
+          <span class="mg-card-corner is-br"><b>${RANKS[c.r]}</b><svg viewBox="0 0 24 24" aria-hidden="true">${SUIT_SVG[c.s]}</svg></span>
         </span>`
-      : `<span class="mg-card${fresh ? " is-new" : ""} is-back" style="--i:${i}">${POKEBALL_SVG}</span>`;
+      : `<span class="mg-card${fresh ? " is-new" : ""} is-back" style="--i:${i}"><span class="mg-card-back">${POKEBALL_SVG}</span></span>`;
   const VOLTORB_SVG =
     '<svg class="mg-voltorb" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#f4f1ea"/><path d="M2 12a10 10 0 0 1 20 0Z" fill="#d6322b"/><path d="M2 12h20" stroke="#2a1d1a" stroke-width="1.2"/><path d="M6.5 8.8l3.6 1.4M17.5 8.8l-3.6 1.4" stroke="#2a1d1a" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="12" r="10" fill="none" stroke="#2a1d1a" stroke-width="1.2"/></svg>';
 
+  // Fichas de casino para apostar (sumar) y el importe editable.
+  const CHIPS = [
+    { n: 100, c: "is-white" },
+    { n: 500, c: "is-red" },
+    { n: 1000, c: "is-blue" },
+    { n: 5000, c: "is-black" },
+  ];
   function betPanel(game, label) {
     const v = gameBets[game];
     const max = unlimited() ? Infinity : state.money;
-    const chips = [100, 500, 1000, 5000].filter((n) => n <= max || unlimited());
     return `
       <div class="mg-bet" data-game="${game}">
         <span class="mg-bet-label">Apuesta</span>
-        <div class="mg-bet-row">
-          <label class="mg-bet-input">${COIN_SVG}<input type="number" class="mg-bet-val" min="100" step="100" value="${v}" aria-label="Apuesta"></label>
-          ${chips.map((n) => `<button type="button" class="mg-chip" data-bet="${n}">${fmtMoney(n)}</button>`).join("")}
-          ${Number.isFinite(max) && max >= 100 ? `<button type="button" class="mg-chip" data-bet="${Math.floor(max)}">Todo</button>` : ""}
+        <label class="mg-bet-input">${COIN_SVG}<input type="number" class="mg-bet-val" min="100" step="100" value="${v}" aria-label="Apuesta"></label>
+        <div class="mg-chips">
+          ${CHIPS.map((ch) => `<button type="button" class="mg-chip-c ${ch.c}" data-bet-add="${ch.n}" title="Sumar ${fmtMoney(ch.n)}" ${ch.n > max ? "disabled" : ""}><span>${ch.n >= 1000 ? `${ch.n / 1000}K` : ch.n}</span></button>`).join("")}
+          ${Number.isFinite(max) && max >= 100 ? `<button type="button" class="mg-chip-c is-gold" data-bet="${Math.floor(max)}" title="Apostar todo"><span>Todo</span></button>` : ""}
+          <button type="button" class="mg-chip-clear" data-bet="100" title="Volver a 100 ₽">${icon("x")}</button>
         </div>
         <button type="button" class="sl-btn sl-btn-primary mg-go" data-mg="${game}-start">${label}</button>
       </div>`;
@@ -3898,6 +3909,41 @@
     }
 
     // ---------------- Voltorb Flip
+    // Tablero como en HeartGold/SoulSilver: gráficos originales (assets/
+    // pokepark/voltorb) escalados sin suavizar y las líneas de color que unen
+    // cada fila y columna con su pista.
+    const VF = "assets/pokepark/voltorb/";
+    const vfImg = (name, cls = "") => `<img class="mg-vf-img ${cls}" src="${VF}${name}.png" alt="" draggable="false">`;
+    const vfClue = (cl, cls) => `<span class="mg-vf-clue ${cls}"><b>${String(cl.sum).padStart(2, "0")}</b><em><img src="${VF}icon.png" alt="" draggable="false">${cl.vol}</em></span>`;
+
+    function voltorbRules() {
+      const mult = (m) => `×${String(m).replace(".", ",")}`;
+      return `
+        <div class="mg-vf-rules">
+          <div class="mg-vf-how">
+            <h4>Cómo se juega</h4>
+            <div class="mg-vf-step">
+              <span class="mg-vf-demo">${vfImg("hidden")}</span>
+              <p><b>Voltea casillas.</b> Cada una esconde un ×1, un ×2, un ×3 o un Voltorb.</p>
+            </div>
+            <div class="mg-vf-step">
+              <span class="mg-vf-demo is-row">${vfImg("1")}${vfImg("2")}${vfImg("3")}${vfImg("voltorb")}</span>
+              <p><b>Busca todos los ×2 y ×3.</b> Cuando no quede ninguno, limpias el tablero.</p>
+            </div>
+            <div class="mg-vf-step">
+              <span class="mg-vf-demo">${vfClue({ sum: 5, vol: 1 }, "is-c0")}</span>
+              <p><b>Usa las pistas.</b> Arriba, la suma de esa fila o columna. Abajo, cuántos Voltorb esconde.</p>
+            </div>
+            <p class="mg-vf-tip">${icon("lightbulb")}<span>Una línea con 0 Voltorb es segura. Si la suma y los Voltorb dan 5, esa línea solo tiene ×1 y Voltorb: no hace falta tocarla.</span></p>
+          </div>
+          <div class="mg-vf-levels">
+            <h4>Premios</h4>
+            <ol>${VOLTORB_MULTS.map((m, i) => `<li class="${i + 1 === vt.level ? "is-now" : ""}"><span>Nivel ${i + 1}</span><b>${mult(m)}</b></li>`).join("")}</ol>
+            <p>Limpias el tablero: ganas la apuesta ${mult(vt.mult)} y subes de nivel. Sale un Voltorb: pierdes la apuesta y bajas uno. Retirarte te paga una parte de lo que llevas.</p>
+          </div>
+        </div>`;
+    }
+
     function voltorbHtml() {
       if (!vt) return `<p class="mg-loading">Cargando…</p>`;
       const head = `
@@ -3907,27 +3953,27 @@
           ${vt.bet ? `<span class="mg-stat"><small>Apuesta</small><b>${fmtMoney(vt.bet)}</b></span>` : ""}
           ${vt.bet ? `<span class="mg-stat"><small>Monedas</small><b>${vt.coins} / ${vt.maxCoins}</b></span>` : ""}
         </div>`;
-      const board = vt.revealed
-        ? `<div class="mg-vf-board${vt.active ? "" : " is-over"}">
-            ${[0, 1, 2, 3, 4]
-              .map(
-                (r) => `${[0, 1, 2, 3, 4]
-                  .map((c) => {
-                    const i = r * 5 + c;
-                    const v = vt.revealed[i];
-                    if (v === null) return `<button type="button" class="mg-vf-tile" data-vf="${i}" ${vt.active && !busy ? "" : "disabled"} aria-label="Voltear"></button>`;
-                    const fresh = !vtSeen.has(i);
-                    vtSeen.add(i);
-                    return `<span class="mg-vf-tile is-open${fresh ? " is-new" : ""}${v === 0 ? " is-voltorb" : v > 1 ? " is-good" : ""}">${v === 0 ? VOLTORB_SVG : v}</span>`;
-                  })
-                  .join("")}<span class="mg-vf-clue is-row-${r}"><b>${String(vt.clues.rows[r].sum).padStart(2, "0")}</b><em>${VOLTORB_SVG}${vt.clues.rows[r].vol}</em></span>`
-              )
-              .join("")}
-            ${[0, 1, 2, 3, 4]
-              .map((c) => `<span class="mg-vf-clue is-col-${c}"><b>${String(vt.clues.cols[c].sum).padStart(2, "0")}</b><em>${VOLTORB_SVG}${vt.clues.cols[c].vol}</em></span>`)
-              .join("")}
-          </div>`
-        : `<div class="mg-vf-intro">${VOLTORB_SVG}<p>Voltea las casillas buscando los ×2 y ×3 sin tocar un Voltorb. Los números de cada fila y columna suman sus valores y dicen cuántos Voltorb hay. Si limpias el tablero, ganas la apuesta ×${String(vt.mult).replace(".", ",")} y subes de nivel.</p></div>`;
+      let board = "";
+      if (vt.revealed) {
+        const cells = [];
+        for (let r = 0; r < 5; r++) {
+          for (let c = 0; c < 5; c++) {
+            const i = r * 5 + c;
+            const v = vt.revealed[i];
+            let inner;
+            if (v === null) inner = `<button type="button" class="mg-vf-tile" data-vf="${i}" ${vt.active && !busy ? "" : "disabled"} aria-label="Voltear">${vfImg("hidden")}</button>`;
+            else {
+              const fresh = !vtSeen.has(i);
+              vtSeen.add(i);
+              inner = `<span class="mg-vf-tile is-open${fresh ? " is-new" : ""}${v === 0 ? " is-voltorb" : ""}">${vfImg(v === 0 ? "voltorb" : String(v))}</span>`;
+            }
+            cells.push(`<span class="mg-vf-cell" style="--rc:var(--vf-c${r});--cc:var(--vf-c${c})">${inner}</span>`);
+          }
+          cells.push(vfClue(vt.clues.rows[r], `is-c${r}`));
+        }
+        for (let c = 0; c < 5; c++) cells.push(vfClue(vt.clues.cols[c], `is-c${c}`));
+        board = `<div class="mg-vf-board${vt.active ? "" : " is-over"}">${cells.join("")}</div>`;
+      }
       const result = vt.result
         ? vt.result === "won"
           ? banner("win", `¡Tablero limpio! +${fmtMoney(vt.payout)}`)
@@ -3941,7 +3987,7 @@
             <button type="button" class="sl-btn sl-btn-ghost" data-mg="voltorb-retire" ${busy ? "disabled" : ""}>Retirarse${vt.retireNow ? ` · ${fmtMoney(vt.retireNow)}` : ""}</button>
           </div>`
         : betPanel("voltorb", vt.result ? "Otra partida" : "Jugar");
-      return `<div class="mg-vf">${head}${result}${board}${actions}</div>`;
+      return `<div class="mg-vf">${board ? head : ""}${result}${board || voltorbRules()}${actions}</div>`;
     }
 
     async function voltorbStart() {
@@ -3998,16 +4044,26 @@
         bjSeen[who] = cards.map((c) => (c ? `${c.r}${c.s}` : "back"));
         return html;
       };
-      const table = has
-        ? `<div class="mg-bj-table">
-            <div class="mg-bj-hand"><span class="mg-bj-label">Crupier <b>${bjv.dealerTotal}${bjv.active ? "+" : ""}</b></span><div class="mg-bj-cards">${hand("dealer", bjv.dealer)}</div></div>
-            <div class="mg-bj-hand"><span class="mg-bj-label">Tú <b>${bjv.playerTotal}</b>${bjv.doubled ? " · doblado" : ""}</span><div class="mg-bj-cards">${hand("player", bjv.player)}</div></div>
-          </div>`
-        : `<div class="mg-bj-table is-empty"><div class="mg-bj-cards">${cardHtml(null, 0)}${cardHtml(null, 1)}</div><p>Acércate a 21 sin pasarte. El crupier se planta en 17. Blackjack paga 3:2.</p></div>`;
+      const bet = has ? bjv.bet * (bjv.doubled ? 2 : 1) : 0;
+      const table = `
+        <div class="mg-bj-table${has ? "" : " is-empty"}">
+          <div class="mg-bj-hand is-dealer">
+            <span class="mg-bj-label">Crupier${has ? `<b>${bjv.dealerTotal}${bjv.active ? "+" : ""}</b>` : ""}</span>
+            <div class="mg-bj-cards">${has ? hand("dealer", bjv.dealer) : `${cardHtml(null, 0, false)}${cardHtml(null, 1, false)}`}</div>
+          </div>
+          <div class="mg-bj-felt">
+            <span class="mg-bj-rule">El blackjack paga 2 a 1</span>
+            ${has ? `<span class="mg-bj-pot">${COIN_SVG}${fmtMoney(bet)}${bjv.doubled ? "<small>doblado</small>" : ""}</span>` : ""}
+            <span class="mg-bj-rule is-small">El crupier pide con 17 blando · Empate a 17: gana la banca</span>
+          </div>
+          <div class="mg-bj-hand is-player">
+            <div class="mg-bj-cards">${has ? hand("player", bjv.player) : ""}</div>
+            <span class="mg-bj-label">${has ? `Tú<b>${bjv.playerTotal}</b>` : "Acércate a 21 sin pasarte"}</span>
+          </div>
+        </div>`;
       const actions = bjv.active
-        ? `<div class="mg-actions">
-            <span class="mg-hint">Apuesta ${fmtMoney(bjv.bet * (bjv.doubled ? 2 : 1))}</span>
-            <button type="button" class="sl-btn sl-btn-ghost" data-mg="bj-double" ${bjv.canDouble && !busy && (unlimited() || state.money >= bjv.bet) ? "" : "disabled"}>Doblar</button>
+        ? `<div class="mg-actions is-bj">
+            <button type="button" class="sl-btn sl-btn-ghost" data-mg="bj-double" ${bjv.canDouble && !busy && (unlimited() || state.money >= bjv.bet) ? "" : "disabled"} title="Doblas la apuesta y recibes una sola carta más">Doblar</button>
             <button type="button" class="sl-btn sl-btn-ghost" data-mg="bj-hit" ${busy ? "disabled" : ""}>Pedir</button>
             <button type="button" class="sl-btn sl-btn-primary" data-mg="bj-stand" ${busy ? "disabled" : ""}>Plantarse</button>
           </div>`
@@ -4095,10 +4151,15 @@
             tab = t.dataset.tab;
             return paint();
           }
-          const chip = e.target.closest("[data-bet]");
+          const chip = e.target.closest("[data-bet], [data-bet-add]");
           if (chip) {
             const game = chip.closest("[data-game]").dataset.game;
-            gameBets[game] = Number(chip.dataset.bet);
+            const max = unlimited() ? Infinity : Math.floor(state.money);
+            gameBets[game] = chip.dataset.betAdd
+              ? Math.min(max, (betTouched[game] ? gameBets[game] : 0) + Number(chip.dataset.betAdd))
+              : Number(chip.dataset.bet);
+            gameBets[game] = Math.max(100, gameBets[game]);
+            betTouched[game] = true;
             return paint();
           }
           const dot = e.target.closest("[data-pk]");

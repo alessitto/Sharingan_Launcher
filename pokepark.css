@@ -4325,7 +4325,7 @@ b > .pp-shiny-ic {
 }
 
 .mg-body {
-  margin-top: 14px;
+  margin-top: 12px;
   min-height: 420px;
 }
 
@@ -4344,8 +4344,8 @@ b > .pp-shiny-ic {
 }
 
 .mg-banner {
-  margin: 0 0 12px;
-  padding: 10px 14px;
+  margin: 0 0 10px;
+  padding: 8px 14px;
   border-radius: 12px;
   text-align: center;
   font-weight: 700;
@@ -4670,24 +4670,39 @@ b > .pp-shiny-ic {
   color: var(--ink-300);
 }
 
-/* ------------------------------------------------------------ Voltorb Flip */
+/* ------------------------------------------------------------ Voltorb Flip (como en HG/SS) */
+@font-face {
+  font-family: "Press Start 2P";
+  src: url("assets/fonts/press-start-2p.ttf") format("truetype");
+  font-display: swap;
+}
+
+.mg-vf {
+  --vf-c0: #e07050;
+  --vf-c1: #40a840;
+  --vf-c2: #e8a038;
+  --vf-c3: #3890f8;
+  --vf-c4: #c060e0;
+}
+
 .mg-vf-head {
   display: flex;
   gap: 8px;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .mg-vf .mg-banner {
-  margin-bottom: 10px;
-  padding: 7px 12px;
+  margin-bottom: 8px;
+  padding: 6px 12px;
 }
 
 .mg-stat {
   flex: 1;
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 8px 12px;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 12px;
   border-radius: 12px;
   border: 1px solid var(--ink-800);
   background: rgba(0, 0, 0, 0.18);
@@ -4707,66 +4722,87 @@ b > .pp-shiny-ic {
   color: var(--washi-50);
 }
 
+.mg-vf-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
+/* El tablero: 6×6 celdas de 32 "píxeles de DS"; la casilla ocupa 28 y entre
+   casillas va una línea de 4 con el color de su fila/columna. */
 .mg-vf-board {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
-  gap: 6px;
-  /* Que quepa entero con la cabecera y los botones: el ancho sale del alto. */
-  width: min(100%, 430px, calc(100vh - 470px));
+  width: min(100%, 520px, calc(100vh - 420px));
   margin: 0 auto;
-  padding: 12px;
-  border-radius: 18px;
-  background: linear-gradient(160deg, #2f8a5a, #1d5e3c);
-  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.08);
+  padding: 1.5%;
+  border-radius: 6px;
+  background: #28a068;
+  box-shadow: inset 0 0 0 4px #188060, 0 10px 26px rgba(0, 0, 0, 0.4);
+  image-rendering: pixelated;
+}
+
+.mg-vf-cell {
+  position: relative;
+  aspect-ratio: 1;
+}
+
+.mg-vf-cell::before,
+.mg-vf-cell::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+}
+
+/* Línea hacia la derecha (color de la fila) y hacia abajo (de la columna) */
+.mg-vf-cell::before {
+  left: 87.5%;
+  top: 43.75%;
+  width: 25%;
+  height: 12.5%;
+  background: var(--rc);
+}
+
+.mg-vf-cell::after {
+  top: 87.5%;
+  left: 43.75%;
+  height: 25%;
+  width: 12.5%;
+  background: var(--cc);
 }
 
 .mg-vf-tile {
-  aspect-ratio: 1;
-  display: grid;
-  place-items: center;
-  min-width: 0;
+  position: absolute;
+  z-index: 1;
+  inset: 6.25%;
   padding: 0;
-  border-radius: 10px;
   border: none;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.25), transparent 55%), #3bb273;
-  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.25);
-  color: #1f3b2c;
-  font: inherit;
-  font-size: 22px;
-  font-weight: 900;
+  background: none;
   cursor: pointer;
-  transition: transform 0.12s, background 0.2s;
-}
-
-.mg-vf-tile:not(:disabled):hover {
-  transform: translateY(-2px);
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.35), transparent 55%), #49c584;
 }
 
 .mg-vf-tile:disabled {
   cursor: default;
 }
 
-.mg-vf-tile.is-open {
-  background: #f2ead8;
-  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.12);
+/* El cursor rojo del juego al pasar por encima */
+.mg-vf-tile:not(:disabled):not(.is-open):hover {
+  outline: 3px solid #f84030;
+  outline-offset: 1px;
 }
 
-/* Solo la casilla que se acaba de voltear */
 .mg-vf-tile.is-new {
   animation: mg-flip 0.3s ease;
 }
 
-.mg-vf-tile.is-good {
-  color: #b5531b;
+.mg-vf-board.is-over .mg-vf-tile.is-open:not(.is-new) {
+  filter: none;
 }
 
-.mg-vf-tile.is-voltorb {
-  background: #f6d9d4;
-}
-
-.mg-vf-board.is-over .mg-vf-tile.is-open:not(.is-good):not(.is-voltorb) {
-  opacity: 0.6;
+.mg-vf-board.is-over .mg-vf-tile:not(.is-voltorb) .mg-vf-img {
+  filter: saturate(0.85);
 }
 
 @keyframes mg-flip {
@@ -4775,155 +4811,385 @@ b > .pp-shiny-ic {
   }
 }
 
-.mg-voltorb {
-  width: 70%;
-  height: 70%;
-}
-
+/* Pistas: arriba la suma, abajo el Voltorb y cuántos hay */
 .mg-vf-clue {
-  aspect-ratio: 1;
+  container-type: inline-size;
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
+  margin: 6.25%;
+  aspect-ratio: 1;
+  border-radius: 2px;
+  background: #d0e8e0;
+  padding: 7%;
+  gap: 7%;
+  font-family: "Press Start 2P", monospace;
+  color: #404040;
+}
+
+.mg-vf-clue b,
+.mg-vf-clue em {
+  flex: 1;
+  display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 1px;
-  border-radius: 10px;
-  color: #fff;
-  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.2);
+  font-style: normal;
+  font-weight: 400;
+  background: var(--clue);
 }
 
 .mg-vf-clue b {
-  font-size: 16px;
-  font-weight: 900;
+  justify-content: flex-end;
+  padding-right: 6%;
+  font-size: 30cqw;
   line-height: 1;
-  font-variant-numeric: tabular-nums;
 }
 
 .mg-vf-clue em {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  font-style: normal;
-  font-size: 13px;
-  font-weight: 800;
+  justify-content: space-between;
+  padding: 0 6% 0 4%;
+  font-size: 30cqw;
 }
 
-.mg-vf-clue .mg-voltorb {
-  width: 14px;
-  height: 14px;
+.mg-vf-clue em img {
+  width: 48%;
+  image-rendering: pixelated;
 }
 
-.mg-vf-clue.is-row-0,
-.mg-vf-clue.is-col-0 {
-  background: #e0634f;
+.mg-vf-clue.is-c0 { --clue: var(--vf-c0, #e07050); }
+.mg-vf-clue.is-c1 { --clue: var(--vf-c1, #40a840); }
+.mg-vf-clue.is-c2 { --clue: var(--vf-c2, #e8a038); }
+.mg-vf-clue.is-c3 { --clue: var(--vf-c3, #3890f8); }
+.mg-vf-clue.is-c4 { --clue: var(--vf-c4, #c060e0); }
+
+/* Reglas */
+.mg-vf-rules {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  gap: 12px;
 }
 
-.mg-vf-clue.is-row-1,
-.mg-vf-clue.is-col-1 {
-  background: #44a05a;
-}
-
-.mg-vf-clue.is-row-2,
-.mg-vf-clue.is-col-2 {
-  background: #e39a32;
-}
-
-.mg-vf-clue.is-row-3,
-.mg-vf-clue.is-col-3 {
-  background: #3b86d6;
-}
-
-.mg-vf-clue.is-row-4,
-.mg-vf-clue.is-col-4 {
-  background: #a35bc8;
-}
-
-.mg-vf-intro {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 18px;
+.mg-vf-how,
+.mg-vf-levels {
+  padding: 14px 16px;
   border-radius: 16px;
   border: 1px solid var(--ink-800);
   background: rgba(0, 0, 0, 0.18);
 }
 
-.mg-vf-intro .mg-voltorb {
-  width: 64px;
-  height: 64px;
-  flex-shrink: 0;
+.mg-vf-rules h4 {
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent-text);
 }
 
-.mg-vf-intro p {
+.mg-vf-step {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.mg-vf-step + .mg-vf-step {
+  margin-top: 10px;
+}
+
+.mg-vf-step p {
   margin: 0;
   font-size: 13px;
-  line-height: 1.55;
+  line-height: 1.5;
   color: var(--ink-200);
+}
+
+.mg-vf-step p b {
+  color: var(--washi-50);
+}
+
+.mg-vf-demo {
+  flex-shrink: 0;
+  display: flex;
+  gap: 4px;
+  width: 52px;
+  height: 52px;
+  padding: 4px;
+  border-radius: 6px;
+  background: #28a068;
+  image-rendering: pixelated;
+}
+
+.mg-vf-demo.is-row {
+  width: auto;
+  height: 52px;
+}
+
+.mg-vf-demo.is-row .mg-vf-img {
+  width: 44px;
+  height: 44px;
+}
+
+.mg-vf-demo .mg-vf-clue {
+  width: 100%;
+  margin: 0;
+}
+
+.mg-vf-tip {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-200);
+  background: rgba(244, 197, 66, 0.08);
+  border: 1px solid rgba(244, 197, 66, 0.25);
+}
+
+.mg-vf-tip .i {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  color: #f4c542;
+}
+
+.mg-vf-levels ol {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 10px;
+  margin: 0 0 10px;
+  padding: 0;
+  list-style: none;
+}
+
+.mg-vf-levels li {
+  display: flex;
+  justify-content: space-between;
+  padding: 5px 8px;
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--ink-200);
+}
+
+.mg-vf-levels li b {
+  color: #f4c542;
+  font-variant-numeric: tabular-nums;
+}
+
+.mg-vf-levels li.is-now {
+  background: rgba(var(--red-500-rgb), 0.16);
+  box-shadow: inset 0 0 0 1px rgba(var(--red-500-rgb), 0.5);
+  color: var(--washi-50);
+}
+
+.mg-vf-levels p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-300);
+}
+
+/* ------------------------------------------------------------ Fichas de apuesta */
+.mg-chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mg-chip-c {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  color: #fff;
+  background:
+    repeating-conic-gradient(var(--chip) 0 22.5deg, #fff 22.5deg 30deg, var(--chip) 30deg 45deg);
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.35), 0 6px 10px rgba(0, 0, 0, 0.3);
+  transition: transform 0.12s;
+}
+
+.mg-chip-c span {
+  display: grid;
+  place-items: center;
+  width: 70%;
+  height: 70%;
+  border-radius: 50%;
+  border: 1.5px dashed rgba(255, 255, 255, 0.7);
+  background: var(--chip);
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.mg-chip-c:hover:not(:disabled) {
+  transform: translateY(-3px);
+}
+
+.mg-chip-c:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.mg-chip-c.is-white {
+  --chip: #e9e4d8;
+  color: #333;
+}
+
+.mg-chip-c.is-white span {
+  border-color: rgba(0, 0, 0, 0.35);
+}
+
+.mg-chip-c.is-red {
+  --chip: #c92a2a;
+}
+
+.mg-chip-c.is-blue {
+  --chip: #2c6ed5;
+}
+
+.mg-chip-c.is-black {
+  --chip: #2a2a2a;
+}
+
+.mg-chip-c.is-gold {
+  --chip: #d9a520;
+  color: #3a2b00;
+}
+
+.mg-chip-clear {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--ink-700);
+  background: var(--ink-900);
+  color: var(--ink-300);
+  cursor: pointer;
+}
+
+.mg-chip-clear .i {
+  width: 14px;
+  height: 14px;
 }
 
 /* ------------------------------------------------------------ Blackjack */
 .mg-bj-table {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 16px 20px;
-  border-radius: 20px;
-  background: radial-gradient(ellipse at 50% 30%, rgba(255, 255, 255, 0.08), transparent 60%), linear-gradient(170deg, #1f6b46, #0f4229);
-  box-shadow: inset 0 0 0 6px rgba(0, 0, 0, 0.18), inset 0 0 0 7px rgba(244, 197, 66, 0.25);
-}
-
-.mg-bj-table.is-empty {
   align-items: center;
-  text-align: center;
-}
-
-.mg-bj-table.is-empty p {
-  margin: 0;
-  max-width: 360px;
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.75);
+  gap: 6px;
+  padding: 14px 20px;
+  border-radius: 140px 140px 24px 24px / 70px 70px 24px 24px;
+  background:
+    radial-gradient(ellipse at 50% 20%, rgba(255, 255, 255, 0.1), transparent 60%),
+    radial-gradient(ellipse at 50% 120%, rgba(0, 0, 0, 0.35), transparent 60%),
+    linear-gradient(170deg, #1f6b46, #0f4229);
+  box-shadow: inset 0 0 0 8px #5a3418, inset 0 0 0 10px #c9952e, 0 12px 30px rgba(0, 0, 0, 0.4);
 }
 
 .mg-bj-hand {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 8px;
 }
 
 .mg-bj-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.75);
 }
 
 .mg-bj-label b {
-  margin-left: 6px;
-  padding: 1px 8px;
+  min-width: 32px;
+  padding: 2px 9px;
   border-radius: 999px;
+  text-align: center;
   color: #13311f;
   background: #f4f1ea;
+  letter-spacing: 0;
 }
 
 .mg-bj-cards {
   display: flex;
-  gap: 10px;
-  min-height: 92px;
+  justify-content: center;
+  gap: 0;
+  min-height: min(112px, calc((100vh - 560px) * 0.5));
+}
+
+.mg-bj-cards .mg-card + .mg-card {
+  margin-left: 8px;
+}
+
+.mg-bj-felt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+}
+
+.mg-bj-rule {
+  font-family: "Shippori Mincho", "Zen Kaku Gothic New", serif;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #e9c46a;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+}
+
+.mg-bj-rule.is-small {
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: rgba(233, 196, 106, 0.75);
+}
+
+.mg-bj-pot {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border-radius: 999px;
+  font-weight: 800;
+  color: #3a2b00;
+  background: #f4c542;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.3);
+}
+
+.mg-bj-pot .i {
+  width: 15px;
+  height: 15px;
+}
+
+.mg-bj-pot small {
+  font-size: 10px;
+  text-transform: uppercase;
 }
 
 .mg-card {
   position: relative;
-  display: grid;
-  place-items: center;
-  width: 64px;
-  height: 92px;
-  border-radius: 10px;
+  width: min(78px, calc((100vh - 560px) * 0.35));
+  height: min(112px, calc((100vh - 560px) * 0.5));
+  border-radius: 9px;
   background: #fbf8f1;
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+  box-shadow: -2px 4px 12px rgba(0, 0, 0, 0.35);
 }
 
-/* Solo la carta que se acaba de repartir */
 .mg-card.is-new {
   animation: mg-deal 0.35s ease backwards;
   animation-delay: calc(var(--i, 0) * 0.12s);
@@ -4932,7 +5198,7 @@ b > .pp-shiny-ic {
 @keyframes mg-deal {
   from {
     opacity: 0;
-    transform: translateY(-18px) rotate(-6deg);
+    transform: translateY(-24px) rotate(-8deg);
   }
 }
 
@@ -4944,47 +5210,84 @@ b > .pp-shiny-ic {
   color: #1d1b1c;
 }
 
-.mg-card > b {
+.mg-card-corner {
   position: absolute;
   top: 6px;
-  left: 8px;
-  font-size: 18px;
-  font-weight: 900;
+  left: 7px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   line-height: 1;
 }
 
-.mg-card > b.mg-card-br {
+.mg-card-corner b {
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.mg-card-corner svg {
+  width: 13px;
+  height: 13px;
+  fill: currentColor;
+}
+
+.mg-card-corner.is-br {
   top: auto;
   left: auto;
-  right: 8px;
+  right: 7px;
   bottom: 6px;
   transform: rotate(180deg);
 }
 
-.mg-card svg {
-  width: 34px;
-  height: 34px;
+.mg-card-pip {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 36px;
+  height: 36px;
+  transform: translate(-50%, -50%);
   fill: currentColor;
 }
 
 .mg-card.is-back {
-  background: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.08) 0 6px, transparent 6px 12px), var(--red-500);
-  color: #fff;
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35), inset 0 0 0 4px #fbf8f1;
+  background: #fbf8f1;
+  padding: 5px;
 }
 
-.mg-card.is-back .i {
-  width: 34px;
-  height: 34px;
-  fill: none;
+.mg-card-back {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 6px;
+  color: #fff;
+  background: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.1) 0 6px, transparent 6px 12px), var(--red-500);
+}
+
+.mg-card-back .i {
+  width: 36px;
+  height: 36px;
+}
+
+.mg-actions.is-bj {
+  justify-content: center;
+}
+
+.mg-actions.is-bj .sl-btn {
+  min-width: 130px;
+  justify-content: center;
 }
 
 @media (max-width: 640px) {
   .mg-card {
-    width: 56px;
-    height: 82px;
+    width: 60px;
+    height: 86px;
+  }
+  .mg-vf-rules {
+    grid-template-columns: 1fr;
   }
 }
+
 
 /* Pokédle al estilo del anime ("¿Quién es ese Pokémon?") */
 .mg-pk-stage {
@@ -5266,4 +5569,38 @@ b > .pp-shiny-ic {
   background-size: 160% auto;
   background-position: center 70%;
   image-rendering: pixelated;
+}
+
+/* ------------------------------------------------------------ Pokédle con la fuente de Pokémon */
+@font-face {
+  font-family: "Pokemon Solid";
+  src: url("assets/fonts/pokemon-solid.ttf") format("truetype");
+  font-display: swap;
+}
+
+.mg-pk-q,
+.mg-pk-logo,
+.mg-pk-says {
+  font-family: "Pokemon Solid", "Arial Black", sans-serif;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+
+.mg-pk-logo {
+  font-size: 50px;
+}
+
+.mg-pk-says {
+  font-size: 32px;
+}
+
+/* Ticks y cruces centrados en sus círculos */
+.mg-pk-dot {
+  padding: 0;
+  line-height: 0;
+}
+
+.mg-pk-dot .i {
+  display: block;
+  margin: 0;
 }

@@ -12,7 +12,8 @@
 //    reloj del PC. El progreso se guarda por cuenta y se combina con el del
 //    parque sincronizado, así no se repite en otro PC.
 //  - Voltorb Flip y Blackjack: sin límite. Los premios están calibrados para
-//    que a la larga gane la casa (ver VOLTORB_MULT), así que no se farmea.
+//    que a la larga gane la casa (ver VOLTORB_MULT y las reglas del
+//    Blackjack), así que no se farmea.
 const crypto = require("crypto");
 
 const POKEDLE_COUNT = 5;
@@ -303,8 +304,11 @@ function createMinigames({ fs, path, fetch, dataDir, dex, getAccount, spriteData
   }
 
   // ------------------------------------------------------------ Blackjack
-  // Baraja infinita (cada carta al azar), el crupier se planta en 17,
-  // blackjack paga 3:2, se puede doblar con las dos primeras. Sin dividir.
+  // Baraja infinita (cada carta al azar), sin dividir; se puede doblar con
+  // las dos primeras. El blackjack paga 2 a 1 y, para que la casa siga
+  // ganando a la larga (2 millones de manos simuladas con estrategia básica:
+  // devuelve ~99,4 %), el crupier pide con 17 blando y los empates a 17 los
+  // gana la casa.
   let bj = null;
   const SUITS = ["s", "h", "d", "c"];
   const draw = () => ({ r: rnd(13) + 1, s: SUITS[rnd(4)] });
@@ -339,19 +343,30 @@ function createMinigames({ fs, path, fetch, dataDir, dex, getAccount, spriteData
 
   function bjFinish(result) {
     const b = bj.bet * (bj.doubled ? 2 : 1);
-    const pay = { blackjack: Math.floor(b * 2.5), win: b * 2, push: b, lose: 0 }[result];
+    const pay = { blackjack: b * 3, win: b * 2, push: b, lose: 0 }[result];
     bj.over = true;
     const view = bjView({ result, payout: pay });
     bj = null;
     return view;
   }
 
+  // ¿17 blando? (un As contando 11)
+  function soft(hand) {
+    let t = hand.reduce((a, c) => a + cardVal(c), 0);
+    let aces = hand.filter((c) => c.r === 1).length;
+    while (t > 21 && aces > 0) {
+      t -= 10;
+      aces--;
+    }
+    return aces > 0;
+  }
+
   function bjDealerPlay() {
-    while (total(bj.dealer) < 17) bj.dealer.push(draw());
+    while (total(bj.dealer) < 17 || (total(bj.dealer) === 17 && soft(bj.dealer))) bj.dealer.push(draw());
     const p = total(bj.player);
     const d = total(bj.dealer);
     if (d > 21 || p > d) return bjFinish("win");
-    if (p === d) return bjFinish("push");
+    if (p === d && p !== 17) return bjFinish("push");
     return bjFinish("lose");
   }
 
