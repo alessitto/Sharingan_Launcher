@@ -43,6 +43,32 @@
   /* Misma curva que usa la landing (fade-up) - sensacion mas "premium" que
      un ease a secas, consistente en toda la app. */
   --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Forma y profundidad comunes: mismas esquinas, alturas y sombras en toda
+     la app. Los estilos (Retro, Paper, Cyberpunk...) ponen las suyas
+     encima. Los colores siguen saliendo del tema. */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --control-h: 38px;
+  --control-h-sm: 32px;
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.18), 0 6px 16px rgba(0, 0, 0, 0.16);
+  --shadow-2: 0 14px 34px rgba(0, 0, 0, 0.32);
+  --shadow-3: 0 30px 80px rgba(0, 0, 0, 0.5);
+  /* Anillo de foco (teclado y mando): el acento legible, separado del borde */
+  --ring: 0 0 0 2px rgb(var(--bg-rgb, 10, 8, 9)), 0 0 0 4px rgba(var(--accent-text-rgb), 0.75);
+  /* Tintes de estado a partir de los colores legibles del tema */
+  --danger-soft: color-mix(in srgb, var(--danger) 14%, transparent);
+  --success-soft: color-mix(in srgb, var(--green-500) 16%, transparent);
+  --gold-soft: color-mix(in srgb, var(--gold-400) 16%, transparent);
+}
+
+/* Sobre fondo claro las sombras pesan menos */
+:root[data-tone="light"] {
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.08), 0 6px 16px rgba(0, 0, 0, 0.07);
+  --shadow-2: 0 14px 34px rgba(0, 0, 0, 0.14);
+  --shadow-3: 0 30px 80px rgba(0, 0, 0, 0.24);
 }
 
 /* Los colores de cada tema (dos colores: fondo y acento) los calcula
@@ -57,6 +83,18 @@ body {
   font-family: "Zen Kaku Gothic New", "Hiragino Sans", system-ui, sans-serif;
   background: var(--ink-950);
   color: var(--washi-200);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  color: var(--on-accent);
+  background: rgba(var(--red-500-rgb), 0.85);
+}
+
+/* Foco visible solo con teclado o mando: el mismo anillo en toda la app */
+:where(button, [role="button"], a[href], summary, select, input[type="checkbox"], input[type="range"]):focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
 }
 
 /* ===============================
@@ -91,23 +129,35 @@ h3 {
 .topnav {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   background: var(--ink-900);
   border-bottom: 1px solid var(--ink-800);
-  padding: 10px 20px;
+  padding: 10px 24px;
   flex-shrink: 0;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.28);
+  box-shadow: var(--shadow-1);
   position: relative;
   z-index: 10;
 }
 
 .topnav-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   font-family: "Shippori Mincho", serif;
   font-size: 18px;
   font-weight: 700;
   color: var(--washi-50);
-  margin-right: 24px;
+  margin-right: 14px;
+  padding-right: 18px;
+  border-right: 1px solid var(--ink-800);
   white-space: nowrap;
+}
+
+.topnav-logo {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 50%;
 }
 
 .topnav-item {
@@ -141,8 +191,26 @@ h3 {
 }
 
 .settings-btn {
-  margin-left: 12px;
+  margin-left: 10px;
   flex-shrink: 0;
+}
+
+.icon-btn.settings-btn {
+  width: 36px;
+  height: 36px;
+}
+
+.icon-btn.settings-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.settings-btn svg {
+  transition: transform 0.5s var(--ease-smooth);
+}
+
+.settings-btn:hover svg {
+  transform: rotate(45deg);
 }
 
 .topnav-item svg {
@@ -163,8 +231,13 @@ h3 {
 
 .topnav-item.active {
   color: var(--washi-50);
-  background: var(--ink-800);
-  border-color: var(--red-500);
+  background: rgba(var(--red-500-rgb), 0.14);
+  border-color: rgba(var(--red-500-rgb), 0.4);
+}
+
+/* Predeterminado: el icono de la pestaña activa, en el color del acento */
+:root:not([data-effect]) .topnav-item.active svg {
+  color: var(--accent-text);
 }
 
 .main-content {
@@ -173,13 +246,52 @@ h3 {
     su hueco y crece con el contenido en vez de scrollear el solo - lo
     que de verdad scrolleaba era la ventana entera, por eso el sticky
     del indice no tenia a que "engancharse" y se quedaba flotando suelto */
-  padding: 20px 24px;
+  padding: var(--page-pad-y) var(--page-pad-x);
   overflow: auto;
+}
+
+:root {
+  --page-pad-y: 24px;
+  --page-pad-x: 28px;
+}
+
+/* PokéPark y Comunidad ocupan justo el hueco de la ventana (sin cuentas de
+   alturas que dependan del relleno de cada estilo) */
+body.in-pokepark .main-content > .section.active,
+body.in-community .main-content > .section.active {
+  height: 100%;
+}
+
+/* Cabecera de cada pantalla: antetítulo y título a la izquierda, acciones a
+   la derecha, alineadas con la base del título */
+.page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px 16px;
+  margin-bottom: 20px;
+}
+
+.page-head-title {
+  min-width: 0;
+  margin-right: auto;
+}
+
+.page-head .section-title {
+  margin: 0;
+}
+
+.page-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
 }
 
 .section-eyebrow {
   display: block;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.2em;
@@ -188,7 +300,9 @@ h3 {
 }
 
 .section-title {
-  font-size: 26px;
+  font-size: 30px;
+  line-height: 1.15;
+  margin-top: 0;
   margin-bottom: 16px;
 }
 
@@ -212,8 +326,67 @@ input[type="text"]::placeholder {
   color: var(--ink-400);
 }
 
+input[type="text"] {
+  transition: border-color 0.2s var(--ease-smooth), box-shadow 0.2s var(--ease-smooth), background-color 0.2s var(--ease-smooth);
+}
+
+input[type="text"]:hover {
+  border-color: var(--ink-600);
+}
+
 input[type="text"]:focus {
   border-color: var(--red-500);
+  box-shadow: 0 0 0 3px rgba(var(--red-500-rgb), 0.16);
+}
+
+/* Campos dentro de una caja con su propio marco: el halo lo lleva la caja */
+.sg-root .sg-search input:focus,
+.pp-tr-to-box input.pp-tr-to:focus {
+  box-shadow: none;
+}
+
+/* Descubrir: buscador y filtros en una sola fila */
+.discover-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.discover-bar .discover-search-row {
+  flex: 1 1 320px;
+  max-width: 560px;
+  margin: 0;
+}
+
+.search-field {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.search-field > .i {
+  position: absolute;
+  left: 15px;
+  width: 16px;
+  height: 16px;
+  color: var(--ink-400);
+  pointer-events: none;
+  transition: color 0.2s var(--ease-smooth);
+}
+
+.search-field:focus-within > .i {
+  color: var(--accent-text);
+}
+
+.search-field input[type="text"] {
+  max-width: none;
+  height: var(--control-h);
+  margin: 0;
+  padding-left: 40px;
 }
 
 .discover-toolbar {
@@ -222,9 +395,14 @@ input[type="text"]:focus {
   margin-bottom: 18px;
 }
 
+.discover-bar .discover-toolbar {
+  margin: 0;
+}
+
 .discover-toolbar select {
   min-width: 190px;
-  padding: 9px 14px;
+  height: var(--control-h);
+  padding: 0 14px;
   border-radius: 999px;
   border: 1px solid var(--ink-700);
   background: var(--ink-900);
@@ -233,6 +411,11 @@ input[type="text"]:focus {
   font-family: inherit;
   outline: none;
   cursor: pointer;
+  transition: border-color 0.2s var(--ease-smooth);
+}
+
+.discover-toolbar select:hover {
+  border-color: var(--ink-600);
 }
 
 .discover-toolbar select:focus {
@@ -263,7 +446,7 @@ input[type="text"]:focus {
 .game-card {
   position: relative;
   background: var(--ink-900);
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   padding: 10px;
   display: flex;
   flex-direction: column;
@@ -276,7 +459,7 @@ input[type="text"]:focus {
 .game-card:hover {
   transform: translateY(-4px) scale(1.012);
   box-shadow: 0 0 0 1px rgba(var(--red-500-rgb), 0.15);
-  border-color: var(--red-500);
+  border-color: rgba(var(--red-500-rgb), 0.6);
 }
 
 .game-card .card-cover {
@@ -302,8 +485,8 @@ input[type="text"]:focus {
   font-size: 14px;
   font-weight: 500;
   line-height: 1.3;
-  margin: 4px 0 0;
-  color: var(--washi-100);
+  margin: 4px 2px 0;
+  color: var(--washi-50);
   /* Siempre 2 líneas de alto: así todas las cards miden lo mismo sin
      tener que estirarse a la altura de la fila (los bloques de saga son
      más altos y dejaban las cards de al lado huecas). */
@@ -366,7 +549,7 @@ button:disabled:active {
   font-size: 12px;
   padding: 6px 10px;
   border-radius: 999px;
-  background: rgba(95, 127, 71, 0.15);
+  background: var(--success-soft);
 }
 
 /* Botón "Cargar más" en Descubrir */
@@ -387,39 +570,43 @@ button:disabled:active {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 4px;
-  margin: 2px 0 18px;
-  padding: 9px 10px;
-  border-radius: 14px;
+  gap: 2px;
+  margin: 2px 0 20px;
+  padding: 6px 8px;
+  border-radius: var(--radius-md);
   background: rgba(var(--ink-900-rgb), 0.82);
   backdrop-filter: blur(10px);
   border: 1px solid var(--ink-800);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--shadow-1);
 }
 
 .index-btn {
-  width: 32px;
-  height: 28px;
+  width: 34px;
+  height: 30px;
   padding: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
+  font-size: 12px;
+  font-weight: 600;
   flex-shrink: 0;
+  background: transparent;
+  color: var(--washi-100);
   transition: background 0.15s var(--ease-smooth), color 0.15s var(--ease-smooth), transform 0.15s var(--ease-smooth);
 }
 
 .index-btn:hover {
+  background: var(--ink-800);
   color: var(--washi-50);
 }
 
 .index-btn:disabled {
-  opacity: 0.25;
+  opacity: 0.3;
   cursor: default;
 }
 
 .index-btn:disabled:hover {
-  background: var(--ink-800);
+  background: transparent;
   transform: none;
 }
 
@@ -610,8 +797,10 @@ button:disabled:active {
 /* Filtros */
 .filter-btn {
   border-radius: 999px;
-  padding: 8px 18px;
-  font-size: 12px;
+  height: var(--control-h);
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 600;
   font-family: inherit;
   background: var(--ink-800);
   color: var(--ink-200);
@@ -622,7 +811,8 @@ button:disabled:active {
 }
 
 .filter-btn:hover {
-  border-color: var(--red-500);
+  border-color: rgba(var(--red-500-rgb), 0.6);
+  color: var(--washi-50);
 }
 
 .filter-btn.active {
@@ -636,8 +826,8 @@ button:disabled:active {
   flex-direction: row;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: 10px;
-  margin-bottom: 18px;
+  gap: 8px;
+  margin-bottom: 20px;
 }
 
 .library-header-title {
@@ -661,8 +851,8 @@ button:disabled:active {
   font-size: 12px;
   padding: 6px 10px;
   border-radius: 999px;
-  background: rgba(95, 127, 71, 0.15);
-  border: 1px solid rgba(95, 127, 71, 0.4);
+  background: var(--success-soft);
+  border: 1px solid color-mix(in srgb, var(--green-500) 45%, transparent);
   cursor: pointer;
   transition: all 0.15s ease;
 }
@@ -690,8 +880,9 @@ button:disabled:active {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
   padding: 0;
   border-radius: 50%;
   background: var(--ink-800);
@@ -750,7 +941,7 @@ button:disabled:active {
   right: 0;
   background-color: var(--ink-800);
   min-width: 180px;
-  box-shadow: 0px 12px 30px rgba(0, 0, 0, 0.55);
+  box-shadow: var(--shadow-2);
   z-index: 100;
   border-radius: 12px;
   border: 1px solid var(--ink-700);
@@ -1282,11 +1473,27 @@ button:disabled:active {
   height: 20px;
 }
 
-/* Botones de las cards con icono + texto */
+/* Botones de las cards con icono + texto: todos a la misma altura (si la
+   letra del estilo es ancha y no cabe, el texto baja de línea) */
 .card-actions button {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
+  min-height: 30px;
+}
+
+.card-actions button:not(.icon-btn):not(.more-btn):not(.is-icon) {
+  padding: 4px 12px;
+  line-height: 1.2;
+}
+
+.card-actions button.primary {
+  font-weight: 600;
+}
+
+/* El icono de "Agregar" no se lleva el clic (lo escucha el botón) */
+.add-btn > * {
+  pointer-events: none;
 }
 
 .card-actions button .i {
@@ -1342,12 +1549,12 @@ button:disabled:active {
 }
 
 .dropdown-item.is-danger {
-  color: #e2607a;
+  color: var(--danger);
 }
 
 .dropdown-item.is-danger:hover {
-  background: rgba(226, 96, 122, 0.12);
-  color: #ef7a92;
+  background: var(--danger-soft);
+  color: var(--danger);
 }
 
 /* Corona de platino (SVG en medalla dorada) */
@@ -1383,7 +1590,7 @@ button:disabled:active {
   align-content: start;
   gap: 12px;
   padding: 12px;
-  border-radius: 18px;
+  border-radius: var(--radius-xl);
   border: 1px solid rgba(var(--red-500-rgb), 0.22);
   background: linear-gradient(180deg, rgba(var(--red-500-rgb), 0.08), rgba(var(--red-500-rgb), 0.015) 140px),
     rgba(var(--ink-900-rgb), 0.55);
@@ -1601,7 +1808,8 @@ button:disabled:active {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 10px 18px;
+  min-height: var(--control-h);
+  padding: 0 18px;
   border-radius: 999px;
   border: 1px solid transparent;
   font-family: inherit;
@@ -1619,8 +1827,15 @@ button:disabled:active {
 }
 
 .sl-btn-sm {
-  padding: 7px 13px;
+  min-height: var(--control-h-sm);
+  padding: 0 14px;
   font-size: 12px;
+}
+
+.sl-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+  transform: none;
 }
 
 .sl-btn-primary {
@@ -1657,7 +1872,7 @@ button:disabled:active {
 
 .sl-btn:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(var(--red-500-rgb), 0.4);
+  box-shadow: var(--ring);
 }
 
 /* Input de modal (nombre para ordenar, etc.) */
@@ -1707,8 +1922,8 @@ button:disabled:active {
 }
 
 .sl-confirm-icon.is-danger {
-  background: rgba(226, 96, 122, 0.14);
-  color: #e2607a;
+  background: var(--danger-soft);
+  color: var(--danger);
 }
 
 .sl-confirm-title {
@@ -1991,8 +2206,8 @@ button:disabled:active {
 
 .sg-del:hover,
 .sg-game-remove:hover {
-  background: rgba(226, 96, 122, 0.15);
-  color: #e2607a;
+  background: var(--danger-soft);
+  color: var(--danger);
 }
 
 .sg-del-confirm {
@@ -2000,7 +2215,7 @@ button:disabled:active {
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: #e2607a;
+  color: var(--danger);
 }
 
 .sg-games {
@@ -2433,12 +2648,12 @@ button:disabled:active {
 }
 
 .is-ok .imp-row-icon {
-  background: rgba(95, 127, 71, 0.18);
-  color: #8fb572;
+  background: var(--success-soft);
+  color: var(--green-500);
 }
 
 .is-warn .imp-row-icon {
-  background: rgba(201, 164, 76, 0.16);
+  background: var(--gold-soft);
   color: var(--gold-400);
 }
 
@@ -2448,8 +2663,8 @@ button:disabled:active {
 }
 
 .is-error .imp-row-icon {
-  background: rgba(226, 96, 122, 0.15);
-  color: #e2607a;
+  background: var(--danger-soft);
+  color: var(--danger);
 }
 
 .imp-row-text {
@@ -2505,8 +2720,8 @@ button:disabled:active {
   margin-top: 14px;
   padding: 14px;
   border-radius: 14px;
-  border: 1px solid rgba(201, 164, 76, 0.3);
-  background: rgba(201, 164, 76, 0.06);
+  border: 1px solid color-mix(in srgb, var(--gold-400) 35%, transparent);
+  background: color-mix(in srgb, var(--gold-400) 7%, transparent);
 }
 
 .imp-section-title {
@@ -3383,7 +3598,8 @@ body:has(.update-toast.show) .scroll-top-btn {
   font-size: 17px;
   font-weight: 700;
   letter-spacing: -0.02em;
-  margin-right: 18px;
+  margin-right: 10px;
+  border-right-color: rgba(var(--fg-rgb), 0.14);
 }
 
 :root[data-effect="glass"] .topnav-item {
@@ -3721,7 +3937,8 @@ body:has(.update-toast.show) .scroll-top-btn {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 16px;
+  height: var(--control-h);
+  padding: 0 16px;
   font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
@@ -3766,7 +3983,7 @@ body:has(.update-toast.show) .scroll-top-btn {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin: 2px 0 18px;
+  margin: 2px 0 20px;
   padding: 12px 14px 12px 18px;
   border-radius: 14px;
   border: 1px solid rgba(var(--red-500-rgb), 0.35);
@@ -3930,7 +4147,8 @@ body:has(.update-toast.show) .scroll-top-btn {
 .settings-ai-input {
   flex: 1;
   min-width: 0;
-  padding: 9px 14px;
+  height: var(--control-h);
+  padding: 0 16px;
   border-radius: 999px;
   border: 1px solid var(--ink-700);
   background: var(--ink-900);
@@ -3956,7 +4174,7 @@ body:has(.update-toast.show) .scroll-top-btn {
 .settings-ai-ok .i {
   width: 16px;
   height: 16px;
-  color: #4caf50;
+  color: var(--green-500);
 }
 
 .settings-ai-msg {
@@ -4088,8 +4306,8 @@ body:has(.update-toast.show) .scroll-top-btn {
 
 /* Estados vacíos con icono y acciones */
 .empty-state {
-  padding: 44px 24px;
-  border-radius: 18px;
+  padding: 48px 24px;
+  border-radius: var(--radius-lg);
 }
 
 .empty-icon {
@@ -4117,8 +4335,10 @@ body:has(.update-toast.show) .scroll-top-btn {
 }
 
 .empty-state button {
-  padding: 9px 18px;
+  height: var(--control-h);
+  padding: 0 18px;
   font-size: 13px;
+  font-weight: 600;
 }
 
 /* Chip junto a un título (platinos en Juegos pasados) */
@@ -4135,8 +4355,8 @@ body:has(.update-toast.show) .scroll-top-btn {
   gap: 6px;
   padding: 4px 11px;
   border-radius: 999px;
-  background: linear-gradient(145deg, rgba(243, 217, 139, 0.2), rgba(201, 164, 76, 0.12));
-  border: 1px solid rgba(201, 164, 76, 0.45);
+  background: var(--gold-soft);
+  border: 1px solid color-mix(in srgb, var(--gold-400) 45%, transparent);
   color: var(--gold-400);
   font-family: "Zen Kaku Gothic New", system-ui, sans-serif;
   font-size: 12px;
@@ -4151,7 +4371,7 @@ body:has(.update-toast.show) .scroll-top-btn {
 /* El índice A-Z fijo se pega al borde de arriba del todo: con top:0 se
    quedaba a la altura del padding y las carátulas asomaban por encima. */
 :root:not([data-effect="glass"]) .index-bar {
-  top: -20px;
+  top: calc(-1 * var(--page-pad-y));
   background: rgba(var(--ink-900-rgb), 0.95);
   backdrop-filter: blur(16px);
 }
@@ -4673,8 +4893,14 @@ body.pad-in-use {
 }
 
 :root[data-effect="y2k"] .section-eyebrow::before {
-  content: "✦ ";
-  color: var(--accent-text);
+  content: "";
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  margin-right: 0.35em;
+  vertical-align: -0.2em;
+  background: var(--accent-text);
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
 }
 
 /* Fondo: rejilla, destellos y halos del acento */
@@ -4863,7 +5089,13 @@ body.pad-in-use {
 }
 
 :root[data-effect="cyber"] .section-eyebrow::before {
-  content: "▸ ";
+  content: "";
+  display: inline-block;
+  width: 0.5em;
+  height: 0.62em;
+  margin-right: 0.5em;
+  background: currentColor;
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
 }
 
 :root[data-effect="cyber"] *:not(img),
@@ -5135,8 +5367,9 @@ body.pad-in-use {
 }
 
 /* Más aire */
-:root[data-effect="minimal"] .main-content {
-  padding: 36px 48px;
+:root[data-effect="minimal"] {
+  --page-pad-y: 36px;
+  --page-pad-x: 48px;
 }
 
 :root[data-effect="minimal"] .cards-grid {
@@ -5153,6 +5386,10 @@ body.pad-in-use {
 :root[data-effect="minimal"] .topnav-item {
   border: none;
   color: var(--ink-300);
+}
+
+:root[data-effect="minimal"] .topnav-title {
+  border-right: none;
 }
 
 :root[data-effect="minimal"] .topnav-item:hover {
@@ -5637,7 +5874,7 @@ body.pad-in-use {
 
 .topnav-item:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px rgba(var(--red-500-rgb), 0.5);
+  box-shadow: var(--ring);
 }
 
 .topnav-spacer {
@@ -5728,13 +5965,20 @@ body.pad-in-use {
   box-shadow: inset 3px 0 0 var(--red-500);
 }
 
+.st-tab span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .st-tab.is-active .i {
   color: var(--accent-text);
 }
 
 .st-tab:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px rgba(var(--red-500-rgb), 0.5);
+  box-shadow: var(--ring);
 }
 
 .st-page {
@@ -5772,13 +6016,72 @@ body.pad-in-use {
 }
 
 .st-account {
-  max-width: 440px;
+  max-width: none;
 }
 
+/* Filas de ajustes agrupadas en una tarjeta, separadas por una línea */
 .st .settings-data {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 0;
+  border: 1px solid rgba(var(--fg-rgb), 0.08);
+  border-radius: var(--radius-lg);
+  background: rgba(var(--fg-rgb), 0.03);
+  overflow: hidden;
+}
+
+.st .settings-data-row {
+  min-height: 66px;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(var(--fg-rgb), 0.07);
+}
+
+.st .settings-data-row:last-child {
+  border-bottom: none;
+}
+
+.st .settings-data-title {
+  margin: 0;
+}
+
+.st .settings-data-row .settings-update-text {
+  margin-top: 2px;
+  font-size: 12px;
+}
+
+/* Descubrir: cada control en su tarjeta, como las filas de los demás */
+.st-discover-page .st-field {
+  padding: 16px 18px 14px;
+  border: 1px solid rgba(var(--fg-rgb), 0.08);
+  border-radius: var(--radius-lg);
+  background: rgba(var(--fg-rgb), 0.03);
+}
+
+.st-discover-page .st-field + .st-field {
+  margin-top: 12px;
+}
+
+.st-discover-page .settings-row-head label {
+  font-size: 14px;
+  font-weight: 600;
+  opacity: 1;
+  color: var(--washi-100);
+}
+
+.st-discover-page .settings-row-head {
+  margin-bottom: 14px;
+}
+
+:root[data-effect="glass"] .st .settings-data,
+:root[data-effect="glass"] .st-discover-page .st-field {
+  border-color: transparent;
+  background: var(--lg-fill);
+  box-shadow: var(--lg-rim);
+}
+
+:root[data-effect="minimal"] .st .settings-data,
+:root[data-effect="minimal"] .st-discover-page .st-field {
+  background: none;
 }
 
 .st .tp-soon {
@@ -5944,7 +6247,7 @@ body.pad-in-use {
 
 .game-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 0 0 1px rgba(var(--red-500-rgb), 0.15), 0 14px 30px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 0 0 1px rgba(var(--red-500-rgb), 0.15), var(--shadow-2);
 }
 
 .game-card img {
@@ -6009,9 +6312,14 @@ body.pad-in-use {
   filter: none;
 }
 
-.card-actions button.dl-btn .i {
+.card-actions button.dl-btn .i,
+.card-actions button.add-btn .i {
   fill: none;
   stroke-width: 2;
+}
+
+.card-actions button.add-btn .i {
+  stroke-width: 2.4;
 }
 
 .card-actions button.dl-btn.is-busy {
@@ -6028,8 +6336,8 @@ body.pad-in-use {
   width: 42px;
   height: 42px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--ink-800);
+  border: 1px solid var(--ink-700);
   color: var(--washi-400);
   transition: color 0.2s ease, background 0.2s ease;
 }
@@ -6052,7 +6360,7 @@ body.pad-in-use {
   width: 11px;
   height: 11px;
   border-radius: 50%;
-  border: 2px solid var(--bg-elevated, #161616);
+  border: 2px solid var(--ink-900);
   background: var(--washi-400);
   display: none;
 }
@@ -6097,4 +6405,37 @@ body.is-guest .cm-myrate {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--accent-text);
+}
+
+/* Tarjeta estrecha: "Agregar" a secas en vez de partir el botón en dos líneas */
+.game-card {
+  container-type: inline-size;
+}
+
+.add-btn .add-short {
+  display: none;
+}
+
+.card-actions button.add-btn {
+  white-space: nowrap;
+}
+
+@container (max-width: 250px) {
+  .add-btn .add-long {
+    display: none;
+  }
+  .add-btn .add-short {
+    display: inline;
+  }
+}
+
+/* Índice A-Z: siempre en una fila; las letras se estrechan si no caben */
+.index-bar {
+  flex-wrap: nowrap;
+}
+
+.index-bar .index-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 34px;
 }

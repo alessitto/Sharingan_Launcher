@@ -504,7 +504,7 @@
     const synced = l.kind === "synced";
     box.classList.add(synced ? "is-synced" : "is-plain");
     box.innerHTML = `<div class="sp-lines">${l.lines
-      .map((x, i) => `<p class="sp-line${x.text ? "" : " is-gap"}" data-i="${i}"${synced ? ` data-t="${x.t}"` : ""}>${x.text ? esc(x.text) : "♪"}</p>`)
+      .map((x, i) => `<p class="sp-line${x.text ? "" : " is-gap"}" data-i="${i}"${synced ? ` data-t="${x.t}"` : ""}>${x.text ? esc(x.text) : ic("music", "sp-gap-ic")}</p>`)
       .join("")}</div><p class="sp-lyrics-src">Letra: LRCLIB</p>`;
     if (synced) syncLyrics(position(), true);
   }

@@ -259,8 +259,8 @@
 
   function shell() {
     root.innerHTML = `
-      <div class="cm-head">
-        <div>
+      <div class="cm-head page-head">
+        <div class="page-head-title">
           <span class="section-eyebrow">Comunidad</span>
           <h2 class="section-title cm-title">Comunidad</h2>
         </div>

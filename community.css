@@ -186,7 +186,7 @@
 .cm-auth-error {
   margin: 0;
   font-size: 13px;
-  color: #ff6b6b;
+  color: var(--danger);
 }
 
 .cm-auth-go {
@@ -228,9 +228,10 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: var(--ink-800);
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(var(--fg-rgb), 0.08);
+  background: rgba(var(--fg-rgb), 0.03);
   font-size: 13px;
 }
 
@@ -261,7 +262,7 @@ body.in-community .main-content {
 .cm-root {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 100px);
+  height: 100%;
   min-height: 460px;
 }
 
@@ -270,7 +271,7 @@ body.in-community .main-content {
   align-items: flex-end;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 14px;
+  margin-bottom: 20px;
 }
 
 .cm-title {
@@ -332,7 +333,7 @@ body.in-community .main-content {
   flex-direction: column;
   gap: 4px;
   padding: 10px;
-  border-radius: 18px;
+  border-radius: var(--radius-lg);
   border: 1px solid var(--ink-800);
   background: var(--ink-900);
   overflow-y: auto;
@@ -389,7 +390,7 @@ body.in-community .main-content {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  border-radius: 18px;
+  border-radius: var(--radius-lg);
   border: 1px solid var(--ink-800);
   background: var(--ink-900);
   overflow: hidden;
@@ -519,8 +520,8 @@ body.in-community .main-content {
 }
 
 .cm-msg-del:hover {
-  background: #c2334d;
-  color: #fff;
+  background: var(--danger-soft);
+  color: var(--danger);
 }
 
 .cm-composer {
@@ -587,7 +588,8 @@ body.in-community .main-content {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 7px 13px;
+  height: var(--control-h-sm);
+  padding: 0 13px;
   border: 1px solid var(--ink-700);
   background: transparent;
   box-shadow: none;
@@ -608,7 +610,8 @@ body.in-community .main-content {
 }
 
 .cm-rep-state {
-  padding: 7px 12px;
+  height: var(--control-h-sm);
+  padding: 0 12px;
   border-radius: 999px;
   border: 1px solid var(--ink-700);
   background: var(--ink-900);
@@ -633,7 +636,7 @@ body.in-community .main-content {
   gap: 14px;
   width: 100%;
   padding: 14px 16px;
-  border-radius: 14px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--ink-800);
   background: var(--ink-900);
   box-shadow: none;
@@ -670,6 +673,7 @@ body.in-community .main-content {
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 5px;
   min-width: 112px;
   padding: 4px 10px;
@@ -683,19 +687,21 @@ body.in-community .main-content {
   height: 13px;
 }
 
+/* Colores de tipo y estado: los de estado del tema, que se leen sobre
+   cualquier fondo (las dudas, en el color del texto) */
 .cm-rep-type.is-bug {
-  color: #ff8a8a;
-  background: rgba(255, 90, 90, 0.12);
+  color: var(--danger);
+  background: var(--danger-soft);
 }
 
 .cm-rep-type.is-suggestion {
-  color: #ffd166;
-  background: rgba(255, 200, 80, 0.12);
+  color: var(--gold-400);
+  background: var(--gold-soft);
 }
 
 .cm-rep-type.is-question {
-  color: #7cc4ff;
-  background: rgba(90, 170, 255, 0.12);
+  color: var(--washi-100);
+  background: rgba(var(--fg-rgb), 0.09);
 }
 
 .cm-rep-adminreply {
@@ -724,13 +730,13 @@ body.in-community .main-content {
 
 .cm-status.is-solved,
 .cm-status.is-accepted {
-  color: #6fe39b;
-  background: rgba(70, 200, 120, 0.14);
+  color: var(--green-500);
+  background: var(--success-soft);
 }
 
 .cm-status.is-rejected {
-  color: #ff8a8a;
-  background: rgba(255, 90, 90, 0.12);
+  color: var(--danger);
+  background: var(--danger-soft);
 }
 
 .cm-back {
@@ -747,7 +753,7 @@ body.in-community .main-content {
 
 .cm-detail-card {
   padding: 20px 22px;
-  border-radius: 18px;
+  border-radius: var(--radius-lg);
   border: 1px solid var(--ink-800);
   background: var(--ink-900);
 }
@@ -802,7 +808,7 @@ body.in-community .main-content {
 
 .cm-reply {
   padding: 14px 16px;
-  border-radius: 14px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--ink-800);
   background: var(--ink-900);
 }
@@ -860,7 +866,7 @@ body.in-community .main-content {
   gap: 14px;
   padding: 16px 18px 22px;
   margin-bottom: 18px;
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   border: 1px solid var(--ink-800);
   background: var(--ink-900);
 }
@@ -931,7 +937,7 @@ body.in-community .main-content {
   display: flex;
   gap: 12px;
   padding: 14px;
-  border-radius: 14px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--ink-800);
   background: var(--ink-900);
   opacity: 0.8;
@@ -1098,9 +1104,15 @@ body.in-community .main-content {
 }
 
 .cm-myrate {
+  --star: #ffc940;
   display: flex;
   align-items: center;
   gap: 2px;
+}
+
+/* Sobre fondo claro el amarillo no se ve: el oro legible del tema */
+:root[data-tone="light"] .cm-myrate {
+  --star: var(--gold-400);
 }
 
 .cm-myrate-label {
@@ -1132,20 +1144,20 @@ body.in-community .main-content {
 }
 
 .cm-star.is-on {
-  color: #ffc940;
+  color: var(--star);
 }
 
 .cm-star.is-on .i {
-  fill: #ffc940;
+  fill: var(--star);
 }
 
 /* Al pasar el ratón se previsualiza la nota */
 .cm-myrate:hover .cm-star {
-  color: #ffc940;
+  color: var(--star);
 }
 
 .cm-myrate:hover .cm-star .i {
-  fill: #ffc940;
+  fill: var(--star);
 }
 
 .cm-myrate .cm-star:hover ~ .cm-star {
