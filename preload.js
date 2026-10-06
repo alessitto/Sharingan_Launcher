@@ -5,6 +5,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   discoverGames: (opts) => ipcRenderer.invoke('igdb:discover', opts),
   getGenres: () => ipcRenderer.invoke('igdb:genres'),
   getGameDetails: (id) => ipcRenderer.invoke('igdb:getDetails', id),
+  // Id de IGDB con el que se puntúa un juego (lo busca si es importado)
+  ratingId: (id) => ipcRenderer.invoke('games:ratingId', id),
 
   // Steam Requisitos Reales
   getRealRequirements: (ids) => ipcRenderer.invoke('steam:getRequirements', ids),

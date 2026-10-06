@@ -725,7 +725,17 @@
   }
 
   // Juegos pasados: tu nota (1-5 estrellas). La media de la gente no sale.
-  let myRatings = new Map();
+  // Las notas van por el id de IGDB: los importados (Steam/Epic/GOG/carpeta)
+  // tienen otro id y se usa el igdbId que main.js busca y guarda.
+  let myRatings = new Map(); // id de IGDB -> nota
+
+  const isImported = (g) => !!(g.installDir || g.steamAppId || g.epicAppName || g.gogGameId || g.gogProductId || Number(g.id) < 0);
+  function ratingKey(localId) {
+    const g = (typeof completedGamesCache !== "undefined" ? completedGamesCache : []).find((x) => Number(x.id) === localId);
+    if (!g) return localId > 0 ? localId : null;
+    return g.igdbId || (!isImported(g) && localId > 0 ? localId : null);
+  }
+  const myRatingOf = (localId) => myRatings.get(ratingKey(localId)) || 0;
 
   function decorateCompleted() {
     const grid = document.getElementById("completedList");
@@ -736,7 +746,7 @@
       const row = document.createElement("div");
       row.className = "cm-myrate";
       row.dataset.id = id;
-      paintStars(row, myRatings.get(id) || 0);
+      paintStars(row, myRatingOf(id));
       card.querySelector(".card-actions")?.before(row);
     }
   }
@@ -749,12 +759,21 @@
 
   async function rate(row, score) {
     if (!needLogin("Para puntuar juegos necesitas una cuenta.")) return;
-    const id = Number(row.dataset.id);
-    const next = myRatings.get(id) === score ? 0 : score; // repetir la misma nota la quita
+    const localId = Number(row.dataset.id);
+    const prev = myRatingOf(localId);
+    const next = prev === score ? 0 : score; // repetir la misma nota la quita
     paintStars(row, next);
+    const id = await window.electronAPI.ratingId(localId).catch(() => null);
+    // La ventana guarda una copia de la biblioteca: que sepa ya su igdbId.
+    const cached = (typeof completedGamesCache !== "undefined" ? completedGamesCache : []).find((x) => Number(x.id) === localId);
+    if (cached && id && cached.igdbId !== id && (cached.igdbId || isImported(cached))) cached.igdbId = id;
+    if (!id) {
+      paintStars(row, prev);
+      return showNotification("No se ha encontrado este juego en el catálogo, así que no se puede puntuar.", "error");
+    }
     const res = await api("rate", id, next);
     if (!res.ok) {
-      paintStars(row, myRatings.get(id) || 0);
+      paintStars(row, prev);
       return showNotification(res.error, "error");
     }
     if (next) myRatings.set(id, next);
@@ -770,7 +789,7 @@
       const res = await api("ratingsMine");
       if (res.ok) myRatings = new Map(Object.entries(res.ratings).map(([k, v]) => [Number(k), v]));
     }
-    document.querySelectorAll("#completedList .cm-myrate").forEach((row) => paintStars(row, myRatings.get(Number(row.dataset.id)) || 0));
+    document.querySelectorAll("#completedList .cm-myrate").forEach((row) => paintStars(row, myRatingOf(Number(row.dataset.id))));
   }
 
   // ------------------------------------------------------------ Init

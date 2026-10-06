@@ -2603,20 +2603,59 @@ ipcMain.handle("changelog:get", async () => {
 const DETAILS_FIELDS =
   "fields name,summary,genres.name,involved_companies.developer,involved_companies.company.name,first_release_date,cover.image_id,platforms.abbreviation,total_rating,total_rating_count;";
 
+// Entre varios juegos con el mismo nombre (hay tres "Hades"), el conocido:
+// el que más valoraciones tiene. Si ninguno coincide exacto, el primero.
+function bestByName(rows, name) {
+  const target = normalizeGameName(name);
+  const exact = rows.filter((g) => normalizeGameName(g.name) === target);
+  if (!exact.length) return rows[0] || null;
+  return exact.sort((a, b) => (b.total_rating_count || 0) - (a.total_rating_count || 0))[0];
+}
+
+// Importado de Steam/Epic/GOG o de una carpeta: su id no es el de IGDB
+// (es el appid de Steam o uno generado, negativo).
+function isImportedGame(g) {
+  return !!(g && (g.installDir || g.steamAppId || g.epicAppName || g.gogGameId || g.gogProductId || Number(g.id) < 0));
+}
+
 ipcMain.handle("igdb:getDetails", async (_e, arg) => {
   const { id, name } = typeof arg === "object" && arg ? arg : { id: arg };
   const owned = findAnyGame(Number(id));
-  const imported = owned && (owned.installDir || owned.steamAppId || owned.epicAppName || owned.gogGameId || Number(id) < 0);
-  if (!imported && Number(id) > 0) {
-    const rows = await igdbGamesQuery(`${DETAILS_FIELDS} where id = ${Number(id)};`);
+  const igdbId = owned?.igdbId || (!isImportedGame(owned) && Number(id) > 0 ? Number(id) : null);
+  if (igdbId) {
+    const rows = await igdbGamesQuery(`${DETAILS_FIELDS} where id = ${Number(igdbId)};`);
     if (Array.isArray(rows) && rows[0]) return rows[0];
   }
   const q = igdbLiteral(name || owned?.name || "");
   if (!q) return null;
   const rows = await igdbGamesQuery(`search "${q}"; ${DETAILS_FIELDS} where game_type = ${IGDB_REAL_GAME_TYPES}; limit 10;`);
   if (!Array.isArray(rows) || !rows.length) return null;
-  const target = normalizeGameName(name || owned?.name);
-  return rows.find((g) => normalizeGameName(g.name) === target) || rows[0];
+  const hit = bestByName(rows, name || owned?.name);
+  // Se apunta para no tener que buscarlo otra vez (y para puntuarlo).
+  if (owned && !owned.igdbId && hit?.id) {
+    owned.igdbId = hit.id;
+    saveData();
+  }
+  return hit;
+});
+
+// Las notas de los juegos van por su id de IGDB (el de Descubrir). Los
+// importados no lo tienen: se busca por nombre una vez y se guarda en el
+// juego (igdbId), así la API ve en la biblioteca que te lo has pasado.
+ipcMain.handle("games:ratingId", async (_e, id) => {
+  const g = findAnyGame(Number(id));
+  if (!g) return null;
+  if (g.igdbId) return g.igdbId;
+  if (!isImportedGame(g) && Number(g.id) > 0) return Number(g.id);
+  const q = igdbLiteral(g.name || "");
+  if (!q) return null;
+  const rows = await igdbGamesQuery(`search "${q}"; fields id,name,total_rating_count; where game_type = ${IGDB_REAL_GAME_TYPES}; limit 10;`).catch(() => null);
+  if (!Array.isArray(rows) || !rows.length) return null;
+  const hit = bestByName(rows, g.name);
+  if (!hit?.id) return null;
+  g.igdbId = hit.id;
+  saveData();
+  return g.igdbId;
 });
 
 // -------------------- Steam StoreService AppList (replacement) --------------------
