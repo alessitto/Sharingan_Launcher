@@ -1701,13 +1701,17 @@ body.in-pokepark .main-content {
   border-top: 1px solid var(--ink-800);
 }
 
+/* Si no caben en una fila (lateral estrecho), bajan a la siguiente y se
+   estiran en vez de salirse de la ficha. */
 .pp-more-btns {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
 .pp-more-btns .sl-btn {
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0;
   justify-content: center;
 }
 
@@ -4150,4 +4154,11 @@ body.in-pokepark .main-content {
 
 .pp-tr-st.is-accepted {
   background: rgba(92, 201, 138, 0.15);
+}
+
+/* El reloj del parque no se parte en dos líneas con la ventana estrecha */
+.pp-hud .pp-clock {
+  flex-shrink: 0;
+  align-self: flex-start;
+  white-space: nowrap;
 }
