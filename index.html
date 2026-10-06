@@ -1566,7 +1566,7 @@
 
         const buttonsHtml = libraryIds.has(game.id)
           ? `<span class="badge-owned">En tu biblioteca</span>${infoButtonHtml(game.id)}`
-          : `<button class="primary add-btn" data-index='${index}'>${icon("plus")}Agregar a biblioteca</button>${infoButtonHtml(game.id)}`;
+          : `<button class="primary add-btn" data-index='${index}' title="Agregar a biblioteca">${icon("plus")}<span class="add-long">Agregar a biblioteca</span><span class="add-short">Agregar</span></button>${infoButtonHtml(game.id)}`;
 
         div.innerHTML = `
           <div class="card-cover"><img src="${coverUrl}" alt="${safeAttrName}" loading="lazy" decoding="async"></div>

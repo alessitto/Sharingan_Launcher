@@ -6406,3 +6406,36 @@ body.is-guest .cm-myrate {
   text-transform: uppercase;
   color: var(--accent-text);
 }
+
+/* Tarjeta estrecha: "Agregar" a secas en vez de partir el botón en dos líneas */
+.game-card {
+  container-type: inline-size;
+}
+
+.add-btn .add-short {
+  display: none;
+}
+
+.card-actions button.add-btn {
+  white-space: nowrap;
+}
+
+@container (max-width: 250px) {
+  .add-btn .add-long {
+    display: none;
+  }
+  .add-btn .add-short {
+    display: inline;
+  }
+}
+
+/* Índice A-Z: siempre en una fila; las letras se estrechan si no caben */
+.index-bar {
+  flex-wrap: nowrap;
+}
+
+.index-bar .index-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 34px;
+}
