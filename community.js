@@ -698,30 +698,21 @@
   }
 
   // ------------------------------------------------------------ Puntuaciones
-  // Descubrir: media de la comunidad en la carátula.
+  // Media de la comunidad (1-5) para la ficha del juego, por id de IGDB.
   // id -> { r: { avg, count } | null, at }. Las medias valen 5 min; "sin
   // puntuaciones" solo 30 s, para que se vea enseguida la primera nota.
   const avgCache = new Map();
   const fresh = (e) => e && Date.now() - e.at < (e.r ? 5 * 60 * 1000 : 30 * 1000);
 
-  async function decorateDiscover() {
-    const grid = document.getElementById("gamesList");
-    if (!grid) return;
-    const cards = [...grid.querySelectorAll(".game-card[data-game-id]")].filter((c) => !c.querySelector(".cm-avg"));
-    const missing = [...new Set(cards.map((c) => Number(c.dataset.gameId)).filter((id) => !fresh(avgCache.get(id))))];
-    if (missing.length) {
-      const res = await api("ratingsAvg", missing);
-      if (res.ok) missing.forEach((id) => avgCache.set(id, { r: res.ratings[id] || null, at: Date.now() }));
+  async function avgOf(igdbId) {
+    const id = Number(igdbId);
+    if (!(id > 0)) return null;
+    if (!fresh(avgCache.get(id))) {
+      const res = await api("ratingsAvg", [id]);
+      if (!res.ok) return null;
+      avgCache.set(id, { r: res.ratings[id] || null, at: Date.now() });
     }
-    for (const c of cards) {
-      const r = avgCache.get(Number(c.dataset.gameId))?.r;
-      if (!r || c.querySelector(".cm-avg")) continue;
-      const tag = document.createElement("span");
-      tag.className = "cm-avg";
-      tag.title = `Media de ${r.count} ${r.count === 1 ? "persona" : "personas"} de la comunidad`;
-      tag.innerHTML = `${icon("star")}${r.avg.toFixed(1).replace(".", ",")}<small>${r.count}</small>`;
-      c.querySelector(".card-cover")?.appendChild(tag);
-    }
+    return avgCache.get(id).r;
   }
 
   // Juegos pasados: tu nota (1-5 estrellas). La media de la gente no sale.
@@ -837,7 +828,6 @@
       }).observe(el, { childList: true, subtree: true });
       fn();
     };
-    watch("gamesList", decorateDiscover);
     watch("completedList", decorateCompleted);
     document.getElementById("completedList")?.addEventListener("click", (e) => {
       const star = e.target.closest(".cm-star");
@@ -856,6 +846,7 @@
     openAuth,
     openProfile,
     renderAccount,
+    avgOf,
   };
 
   init();

@@ -2043,12 +2043,12 @@
           <span class="pp-hud-right">
             <button type="button" class="pp-chip pp-hud-btn pp-gate-btn" data-pp="gate"></button>
             <button type="button" class="pp-chip pp-hud-btn" data-pp="shop" title="Tienda">${SHOP_SVG}<span>Tienda</span></button>
+            <button type="button" class="pp-chip pp-hud-btn" data-pp="games" title="Minijuegos: Pokédle, Voltorb Flip y Blackjack">${GAMES_SVG}<span>Minijuegos</span></button>
             <button type="button" class="pp-chip pp-hud-btn" data-pp="trades" title="Intercambios con otros jugadores">${TRADE_SVG}<span>Intercambios</span><em class="pp-trade-badge"></em></button>
             <button type="button" class="pp-chip pp-fs-btn" data-pp="fullscreen" title="Pantalla completa (Esc para salir)">${FS_SVG}<span>Pantalla completa</span></button>
           </span>
         </div>
         <div class="pp-empty"></div>
-        <button type="button" class="pp-games-btn" data-pp="games" title="Minijuegos: Pokédle, Voltorb Flip y Blackjack">${GAMES_SVG}<span>Minijuegos</span></button>
         <button type="button" class="pp-tool-btn is-berry" data-pp="berries" title="Dar una baya" aria-label="Dar una baya">${itemImg("oran-berry")}</button>
         <button type="button" class="pp-tool-btn is-comb" data-pp="comb" title="Cepillar" aria-label="Cepillar"><img src="${combSrc()}" alt="" draggable="false"></button>
         <button type="button" class="pp-tool-btn pp-ball-btn" data-pp="ball" title="Sacar una Poké Ball" aria-label="Sacar una Poké Ball">${POKEBALL_IMG}</button>
@@ -3815,6 +3815,16 @@
       </div>`;
   }
 
+  // Marcas de Voltorb Flip (clic derecho), como las notas del juego
+  // original. Solo son una ayuda visual: viven en la interfaz, van por
+  // tablero (su firma son las pistas) y sobreviven a cerrar los minijuegos.
+  const vfMarks = { key: "", set: new Set() };
+  const vfMarksFor = (v) => {
+    const key = v?.clues ? JSON.stringify(v.clues) : "";
+    if (key !== vfMarks.key) vfMarks.key = key, vfMarks.set.clear();
+    return vfMarks.set;
+  };
+
   async function openGames(start = "pokedle") {
     let tab = start;
     let popupEl = null;
@@ -3954,6 +3964,10 @@
               <span class="mg-vf-demo">${vfClue({ sum: 5, vol: 1 }, "is-c0")}</span>
               <p><b>Usa las pistas.</b> Arriba, la suma de esa fila o columna. Abajo, cuántos Voltorb esconde.</p>
             </div>
+            <div class="mg-vf-step">
+              <span class="mg-vf-demo"><span class="mg-vf-tile is-marked">${vfImg("hidden")}<img class="mg-vf-mark" src="${VF}icon.png" alt="" draggable="false"></span></span>
+              <p><b>Marca con clic derecho</b> donde creas que hay un Voltorb. Una casilla marcada no se voltea hasta que le quites la marca.</p>
+            </div>
             <p class="mg-vf-tip">${icon("lightbulb")}<span>Una línea con 0 Voltorb es segura. Si la suma y los Voltorb dan 5, esa línea solo tiene ×1 y Voltorb: no hace falta tocarla.</span></p>
           </div>
           <div class="mg-vf-levels">
@@ -3974,6 +3988,7 @@
           ${vt.bet ? `<span class="mg-stat"><small>Monedas</small><b>${vt.coins} / ${vt.maxCoins}</b></span>` : ""}
         </div>`;
       let board = "";
+      const marks = vfMarksFor(vt);
       if (vt.revealed) {
         const cells = [];
         for (let r = 0; r < 5; r++) {
@@ -3981,7 +3996,10 @@
             const i = r * 5 + c;
             const v = vt.revealed[i];
             let inner;
-            if (v === null) inner = `<button type="button" class="mg-vf-tile" data-vf="${i}" ${vt.active && !busy ? "" : "disabled"} aria-label="Voltear">${vfImg("hidden")}</button>`;
+            if (v === null) {
+              const marked = marks.has(i);
+              inner = `<button type="button" class="mg-vf-tile${marked ? " is-marked" : ""}" data-vf="${i}" ${vt.active && !busy ? "" : "disabled"} aria-label="${marked ? "Marcada como Voltorb" : "Voltear"}">${vfImg("hidden")}${marked ? `<img class="mg-vf-mark" src="${VF}icon.png" alt="" draggable="false">` : ""}</button>`;
+            }
             else {
               const fresh = !vtSeen.has(i);
               vtSeen.add(i);
@@ -4003,7 +4021,7 @@
         : "";
       const actions = vt.active
         ? `<div class="mg-actions">
-            <span class="mg-hint">Limpia el tablero: ${fmtMoney(vt.prize)}</span>
+            <span class="mg-hint">Limpia el tablero: ${fmtMoney(vt.prize)} · Clic derecho: marcar Voltorb</span>
             <button type="button" class="sl-btn sl-btn-ghost" data-mg="voltorb-retire" ${busy ? "disabled" : ""}>Retirarse${vt.retireNow ? ` · ${fmtMoney(vt.retireNow)}` : ""}</button>
           </div>`
         : betPanel("voltorb", vt.result ? "Otra partida" : "Jugar");
@@ -4197,7 +4215,10 @@
             return loadSilhouette(pkIdx);
           }
           const tile = e.target.closest("[data-vf]");
-          if (tile) return voltorbAct("voltorbFlip", Number(tile.dataset.vf));
+          if (tile) {
+            if (vfMarks.set.has(Number(tile.dataset.vf))) return; // marcada: no se voltea
+            return voltorbAct("voltorbFlip", Number(tile.dataset.vf));
+          }
           const a = e.target.closest("[data-mg]")?.dataset.mg;
           if (a === "voltorb-start") voltorbStart();
           else if (a === "voltorb-retire") voltorbAct("voltorbRetire");
@@ -4205,6 +4226,17 @@
           else if (a === "bj-hit") bjAct("bjHit");
           else if (a === "bj-stand") bjAct("bjStand");
           else if (a === "bj-double") bjAct("bjDouble");
+        });
+        popup.addEventListener("contextmenu", (e) => {
+          const tile = e.target.closest("[data-vf]");
+          if (!tile) return;
+          e.preventDefault();
+          if (tile.disabled) return;
+          const i = Number(tile.dataset.vf);
+          const marks = vfMarksFor(vt);
+          if (marks.has(i)) marks.delete(i);
+          else marks.add(i);
+          paint();
         });
         popup.addEventListener("input", (e) => {
           if (!e.target.matches(".mg-bet-val")) return;

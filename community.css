@@ -1072,37 +1072,6 @@ body.in-community .main-content {
 }
 
 /* ------------------------------------------------------------ Puntuaciones */
-.cm-avg {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  z-index: 2;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 8px 3px 6px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 800;
-  color: #fff;
-  background: rgba(10, 10, 14, 0.72);
-  backdrop-filter: blur(6px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
-}
-
-.cm-avg .i {
-  width: 13px;
-  height: 13px;
-  fill: #ffc940;
-  stroke: #ffc940;
-}
-
-.cm-avg small {
-  font-size: 10px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.65);
-}
-
 .cm-myrate {
   --star: #ffc940;
   display: flex;

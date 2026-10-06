@@ -1402,11 +1402,12 @@
         //    porque necesitan el id de IGDB de la ficha.
         const specsPromise = window.electronAPI.getSystemSpecs().catch(() => null);
         const details = await window.electronAPI.getGameDetails({ id: game.id, name: game.name }).catch(() => null);
-        const [reqsResult, mySpecs] = await Promise.all([
+        const [reqsResult, mySpecs, slRating] = await Promise.all([
           window.electronAPI
             .getRealRequirements({ igdbId: details?.id || null, steamAppId: game.steamAppId, gameName: game.name })
             .catch(() => null),
           specsPromise,
+          window.Community?.avgOf?.(details?.id || game.igdbId).catch(() => null) ?? null,
         ]);
         if (!Swal.isVisible() || !document.querySelector(".sl-loading")) return; // cerrado mientras cargaba
         const reqs = reqsResult || { min: "", rec: "" };
@@ -1483,6 +1484,11 @@
               ${
                 score != null
                   ? `<div class="info-score" title="Nota media en IGDB (${details.total_rating_count} valoraciones)"><b>${score}</b><span>Nota en IGDB</span></div>`
+                  : ""
+              }
+              ${
+                slRating
+                  ? `<div class="info-score is-sl" title="Media de ${slRating.count} ${slRating.count === 1 ? "valoración" : "valoraciones"} en Sharingan Launcher"><b>${String(Math.round(slRating.avg * 10) / 10).replace(".", ",")}${icon("star")}</b><span>Nota en Sharingan Launcher</span></div>`
                   : ""
               }
             </div>

@@ -4272,40 +4272,6 @@ b > .pp-shiny-ic {
 /* =====================================================================
    3.3.8: Minijuegos (Pokédle, Voltorb Flip, Blackjack)
    ===================================================================== */
-.pp-games-btn {
-  position: absolute;
-  left: 22px;
-  bottom: 22px;
-  z-index: 6;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 46px;
-  padding: 0 18px 0 14px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(var(--ink-900-rgb), 0.78);
-  backdrop-filter: blur(8px);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
-  color: var(--washi-50);
-  font: inherit;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: transform 0.2s var(--ease-smooth), border-color 0.2s;
-}
-
-.pp-games-btn:hover {
-  transform: translateY(-2px);
-  border-color: var(--red-500);
-}
-
-.pp-games-btn .i {
-  width: 20px;
-  height: 20px;
-  color: var(--accent-text);
-}
-
 .mg-popup.swal2-popup {
   width: min(780px, 96vw) !important;
 }
@@ -4793,6 +4759,27 @@ b > .pp-shiny-ic {
   outline-offset: 1px;
 }
 
+/* Marca de Voltorb (clic derecho) */
+.mg-vf-tile.is-marked {
+  display: block;
+}
+
+.mg-vf-mark {
+  position: absolute;
+  top: 8%;
+  left: 8%;
+  width: 42%;
+  height: 42%;
+  image-rendering: pixelated;
+  pointer-events: none;
+  filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.35));
+}
+
+.mg-vf-tile.is-marked:not(:disabled):hover {
+  outline-color: #f8b030;
+  cursor: default;
+}
+
 .mg-vf-tile.is-new {
   animation: mg-flip 0.3s ease;
 }
@@ -4927,6 +4914,13 @@ b > .pp-shiny-ic {
 .mg-vf-demo.is-row .mg-vf-img {
   width: 44px;
   height: 44px;
+}
+
+.mg-vf-demo .mg-vf-tile {
+  position: relative;
+  inset: auto;
+  width: 100%;
+  height: 100%;
 }
 
 .mg-vf-demo .mg-vf-clue {
