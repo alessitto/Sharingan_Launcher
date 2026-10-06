@@ -47,6 +47,7 @@
     expand: '<path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="m21 3-7 7"/><path d="m3 21 7-7"/>',
     shrink: '<path d="m14 10 7-7"/><path d="M20 10h-6V4"/><path d="m3 21 7-7"/><path d="M4 14h6v6"/>',
     lyrics: '<path d="M17 6H3"/><path d="M21 12H8"/><path d="M21 18H8"/><path d="M3 12v6"/>',
+    search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
     // Asistente
     copy: '<rect width="13" height="13" x="9" y="9" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
     clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
@@ -117,10 +118,16 @@
     <div class="sp-full-bg" aria-hidden="true"></div>
     <div class="sp-full-shade" aria-hidden="true"></div>
     <header class="sp-full-top">
-      <span class="sp-brand">${SPOTIFY_LOGO}<span>Spotify</span></span>
+      <div class="sp-top-left">
+        <span class="sp-brand">${SPOTIFY_LOGO}<span>Spotify</span></span>
+        <div class="sp-search" hidden>
+          <span class="sp-search-icon">${ic("search")}</span>
+          <input type="text" class="sp-search-in" placeholder="Buscar canción" aria-label="Buscar canción" spellcheck="false" autocomplete="off">
+          <div class="sp-search-results" hidden></div>
+        </div>
+      </div>
       <div class="sp-full-actions">
         <button type="button" class="sp-link sp-open" data-act="open" hidden>${ic("external")}Abrir en Spotify</button>
-        <button type="button" class="sp-pill sp-lyrics-btn" data-act="lyrics" aria-pressed="false" hidden>${ic("lyrics")}<span>Letra</span></button>
         <button type="button" class="sp-icon-btn" data-act="fullscreen" title="Pantalla completa (F)">${ic("expand")}</button>
         <button type="button" class="sp-icon-btn" data-act="close" title="Cerrar (Esc)">${ic("close")}</button>
       </div>
@@ -270,7 +277,7 @@
       bg.style.backgroundImage = "";
       q(".sp-open").hidden = true;
     }
-    q(".sp-lyrics-btn").hidden = next !== "player";
+    q(".sp-search").hidden = next === "setup";
     view.classList.remove("lyrics-on");
     if (next === "setup") {
       // Sin conectar: asistente (si ya hay Client ID, directo a conectar).
@@ -309,6 +316,7 @@
           <div class="sp-meta">
             <p class="sp-title"></p>
             <p class="sp-artist"></p>
+            <button type="button" class="sp-ctl sp-toggle sp-lyrics-btn" data-act="lyrics" aria-pressed="false" title="Ver la letra (L)">${ic("lyrics")}</button>
           </div>
           <div class="sp-seek">
             <input type="range" class="sp-range sp-progress" min="0" max="1" step="1000" value="0" aria-label="Posición">
@@ -436,10 +444,11 @@
     const has = !!lyrics?.lines?.length;
     view.classList.toggle("lyrics-on", lyricsOn && has && mode === "player");
     const b = q(".sp-lyrics-btn");
+    if (!b) return;
     b.classList.toggle("is-on", lyricsOn);
     b.classList.toggle("is-empty", lyricsOn && !!lyrics && !has);
     b.setAttribute("aria-pressed", String(lyricsOn));
-    b.title = !lyricsOn ? "Ver la letra" : lyrics && !has ? (lyrics.kind === "instrumental" ? "Instrumental" : "Esta canción no tiene letra") : "Ocultar la letra";
+    b.title = !lyricsOn ? "Ver la letra (L)" : lyrics && !has ? (lyrics.kind === "instrumental" ? "Instrumental" : "Esta canción no tiene letra") : "Ocultar la letra (L)";
   }
 
   function toggleLyrics() {
@@ -604,6 +613,85 @@
   });
 
   btn.addEventListener("click", () => setOpen(!open));
+
+  // ------------------------------------------------------------ Buscar
+  // Lupa junto al logo: se abre al pasar el ratón; escribiendo salen las
+  // canciones debajo y al pulsar una suena.
+  const search = q(".sp-search");
+  const searchIn = q(".sp-search-in");
+  const searchOut = q(".sp-search-results");
+  let searchTimer = null;
+  let searchSeq = 0;
+  let searchHits = [];
+
+  function closeSearch(clear) {
+    searchOut.hidden = true;
+    if (clear) {
+      searchIn.value = "";
+      searchHits = [];
+      search.classList.remove("has-query");
+      searchIn.blur();
+    }
+  }
+
+  async function runSearch() {
+    const text = searchIn.value.trim();
+    search.classList.toggle("has-query", !!text);
+    if (!text) return closeSearch(false);
+    const seq = ++searchSeq;
+    search.classList.add("is-loading");
+    const res = await sp("search", text);
+    if (seq !== searchSeq) return;
+    search.classList.remove("is-loading");
+    if (!res.ok) {
+      showError(res);
+      return closeSearch(false);
+    }
+    searchHits = res.tracks || [];
+    searchOut.innerHTML = searchHits.length
+      ? searchHits
+          .map(
+            (t, i) => `
+          <button type="button" class="sp-hit" data-hit="${i}">
+            <span class="sp-hit-cover">${t.thumb ? `<img src="${esc(t.thumb)}" alt="">` : ic("music")}</span>
+            <span class="sp-hit-text"><b>${esc(t.name)}</b><small>${esc(t.artists)}</small></span>
+            <span class="sp-hit-time">${fmt(t.durationMs)}</span>
+          </button>`
+          )
+          .join("")
+      : `<p class="sp-hit-empty">Sin resultados</p>`;
+    searchOut.hidden = false;
+  }
+
+  async function playHit(i) {
+    const t = searchHits[i];
+    if (!t) return;
+    closeSearch(true);
+    await run("playTrack", t.uri);
+  }
+
+  searchIn.addEventListener("input", () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(runSearch, 300);
+  });
+  searchIn.addEventListener("focus", () => searchHits.length && searchIn.value.trim() && (searchOut.hidden = false));
+  searchIn.addEventListener("keydown", (e) => {
+    // Que Esc/Espacio/F/L no lleguen al reproductor mientras se escribe.
+    e.stopPropagation();
+    if (e.key === "Escape") closeSearch(true);
+    else if (e.key === "Enter") {
+      clearTimeout(searchTimer);
+      if (searchHits.length && !searchOut.hidden) playHit(0);
+      else runSearch();
+    }
+  });
+  searchOut.addEventListener("click", (e) => {
+    const hit = e.target.closest("[data-hit]");
+    if (hit) playHit(Number(hit.dataset.hit));
+  });
+  view.addEventListener("mousedown", (e) => {
+    if (!e.target.closest(".sp-search")) closeSearch(false);
+  });
   document.addEventListener("keydown", (e) => {
     if (!open || e.ctrlKey || e.altKey || e.metaKey) return;
     if (e.key === "Escape") {

@@ -444,6 +444,37 @@ function createSpotify(hooks) {
       }
       return {};
     },
+    // Buscador de canciones del reproductor.
+    search: async (text) => {
+      const qtext = String(text || "").trim().slice(0, 100);
+      if (!qtext) return { tracks: [] };
+      const j = await call("GET", "/search", { query: { q: qtext, type: "track", limit: 8 } });
+      const tracks = (j?.tracks?.items || []).filter(Boolean).map((t) => {
+        const imgs = t.album?.images || [];
+        return {
+          uri: t.uri,
+          name: t.name,
+          artists: (t.artists || []).map((a) => a.name).join(", "),
+          thumb: (imgs[imgs.length - 1] || imgs[0])?.url || null,
+          durationMs: t.duration_ms || 0,
+        };
+      });
+      return { tracks };
+    },
+    playTrack: async (uri) => {
+      if (!/^spotify:track:[A-Za-z0-9]+$/.test(String(uri || ""))) throw new SpotifyError("bad_request", 400);
+      try {
+        await call("PUT", "/me/player/play", { body: { uris: [uri] } });
+      } catch (err) {
+        // Nada activo: se despierta el primer dispositivo disponible.
+        if (err.code !== "no_device") throw err;
+        const list = (await call("GET", "/me/player/devices"))?.devices || [];
+        const target = list.find((d) => d.type === "Computer") || list[0];
+        if (!target) throw err;
+        await call("PUT", "/me/player/play", { query: { device_id: target.id }, body: { uris: [uri] } });
+      }
+      return {};
+    },
     pause: async () => (await call("PUT", "/me/player/pause"), {}),
     next: async () => (await call("POST", "/me/player/next"), {}),
     previous: async () => (await call("POST", "/me/player/previous"), {}),
