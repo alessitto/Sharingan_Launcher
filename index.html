@@ -34,7 +34,7 @@
     <div class="app">
       <!-- Navegación superior -->
       <nav class="topnav">
-        <span class="topnav-title">Sharingan Launcher</span>
+        <span class="topnav-title"><img class="topnav-logo" src="assets/icon.png" alt="" />Sharingan Launcher</span>
         <!-- Solo iconos: el nombre se despliega al pasar el ratón -->
         <div class="topnav-item active" role="button" tabindex="0" aria-label="Descubrir" onclick="showSection('popular', this)">
           <svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
@@ -70,32 +70,44 @@
       <main class="main-content">
         <!-- Populares / búsqueda -->
         <section id="popular" class="section active">
-          <span class="section-eyebrow">Catálogo</span>
-          <h2 class="section-title">Descubrir</h2>
-          <div class="discover-search-row">
-            <input
-              type="text"
-              id="searchInput"
-              placeholder="Buscar juegos..."
-              oninput="onSearchInput()"
-            />
-            <button type="button" id="jarvisBtn" class="jarvis-btn needs-account" onclick="openJarvis()" title="Recomendaciones según tu biblioteca">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9Z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9Z"/></svg>
-              <span>Recomendación por Jarvis</span>
-            </button>
-          </div>
-          <div class="discover-toolbar">
-            <select id="genreFilter" onchange="loadDiscoverGames()">
-              <option value="">Todos los géneros</option>
-            </select>
-            <select id="sortFilter" onchange="loadDiscoverGames()">
-              <option value="popular">Más popular</option>
-              <option value="az">Nombre A-Z</option>
-              <option value="za">Nombre Z-A</option>
-              <option value="year_desc">Año: más reciente</option>
-              <option value="year_asc">Año: más antiguo</option>
-              <option value="upcoming">Próximamente</option>
-            </select>
+          <header class="page-head">
+            <div class="page-head-title">
+              <span class="section-eyebrow">Catálogo</span>
+              <h2 class="section-title">Descubrir</h2>
+            </div>
+            <div class="page-head-actions">
+              <button type="button" id="jarvisBtn" class="jarvis-btn needs-account" onclick="openJarvis()" title="Recomendaciones según tu biblioteca">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9Z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9Z"/></svg>
+                <span>Recomendación por Jarvis</span>
+              </button>
+            </div>
+          </header>
+          <div class="discover-bar">
+            <div class="discover-search-row">
+              <label class="search-field">
+                <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                <input
+                  type="text"
+                  id="searchInput"
+                  placeholder="Buscar juegos..."
+                  aria-label="Buscar juegos"
+                  oninput="onSearchInput()"
+                />
+              </label>
+            </div>
+            <div class="discover-toolbar">
+              <select id="genreFilter" onchange="loadDiscoverGames()" aria-label="Género">
+                <option value="">Todos los géneros</option>
+              </select>
+              <select id="sortFilter" onchange="loadDiscoverGames()" aria-label="Orden">
+                <option value="popular">Más popular</option>
+                <option value="az">Nombre A-Z</option>
+                <option value="za">Nombre Z-A</option>
+                <option value="year_desc">Año: más reciente</option>
+                <option value="year_asc">Año: más antiguo</option>
+                <option value="upcoming">Próximamente</option>
+              </select>
+            </div>
           </div>
           <div id="discoverIndexBar" class="index-bar"></div>
           <div id="jarvisBar" class="jarvis-bar" hidden>
@@ -116,10 +128,10 @@
 
         <!-- Biblioteca -->
         <section id="library" class="section">
-          <div class="library-header">
-            <div class="library-header-title">
+          <div class="library-header page-head">
+            <div class="library-header-title page-head-title">
               <span class="section-eyebrow">Mi biblioteca</span>
-              <h2 class="section-title" id="libraryTitle" style="margin-bottom: 0;">Juegos (0)</h2>
+              <h2 class="section-title" id="libraryTitle">Juegos (0)</h2>
             </div>
 
             <button
@@ -150,8 +162,12 @@
 
         <!-- Pasados -->
         <section id="completed" class="section">
-          <span class="section-eyebrow">Historial</span>
-          <h2 class="section-title" id="completedTitle">Juegos pasados</h2>
+          <header class="page-head">
+            <div class="page-head-title">
+              <span class="section-eyebrow">Historial</span>
+              <h2 class="section-title" id="completedTitle">Juegos pasados</h2>
+            </div>
+          </header>
           <div id="completedList" class="cards-grid"></div>
         </section>
 
@@ -775,7 +791,7 @@
         } else {
           row.innerHTML = `
             <input type="password" class="settings-ai-input" placeholder="sk-ant-…" autocomplete="off" spellcheck="false" aria-label="Clave de la API de Claude">
-            <button type="button" class="sl-btn sl-btn-primary sl-btn-sm" data-ai="save">Guardar</button>`;
+            <button type="button" class="sl-btn sl-btn-primary" data-ai="save">Guardar</button>`;
           msg.innerHTML = `Consíguela en <a href="#" data-ai="console">console.anthropic.com</a> (API Keys). Cada uso se cobra en tu cuenta de la API.`;
         }
         const container = document.getElementById("settingsAi");
@@ -1550,7 +1566,7 @@
 
         const buttonsHtml = libraryIds.has(game.id)
           ? `<span class="badge-owned">En tu biblioteca</span>${infoButtonHtml(game.id)}`
-          : `<button class="primary add-btn" data-index='${index}'>Agregar a biblioteca</button>${infoButtonHtml(game.id)}`;
+          : `<button class="primary add-btn" data-index='${index}'>${icon("plus")}Agregar a biblioteca</button>${infoButtonHtml(game.id)}`;
 
         div.innerHTML = `
           <div class="card-cover"><img src="${coverUrl}" alt="${safeAttrName}" loading="lazy" decoding="async"></div>

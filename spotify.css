@@ -798,6 +798,13 @@ html.sp-full-open .main-content {
   font-size: clamp(18px, 1.8vw, 24px);
 }
 
+/* Pausa instrumental: una nota (icono) en vez de texto */
+.sp-gap-ic {
+  width: 0.9em;
+  height: 0.9em;
+  vertical-align: -0.1em;
+}
+
 /* Sin tiempos: se lee como un texto normal */
 .sp-lyrics.is-plain .sp-lines {
   padding: 12vh 0 16vh;
@@ -1118,7 +1125,13 @@ html.sp-full-open .main-content {
 }
 
 :root[data-effect="retro"] .sp-line.is-current::before {
-  content: "▶ ";
+  content: "";
+  display: inline-block;
+  width: 0.5em;
+  height: 0.62em;
+  margin-right: 0.4em;
+  background: currentColor;
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
 }
 
 :root[data-effect="retro"] .sp-play,

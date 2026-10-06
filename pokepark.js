@@ -495,7 +495,10 @@
   }
   // Sprite fijo de una especie (o forma mega, que puede no tenerlo en Showdown).
   const pngOf = (sp) => (species(sp).sd ? SPRITE_PNG(species(sp).sd) : species(sp).sprite || "");
-  const SHINY_MARK = `<span class="pp-shiny-mark" title="Variocolor">✦</span>`;
+  // Variocolor: el destello de icon() (index.html), relleno para que se vea
+  // a tamaño pequeño.
+  const SHINY_IC = icon("sparkles", "pp-shiny-ic");
+  const SHINY_MARK = `<span class="pp-shiny-mark" title="Variocolor">${SHINY_IC}</span>`;
 
   // Rellena las imágenes de sprite que haya dentro de "box".
   function hydrate(box) {
@@ -2161,12 +2164,13 @@
     const fi = feedInfo(sel);
     const cleanWait = cleanWaitOf(sel);
     const hints = evolutionHints(sel);
-    const gSym = sel.g === "m" ? "♂" : sel.g === "f" ? "♀" : "";
+    const gSym = sel.g === "m" ? MALE_SVG : sel.g === "f" ? FEMALE_SVG : "";
+    const gName = sel.g === "m" ? "Macho" : "Hembra";
     const gender = !gSym
       ? ""
       : canChooseGender(sel) && !sel.visitor
-        ? `<button type="button" class="pp-g is-${sel.g} is-toggle" data-pp="gender" title="Cambiar a ${sel.g === "m" ? "hembra" : "macho"}">${gSym}</button>`
-        : `<span class="pp-g is-${sel.g}" title="Esta especie solo puede ser ${sel.g === "m" ? "macho" : "hembra"}">${gSym}</span>`;
+        ? `<button type="button" class="pp-g is-${sel.g} is-toggle" data-pp="gender" title="Cambiar a ${sel.g === "m" ? "hembra" : "macho"}" aria-label="${gName}">${gSym}</button>`
+        : `<span class="pp-g is-${sel.g}" title="Esta especie solo puede ser ${sel.g === "m" ? "macho" : "hembra"}" aria-label="${gName}">${gSym}</span>`;
 
     det.innerHTML = `
       <div class="pp-card">
@@ -2186,7 +2190,7 @@
           }
           ${gender}
         </div>
-        <p class="pp-species">${sel.visitor ? `<span class="pp-legend-badge">${legendKind(s)}</span> ` : ""}${megaOn ? `<span class="pp-mega-badge ${sel.megaKey === "bond" ? "is-bond" : ""}">${sel.megaKey === "bond" ? BOND_SVG : MEGA_SVG}${esc(look.n)}</span> ` : ""}${sel.shiny ? `<span class="pp-shiny-badge">✦ Variocolor</span> ` : ""}${sel.nick ? `${esc(s.n)} · ` : ""}Nº ${String(s.id).padStart(4, "0")}${sel.ot ? ` · EO ${esc(sel.ot)}` : ""}</p>
+        <p class="pp-species">${sel.visitor ? `<span class="pp-legend-badge">${legendKind(s)}</span> ` : ""}${megaOn ? `<span class="pp-mega-badge ${sel.megaKey === "bond" ? "is-bond" : ""}">${sel.megaKey === "bond" ? BOND_SVG : MEGA_SVG}${esc(look.n)}</span> ` : ""}${sel.shiny ? `<span class="pp-shiny-badge">${SHINY_IC}Variocolor</span> ` : ""}${sel.nick ? `${esc(s.n)} · ` : ""}Nº ${String(s.id).padStart(4, "0")}${sel.ot ? ` · EO ${esc(sel.ot)}` : ""}</p>
         <div class="pp-types">${look.t.map((t) => `<span class="pp-type" style="--tc:${TYPE_COLORS[t] || "#888"}">${esc(dex.types[t] || t)}</span>`).join("")}</div>
         ${
           sel.visitor
@@ -2608,7 +2612,7 @@
       a.el.classList.toggle("is-shiny", !!mon.shiny);
       a.el.classList.toggle("is-mega", sp !== mon.sp);
       a.el.classList.toggle("is-catching", catching.has(mon.uid));
-      a.el.querySelector(".pp-mon-name").textContent = `${mon.shiny ? "✦ " : ""}${displayName(mon)}${mon.wild ? ` · Nv.${mon.lv}` : ""}`;
+      a.el.querySelector(".pp-mon-name").textContent = `${displayName(mon)}${mon.wild ? ` · Nv.${mon.lv}` : ""}`;
       a.el.classList.toggle("is-selected", mon.uid === selected()?.uid);
     }
     if (!rafId) rafId = requestAnimationFrame(frame);
@@ -3507,7 +3511,7 @@
 
   function monLine(m, extra = "") {
     const s = species(m.sp);
-    return `<span class="pp-tr-mon" style="--tc:${TYPE_COLORS[s?.t?.[0]] || "#888"}">${thumbHtml(m)}<span><b>${m.shiny ? "✦ " : ""}${esc(m.nick || s?.n || "???")}</b><small>${m.nick ? `${esc(s?.n || "")} · ` : ""}Nv. ${m.lv}${m.held ? ` · ${esc(itemName(m.held))}` : ""}${extra}</small></span></span>`;
+    return `<span class="pp-tr-mon" style="--tc:${TYPE_COLORS[s?.t?.[0]] || "#888"}">${thumbHtml(m)}<span><b>${m.shiny ? SHINY_IC : ""}${esc(m.nick || s?.n || "???")}</b><small>${m.nick ? `${esc(s?.n || "")} · ` : ""}Nv. ${m.lv}${m.held ? ` · ${esc(itemName(m.held))}` : ""}${extra}</small></span></span>`;
   }
 
   async function openTrades(preselect) {
@@ -3531,7 +3535,7 @@
             free
               .map(
                 (m) => `<button type="button" class="pp-target" data-tr="give" data-uid="${m.uid}" ${trades.busy ? "disabled" : ""}>
-                  ${thumbHtml(m)}<span><b>${m.shiny ? "✦ " : ""}${esc(displayName(m))}</b><small>Nv. ${m.lv}${m.held ? ` · lleva ${esc(itemName(m.held))}` : ""}</small></span></button>`
+                  ${thumbHtml(m)}<span><b>${m.shiny ? SHINY_IC : ""}${esc(displayName(m))}</b><small>Nv. ${m.lv}${m.held ? ` · lleva ${esc(itemName(m.held))}` : ""}</small></span></button>`
               )
               .join("") || `<p class="sl-hint">No tienes Pokémon libres para dar.</p>`
           }</div>`;
@@ -3558,7 +3562,7 @@
                     return `<button type="button" class="pp-tr-card${sel ? " is-sel" : ""}${busy ? " is-busy" : ""}" style="--tc:${TYPE_COLORS[species(m.sp).t[0]] || "#888"}" data-tr="pick" data-uid="${m.uid}" role="radio" aria-checked="${sel}" ${busy ? "disabled" : ""}
                       title="${esc(displayName(m))} · Nv. ${m.lv}${m.held ? ` · lleva ${esc(itemName(m.held))} (viaja con él)` : ""}${busy ? " · ya está en una oferta" : ""}">
                       <span class="pp-tr-card-img">${thumbHtml(m)}${m.held ? `<img class="pp-tr-held" src="${ITEM_IMG(m.held)}" alt="" onerror="this.remove()">` : ""}</span>
-                      <b>${m.shiny ? "✦ " : ""}${esc(displayName(m))}</b>
+                      <b>${m.shiny ? SHINY_IC : ""}${esc(displayName(m))}</b>
                       <small>${busy ? "En oferta" : `Nv. ${m.lv}`}</small>
                     </button>`;
                   })
@@ -3613,7 +3617,7 @@
                   const got = t.status === "accepted" ? (t.outgoing ? t.monTo : t.monFrom) : null;
                   const gave = t.status === "accepted" ? (t.outgoing ? t.monFrom : t.monTo) : mon;
                   return `<p class="pp-tr-hist"><span class="pp-tr-st is-${t.status}">${STATUS[t.status] || t.status}</span>${
-                    got ? `${esc(speciesName(gave.sp))} ⇄ ${esc(speciesName(got.sp))}` : esc(speciesName(gave.sp))
+                    got ? `${esc(speciesName(gave.sp))}<span class="pp-tr-swap">${TRADE_SVG}</span>${esc(speciesName(got.sp))}` : esc(speciesName(gave.sp))
                   } · ${who}</p>`;
                 })
                 .join("")}</section>`
@@ -3729,6 +3733,11 @@
   // Fuerte Afecto: el remolino de agua de Greninja Ash.
   const BOND_SVG =
     '<svg class="pp-mega-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5c3.6 4.2 6 7.6 6 10.8a6 6 0 0 1-12 0c0-3.2 2.4-6.6 6-10.8Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 14.2c.5 1.7 1.9 2.8 3.6 2.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+  // Género (Marte / Venus), en vez de los símbolos de texto.
+  const MALE_SVG =
+    '<svg class="i pp-g-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 3h5v5"/><path d="m21 3-6.75 6.75"/><circle cx="10" cy="14" r="6"/></svg>';
+  const FEMALE_SVG =
+    '<svg class="i pp-g-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15v7"/><path d="M9 19h6"/><circle cx="12" cy="9" r="6"/></svg>';
   const CHEVRON_L =
     '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>';
   const CHEVRON_R =

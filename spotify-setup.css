@@ -1412,10 +1412,10 @@
   display: flex;
   align-items: center;
   gap: 14px;
-  margin-bottom: 18px;
+  margin-bottom: 14px;
   padding: 14px 16px;
   border: 1px solid rgba(var(--fg-rgb), 0.08);
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   background: rgba(var(--fg-rgb), 0.05);
 }
 
@@ -1493,7 +1493,7 @@
 
 .st-switch:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(var(--red-500-rgb), 0.4);
+  box-shadow: var(--ring);
 }
 
 :root[data-effect="retro"] :is(.st-sp-status, .st-switch, .st-switch::before),
