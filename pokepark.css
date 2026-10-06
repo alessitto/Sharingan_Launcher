@@ -2342,9 +2342,10 @@ body.in-pokepark .main-content {
 
 /* El que tienes en la mano, marcado */
 .pp-park.aim-ball .pp-ball-btn,
-.pp-park.aim-comb .pp-tool-btn.is-comb,
-.pp-park.aim-berry .pp-tool-btn.is-berry {
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35), 0 0 0 3px var(--red-500);
+.pp-park.aim-comb .pp-dock-btn.is-comb,
+.pp-park.aim-berry .pp-dock-btn.is-berry {
+  background: rgba(var(--red-500-rgb), 0.22);
+  box-shadow: inset 0 0 0 2px var(--red-500);
 }
 
 .pp-hand.is-berry img {
@@ -5597,4 +5598,113 @@ b > .pp-shiny-ic {
 .mg-pk-dot .i {
   display: block;
   margin: 0;
+}
+
+/* =====================================================================
+   3.5.2: dock único abajo (tienda, minijuegos, intercambios, herramientas,
+   bolsa y pantalla completa), solo iconos con su nombre al pasar el ratón.
+   Arriba solo quedan el reloj y Cerrar parque.
+   ===================================================================== */
+.pp-park .pp-dock {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  z-index: 6;
+  transform: translateX(-50%);
+  gap: 4px;
+  padding: 5px;
+  max-width: calc(100% - 24px);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
+  pointer-events: auto;
+}
+
+.pp-dock-sep {
+  flex-shrink: 0;
+  width: 1px;
+  height: 26px;
+  margin: 0 4px;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.pp-dock-btn {
+  position: relative;
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--washi-100);
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.2s var(--ease-smooth), transform 0.2s var(--ease-smooth);
+}
+
+.pp-dock-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateY(-2px);
+}
+
+.pp-dock-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.pp-dock-btn img {
+  width: 32px;
+  height: 32px;
+  image-rendering: pixelated;
+}
+
+.pp-dock-btn.is-berry img {
+  width: 30px;
+  height: 30px;
+}
+
+.pp-dock-btn.is-comb img {
+  width: 22px;
+  height: 22px;
+  transform: rotate(-25deg) scale(1.15);
+}
+
+.pp-park .pp-dock .pp-bag-btn {
+  position: relative;
+  right: auto;
+  bottom: auto;
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  margin: 0 2px;
+  box-shadow: 0 0 0 3px rgba(var(--red-500-rgb), 0.2);
+}
+
+.pp-park .pp-dock .pp-bag-btn svg {
+  width: 22px;
+  height: 22px;
+}
+
+.pp-dock .pp-trade-badge {
+  top: -3px;
+  right: -3px;
+}
+
+/* Nombre del botón al pasar el ratón */
+.pp-dock [data-tip]:hover::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 5px 9px;
+  border-radius: 8px;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--washi-50);
+  background: rgba(var(--ink-900-rgb), 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
 }

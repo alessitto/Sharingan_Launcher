@@ -1161,7 +1161,7 @@
   }
 
   function onHandClick(e) {
-    if (!hand || !e.target.closest(".pp-park") || e.target.closest(".pp-hud, .pp-bag-btn, .pp-tool-btn")) return;
+    if (!hand || !e.target.closest(".pp-park") || e.target.closest(".pp-hud, .pp-dock")) return;
     e.preventDefault();
     e.stopPropagation();
     if (hand.busy) return;
@@ -1293,7 +1293,7 @@
     root.addEventListener("mousemove", onHandMove);
     root.addEventListener("mousedown", (e) => {
       if (!hand || e.button !== 0 || !e.target.closest(".pp-park")) return;
-      if (hand.kind === "comb" && !e.target.closest(".pp-tool-btn, .pp-bag-btn, .pp-hud")) {
+      if (hand.kind === "comb" && !e.target.closest(".pp-dock, .pp-hud")) {
         hand.down = true;
         hand.last = parkPoint(e);
         e.preventDefault();
@@ -2042,19 +2042,21 @@
           <span class="pp-chip pp-clock"></span>
           <span class="pp-hud-right">
             <button type="button" class="pp-chip pp-hud-btn pp-gate-btn" data-pp="gate"></button>
-            <button type="button" class="pp-chip pp-hud-btn" data-pp="shop" title="Tienda">${SHOP_SVG}<span>Tienda</span></button>
-            <button type="button" class="pp-chip pp-hud-btn" data-pp="games" title="Minijuegos: Pokédle, Voltorb Flip y Blackjack">${GAMES_SVG}<span>Minijuegos</span></button>
-            <button type="button" class="pp-chip pp-hud-btn" data-pp="trades" title="Intercambios con otros jugadores">${TRADE_SVG}<span>Intercambios</span><em class="pp-trade-badge"></em></button>
-            <button type="button" class="pp-chip pp-fs-btn" data-pp="fullscreen" title="Pantalla completa (Esc para salir)">${FS_SVG}<span>Pantalla completa</span></button>
           </span>
         </div>
         <div class="pp-empty"></div>
-        <button type="button" class="pp-tool-btn is-berry" data-pp="berries" title="Dar una baya" aria-label="Dar una baya">${itemImg("oran-berry")}</button>
-        <button type="button" class="pp-tool-btn is-comb" data-pp="comb" title="Cepillar" aria-label="Cepillar"><img src="${combSrc()}" alt="" draggable="false"></button>
-        <button type="button" class="pp-tool-btn pp-ball-btn" data-pp="ball" title="Sacar una Poké Ball" aria-label="Sacar una Poké Ball">${POKEBALL_IMG}</button>
-        <button type="button" class="pp-bag-btn" title="Bolsa" aria-label="Abrir la bolsa">
-          ${BAG_SVG}
-        </button>
+        <nav class="pp-chip pp-dock" aria-label="Acciones del parque">
+          <button type="button" class="pp-dock-btn" data-pp="shop" data-tip="Tienda" aria-label="Tienda">${SHOP_SVG}</button>
+          <button type="button" class="pp-dock-btn" data-pp="games" data-tip="Minijuegos" aria-label="Minijuegos">${GAMES_SVG}</button>
+          <button type="button" class="pp-dock-btn" data-pp="trades" data-tip="Intercambios" aria-label="Intercambios">${TRADE_SVG}<em class="pp-trade-badge"></em></button>
+          <span class="pp-dock-sep" aria-hidden="true"></span>
+          <button type="button" class="pp-dock-btn is-tool is-berry" data-pp="berries" data-tip="Dar una baya" aria-label="Dar una baya">${itemImg("oran-berry")}</button>
+          <button type="button" class="pp-dock-btn is-tool is-comb" data-pp="comb" data-tip="Cepillar" aria-label="Cepillar"><img src="${combSrc()}" alt="" draggable="false"></button>
+          <button type="button" class="pp-dock-btn is-tool pp-ball-btn" data-pp="ball" data-tip="Sacar una Poké Ball" aria-label="Sacar una Poké Ball">${POKEBALL_IMG}</button>
+          <button type="button" class="pp-bag-btn" data-tip="Bolsa" aria-label="Abrir la bolsa">${BAG_SVG}</button>
+          <span class="pp-dock-sep" aria-hidden="true"></span>
+          <button type="button" class="pp-dock-btn pp-fs-btn" data-pp="fullscreen" data-tip="Pantalla completa" aria-label="Pantalla completa (Esc para salir)">${FS_SVG}</button>
+        </nav>
       </div>`;
 
     root.addEventListener("click", onRootClick);
@@ -2738,7 +2740,7 @@
     const t = e.target.closest("[data-pp]");
     if (!t) {
       // Clic en el parque (no en un Pokémon/objeto/bolsa): sin selección.
-      if (e.target.closest(".pp-park") && !e.target.closest(".pp-bag-btn, .pp-tool-btn") && selectedUid) {
+      if (e.target.closest(".pp-park") && !e.target.closest(".pp-dock") && selectedUid) {
         selectedUid = null;
         render();
       }
