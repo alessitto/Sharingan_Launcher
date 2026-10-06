@@ -285,26 +285,6 @@
     st.box = left;
   }
 
-  // Regalos de una sola vez (state.gifts guarda los ya dados y viaja con el
-  // parque, así no se repiten en otro PC). Para quien ya tenía parque y
-  // para quien empieza, con distinto importe.
-  const GIFTS = [{ id: "regalo-3.4.7", existing: 1000, fresh: 500 }];
-  let giftMsg = "";
-  function applyGifts(st, saved) {
-    const had = !!(saved && Array.isArray(saved.party) && (saved.starter || saved.party.length));
-    st.gifts = Array.isArray(st.gifts) ? st.gifts : [];
-    let given = 0;
-    for (const g of GIFTS) {
-      if (st.gifts.includes(g.id)) continue;
-      const n = had ? g.existing : g.fresh;
-      st.money += n;
-      st.gifts.push(g.id);
-      given += n;
-    }
-    if (given) giftMsg = `¡Regalo! Tienes ${fmtMoney(given)} más en el PokéPark.`;
-    return given > 0;
-  }
-
   // Equipo + visitante (si hay): los que ganan exp, comen y hacen amigos.
   const parkMons = () => (state.visitor ? [...state.party, state.visitor] : state.party);
   // Todo lo que anda por el parque (también los salvajes).
@@ -325,7 +305,10 @@
 
   function save() {
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => window.electronAPI.pokeparkSave(state), 600);
+    saveTimer = setTimeout(() => {
+      dexSweep();
+      window.electronAPI.pokeparkSave(state);
+    }, 600);
   }
 
   // ------------------------------------------------------------ Pokédex
@@ -787,6 +770,7 @@
     mon.sp = job.to;
     if (job.held && mon.held === job.held) mon.held = null; // el objeto equipado se gasta
     window.Achievements?.track("evolutions");
+    bump("evolve");
     save();
     render();
     evoRunning = false;
@@ -842,6 +826,7 @@
     floatText(mon, mon.lv >= 100 ? `+${b.fr} amistad` : `+${Math.round(exp)} EXP`);
     hop(mon.uid);
     window.Achievements?.track("feeds");
+    bump("feed");
     showNotification(`${displayName(mon)} se ha comido una ${b.n}.`);
     gainExp(mon, exp);
     save();
@@ -861,6 +846,7 @@
     mon.cleanedAt = now();
     addFriendship(mon, CLEAN_FRIENDSHIP);
     window.Achievements?.track("cleans");
+    bump("clean");
     floatText(mon, "¡Reluciente!", true);
     sparkle(mon);
     hop(mon.uid);
@@ -993,6 +979,7 @@
       if (!toBox) selectedUid = caught.uid;
       else if (selectedUid === mon.uid) selectedUid = null;
       window.Achievements?.track("catches");
+      bump("catch");
       showNotification(`¡Ya está! ¡${name}${mon.shiny ? " variocolor" : ""} atrapado!${toBox ? ` Se ha enviado a ${boxName(slot.b)}.` : ""}`);
       floatText(caught, toBox ? "¡A la Caja!" : "¡Atrapado!", true);
       sparkle(caught);
@@ -2039,7 +2026,7 @@
         <canvas class="pp-canvas" aria-hidden="true"></canvas>
         <div class="pp-ground"><div class="pp-items"></div><div class="pp-mons"></div></div>
         <div class="pp-hud">
-          <span class="pp-chip pp-clock"></span>
+          <span class="pp-hud-left"><span class="pp-chip pp-clock"></span><span class="pp-chip pp-money" title="Tus Pokédólares">${COIN_SVG}<b></b></span></span>
           <span class="pp-hud-right">
             <button type="button" class="pp-chip pp-hud-btn pp-gate-btn" data-pp="gate"></button>
           </span>
@@ -2048,7 +2035,9 @@
         <nav class="pp-chip pp-dock" aria-label="Acciones del parque">
           <button type="button" class="pp-dock-btn" data-pp="shop" data-tip="Tienda" aria-label="Tienda">${SHOP_SVG}</button>
           <button type="button" class="pp-dock-btn" data-pp="games" data-tip="Minijuegos" aria-label="Minijuegos">${GAMES_SVG}</button>
-          <button type="button" class="pp-dock-btn" data-pp="trades" data-tip="Intercambios" aria-label="Intercambios">${TRADE_SVG}<em class="pp-trade-badge"></em></button>
+          <button type="button" class="pp-dock-btn" data-pp="tasks" data-tip="Encargos" aria-label="Encargos">${TASKS_SVG}<em class="pp-trade-badge pp-task-badge" style="display:none"></em></button>
+          <button type="button" class="pp-dock-btn" data-pp="pokedex" data-tip="Pokédex" aria-label="Pokédex">${POKEDEX_SVG}</button>
+          <button type="button" class="pp-dock-btn" data-pp="trades" data-tip="Intercambios" aria-label="Intercambios">${TRADE_SVG}<em class="pp-trade-badge" style="display:none"></em></button>
           <span class="pp-dock-sep" aria-hidden="true"></span>
           <button type="button" class="pp-dock-btn is-tool is-berry" data-pp="berries" data-tip="Dar una baya" aria-label="Dar una baya">${itemImg("oran-berry")}</button>
           <button type="button" class="pp-dock-btn is-tool is-comb" data-pp="comb" data-tip="Cepillar" aria-label="Cepillar"><img src="${combSrc()}" alt="" draggable="false"></button>
@@ -2146,7 +2135,9 @@
         state.party.length || boxedMons().length ? `<button type="button" class="pp-box-btn" data-pp="box" title="Cajas: guarda Pokémon y elige tu equipo">${BOX_SVG}Cajas<em>${boxedMons().length}</em></button>` : ""
       }</div>
       <div class="pp-slots">${slots.join("")}</div>
-      ${state.party.length || v ? visit : ""}`;
+      ${state.party.length || v ? visit : ""}
+      <div class="pp-work" hidden></div>`;
+    renderWork();
 
     const det = root.querySelector(".pp-detail");
     if (!sel && state.party.length) {
@@ -2296,7 +2287,7 @@
 
   function renderParkStatic() {
     const incoming = trades.list.filter((t) => !t.outgoing && t.status === "pending").length;
-    const badge = root.querySelector(".pp-trade-badge");
+    const badge = root.querySelector('[data-pp="trades"] .pp-trade-badge');
     badge.textContent = incoming || "";
     badge.style.display = incoming ? "" : "none";
     const gate = root.querySelector(".pp-gate-btn");
@@ -2312,6 +2303,7 @@
 
   function updateClock() {
     if (!root) return;
+    renderWork();
     const tod = timeOfDay();
     const park = root.querySelector(".pp-park");
     if (park && park.dataset.tod !== tod) {
@@ -2791,6 +2783,9 @@
       }
     }
     else if (act === "shop") openShop();
+    else if (act === "work") claimWork();
+    else if (act === "tasks") openTasks();
+    else if (act === "pokedex") openPokedex();
     else if (act === "games") openGames();
     else if (act === "gate") toggleClosed();
     else if (act === "mega" && mon && !mon.wild && !mon.visitor) megaEvolve(mon);
@@ -2815,6 +2810,7 @@
         addToBag(g.slug);
         showNotification(`Has recogido ${itemName(g.slug)}.`);
       }
+      bump("pickup");
       save();
       render();
     }
@@ -3155,30 +3151,37 @@
     return trade ? "Equipado, hace evolucionar al intercambiar." : "Equipado, hace evolucionar al subir de nivel.";
   }
 
-  function buy(slug, n = 1) {
+  // Comprar y vender pasan por el servidor (econ/buy, econ/sell): él cobra
+  // o paga con sus precios. Para vender mira tu bolsa en el parque
+  // sincronizado, así que el objeto se quita después de que acepte.
+  async function buy(slug, n = 1) {
     const cost = buyPrice(slug) * n;
     if (!cost || (state.money < cost && !unlimited())) return showNotification("No tienes Pokédólares suficientes.", "error");
-    if (!unlimited()) state.money -= cost;
+    const res = await econ("econ/buy", { slug, n });
+    if (!res.ok) return showNotification(res.error, "error");
     addToBag(slug, n);
+    setMoney(res);
     window.Achievements?.track("purchases");
-    showNotification(`Has comprado ${n > 1 ? `${n} × ` : ""}${itemName(slug)} por ${fmtMoney(cost)}.`);
-    save();
+    showNotification(`Has comprado ${n > 1 ? `${n} × ` : ""}${itemName(slug)} por ${fmtMoney(res.cost ?? cost)}.`);
     render();
   }
 
-  function sell(slug, n = 1) {
+  async function sell(slug, n = 1) {
     n = Math.min(n, state.bag[slug] || 0);
-    const gain = sellPrice(slug) * n;
-    if (!n || !gain) return;
+    if (!n || !sellPrice(slug)) return;
+    await window.electronAPI.pokeparkSaveNow(state); // que el servidor vea la bolsa de ahora
+    const res = await econ("econ/sell", { slug, n });
+    if (!res.ok) return showNotification(res.error, "error");
     takeFromBag(slug, n);
-    state.money += gain;
-    showNotification(`Has vendido ${n > 1 ? `${n} × ` : ""}${itemName(slug)} por ${fmtMoney(gain)}.`);
-    save();
+    setMoney(res);
+    if (econState) econState.sellLeft = res.sellLeft;
+    showNotification(`Has vendido ${n > 1 ? `${n} × ` : ""}${itemName(slug)} por ${fmtMoney(res.gain)}.`);
     render();
   }
 
   async function openShop() {
     let tab = "buy";
+    let shopBusy = false;
     const qty = new Map(); // cantidad elegida por objeto
 
     // Tarjeta de la tienda: imagen, nombre, nota, precio y cantidad.
@@ -3273,13 +3276,18 @@
             return body(popup);
           }
           const b = e.target.closest("[data-shop]");
-          if (!b) return;
-          if (b.dataset.shop === "buy") buy(b.dataset.slug, Number(b.dataset.n) || 1);
-          else sell(b.dataset.slug, Number(b.dataset.n) || 1);
-          qty.delete(b.dataset.slug);
-          // Animación corta en la tarjeta.
-          body(popup);
-          popup.querySelector(`.pp-shop-card[data-slug="${b.dataset.slug}"]`)?.classList.add("is-done");
+          if (!b || shopBusy) return;
+          shopBusy = true;
+          b.disabled = true;
+          const done = b.dataset.shop === "buy" ? buy(b.dataset.slug, Number(b.dataset.n) || 1) : sell(b.dataset.slug, Number(b.dataset.n) || 1);
+          done.finally(() => {
+            shopBusy = false;
+            qty.delete(b.dataset.slug);
+            if (!popup.isConnected) return;
+            // Animación corta en la tarjeta.
+            body(popup);
+            popup.querySelector(`.pp-shop-card[data-slug="${b.dataset.slug}"]`)?.classList.add("is-done");
+          });
         });
       },
     });
@@ -3474,6 +3482,7 @@
       if (!res.ok) return;
       trades.list = res.trades || [];
       trades.loaded = true;
+      for (const t of trades.list) for (const m of [t.monFrom, t.monTo]) if (m?.sp) dexSee(m.sp, !!m.shiny);
       applyTrades(trades.list);
     } finally {
       tradeSyncing = false;
@@ -3749,31 +3758,474 @@
     });
   }
 
+  // ------------------------------------------------------------ Economía
+  // Desde la 3.5.7 el dinero es de la cuenta y vive en el servidor
+  // (pokepark_econ.php de la API). state.money solo guarda el último saldo
+  // conocido para enseñarlo. Trabajo, Pokédex, encargos, tienda y minijuegos
+  // le preguntan al servidor, que hace las cuentas con su reloj y sus reglas.
+  const econ = (route, body, query) =>
+    window.electronAPI.cloud("econ", route, body, query).catch(() => ({ ok: false, error: "Algo ha fallado. Prueba otra vez." }));
+  let econState = null; // última respuesta de econ/state
+  let econAt = 0; // Date.now() cuando llegó (para seguir la hora del servidor)
+  let econLoading = null;
+
+  const serverSecs = () => (econState ? econState.now + (Date.now() - econAt) / 1000 : Date.now() / 1000);
+  const MADRID_DAY = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Madrid", year: "numeric", month: "2-digit", day: "2-digit" });
+  const econDay = () => MADRID_DAY.format(new Date(serverSecs() * 1000));
+  // La semana se nombra por su lunes, como en el servidor.
+  function econWeek(day) {
+    const [y, m, d] = day.split("-").map(Number);
+    const t = new Date(Date.UTC(y, m - 1, d));
+    t.setUTCDate(t.getUTCDate() - ((t.getUTCDay() + 6) % 7));
+    return t.toISOString().slice(0, 10);
+  }
+
+  async function refreshEcon() {
+    if (econLoading) return econLoading;
+    econLoading = (async () => {
+      const res = await econ("econ/state");
+      if (!res.ok) return null;
+      econState = res;
+      econAt = Date.now();
+      setMoney(res);
+      for (const n of res.notices || []) showNotification(`${n.text}: +${fmtMoney(n.amount)}.`);
+      renderEcon();
+      return res;
+    })().finally(() => (econLoading = null));
+    return econLoading;
+  }
+
+  // Saldo en la barra de arriba y en las ventanas abiertas (tienda).
+  function renderMoney() {
+    const txt = unlimited() ? "∞" : fmtMoney(state.money);
+    document.querySelectorAll(".pp-money b, .pp-shop-money b").forEach((b) => (b.textContent = txt));
+  }
+
+  function renderEcon() {
+    if (!root || !ready) return;
+    renderMoney();
+    renderWork();
+    const badge = root.querySelector(".pp-task-badge");
+    if (badge) {
+      const n = econState ? taskList().filter((t) => t.done && !t.claimed).length : 0;
+      badge.textContent = n || "";
+      badge.style.display = n ? "" : "none";
+    }
+  }
+
+  // ---------------- Trabajo del equipo
+  // Cada Pokémon del equipo gana 3 ₽/h por nivel (la mitad con amistad 0,
+  // entero con amistad máxima). El servidor guarda la hora del último cobro
+  // y cuenta como mucho 12 h: a partir de ahí no se gana más hasta cobrar.
+  const WORK_PER_LEVEL = 3; // el mismo que pokepark_econ.php
+  const workRate = (m) => Math.floor(WORK_PER_LEVEL * Math.max(1, Math.min(100, m.lv || 1)) * (0.5 + (0.5 * Math.max(0, Math.min(FRIENDSHIP_MAX, m.fr || 0))) / FRIENDSHIP_MAX));
+
+  function workInfo() {
+    if (!econState?.work) return null;
+    const perHour = state.party.slice(0, PARTY_MAX).reduce((a, m) => a + workRate(m), 0);
+    const cap = econState.work.cap;
+    const secs = Math.max(0, Math.min(cap, serverSecs() - econState.work.at));
+    return { perHour, secs, cap, amount: Math.floor((perHour * secs) / 3600), full: secs >= cap };
+  }
+
+  function renderWork() {
+    const box = root?.querySelector(".pp-work");
+    if (!box) return;
+    const w = workInfo();
+    if (!w || !state.party.length) {
+      box.hidden = true;
+      return;
+    }
+    box.hidden = false;
+    box.classList.toggle("is-full", w.full);
+    box.title = w.full ? "Tu equipo ha llegado al máximo de 12 h: cobra para que siga trabajando." : `Se llena en ${fmtDuration((w.cap - w.secs) * 1000)}. Como mucho cuenta 12 h.`;
+    box.innerHTML = `
+      <span class="pp-work-ic">${WORK_SVG}</span>
+      <span class="pp-work-txt"><small>Trabajo del equipo · ${fmtMoney(w.perHour)}/h</small><b>${fmtMoney(w.amount)}</b></span>
+      <button type="button" class="sl-btn sl-btn-primary sl-btn-sm" data-pp="work" ${w.amount >= 1 ? "" : "disabled"}>Cobrar</button>
+      <i class="pp-work-bar"><em style="width:${Math.round((w.secs / w.cap) * 100)}%"></em></i>`;
+  }
+
+  let workBusy = false;
+  async function claimWork() {
+    if (workBusy) return;
+    workBusy = true;
+    try {
+      await window.electronAPI.pokeparkSaveNow(state); // el servidor mira el equipo de ahora
+      const res = await econ("econ/work", {});
+      if (!res.ok) return showNotification(res.error, "error");
+      if (econState) econState.work = res.work;
+      setMoney(res);
+      showNotification(res.amount ? `Tu equipo ha ganado ${fmtMoney(res.amount)} trabajando.` : "Tu equipo todavía no ha ganado nada.");
+      renderEcon();
+    } finally {
+      workBusy = false;
+    }
+  }
+
+  // ---------------- Pokédex
+  // Vistos y capturados (y variocolor) por especie, como en los juegos. Va
+  // en el parque (state.dex) y viaja con la cuenta. El servidor paga cada
+  // especie capturada nueva (y los hitos y variocolor) una sola vez.
+  let dexSets = null;
+  const DEX_MAX = 1025;
+  const validSp = (sp) => Number.isInteger(Number(sp)) && sp >= 1 && sp <= DEX_MAX;
+  const ownedMons = () => [...state.party, ...boxedMons(), ...(state.box || [])];
+  // Preevoluciones (para la primera vez: lo que evolucionó, ya lo viste).
+  let prevoMap = null;
+  function prevosOf(sp) {
+    if (!prevoMap) {
+      prevoMap = new Map();
+      for (const s of dex.species) for (const d of s.evo || []) if (!prevoMap.has(d.to)) prevoMap.set(d.to, s.id);
+    }
+    const out = [];
+    let cur = prevoMap.get(Number(sp));
+    while (cur && !out.includes(cur) && out.length < 4) {
+      out.push(cur);
+      cur = prevoMap.get(cur);
+    }
+    return out;
+  }
+
+  function dexInit() {
+    const d = state.dex && typeof state.dex === "object" ? state.dex : null;
+    const set = (k) => new Set((Array.isArray(d?.[k]) ? d[k] : []).map(Number).filter(validSp));
+    dexSets = { seen: set("seen"), caught: set("caught"), seenShiny: set("seenShiny"), caughtShiny: set("caughtShiny") };
+    if (!d) for (const m of ownedMons()) for (const p of prevosOf(m.sp)) dexSets.seen.add(p);
+    dexSweep(true);
+    dexWrite();
+  }
+
+  function dexWrite() {
+    const arr = (s) => [...s].sort((a, b) => a - b);
+    state.dex = { seen: arr(dexSets.seen), caught: arr(dexSets.caught), seenShiny: arr(dexSets.seenShiny), caughtShiny: arr(dexSets.caughtShiny) };
+  }
+
+  const dexAdd = (set, sp) => {
+    sp = Number(sp);
+    if (!validSp(sp) || set.has(sp)) return false;
+    set.add(sp);
+    return true;
+  };
+
+  // Repasa lo que hay en el parque: lo tuyo cuenta como capturado y lo que
+  // anda por ahí (salvajes, visitante), como visto.
+  function dexSweep(quiet) {
+    if (!dexSets) return false;
+    let changed = false;
+    let caughtNew = false;
+    for (const m of ownedMons()) {
+      if (dexAdd(dexSets.caught, m.sp)) changed = caughtNew = true;
+      if (dexAdd(dexSets.seen, m.sp)) changed = true;
+      if (m.shiny) {
+        if (dexAdd(dexSets.caughtShiny, m.sp)) changed = caughtNew = true;
+        if (dexAdd(dexSets.seenShiny, m.sp)) changed = true;
+      }
+    }
+    for (const m of [...state.wild, ...(state.visitor ? [state.visitor] : [])]) {
+      if (dexAdd(dexSets.seen, m.sp)) changed = true;
+      if (m.shiny && dexAdd(dexSets.seenShiny, m.sp)) changed = true;
+    }
+    if (changed) dexWrite();
+    if (caughtNew && !quiet) scheduleDexClaim();
+    return changed;
+  }
+
+  // Visto fuera del parque (respuesta del Pokédle, oferta de intercambio...).
+  function dexSee(sp, shiny = false) {
+    if (!dexSets) return;
+    let changed = dexAdd(dexSets.seen, sp);
+    if (shiny && dexAdd(dexSets.seenShiny, sp)) changed = true;
+    if (changed) {
+      dexWrite();
+      save();
+    }
+  }
+
+  let dexClaimTimer = null;
+  function scheduleDexClaim() {
+    clearTimeout(dexClaimTimer);
+    dexClaimTimer = setTimeout(() => claimDex(), 2500);
+  }
+
+  async function claimDex() {
+    clearTimeout(dexClaimTimer);
+    await window.electronAPI.pokeparkSaveNow(state);
+    const res = await econ("econ/dex", {});
+    if (!res.ok || !res.dex) return;
+    setMoney(res);
+    const d = res.dex;
+    if (econState?.dex) econState.dex.registered = d.registered;
+    if (d.species) {
+      const names = d.ids.slice(0, 3).map((id) => speciesName(id)).join(", ") + (d.ids.length > 3 ? ` y ${d.ids.length - 3} más` : "");
+      showNotification(`¡Nuevo en la Pokédex! ${names}: +${fmtMoney(d.species * (econState?.dex?.species || 300))}.`);
+    }
+    if (d.shiny) showNotification(`¡Variocolor nuevo en la Pokédex! +${fmtMoney(d.shiny * (econState?.dex?.shiny || 2000))}.`);
+    if (d.milestones) showNotification(`¡${d.registered} especies en la Pokédex! Premio: +${fmtMoney(d.milestones * (econState?.dex?.milestone || 5000))}.`);
+    if (d.pending) showNotification(`Hoy ya has cobrado el máximo de la Pokédex. Las ${d.pending} que faltan se pagan mañana.`);
+  }
+
+  // Generaciones por número de la Pokédex nacional.
+  const DEX_GENS = [
+    [1, 151], [152, 251], [252, 386], [387, 493], [494, 649], [650, 721], [722, 809], [810, 905], [906, 1025],
+  ];
+  const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX"];
+  let dexGen = 0;
+  let dexSel = 1;
+
+  function dexSprite(s, shiny) {
+    const fb = s.sprite ? (shiny ? s.sprite.replace("/pokemon/", "/pokemon/shiny/") : s.sprite) : "";
+    const src = s.sd ? SPRITE_PNG(s.sd, shiny) : fb;
+    return `<img class="dex-spr" src="${src}" alt="" loading="lazy" draggable="false" onerror="this.onerror=null;${fb && s.sd ? `this.src='${fb}'` : "this.style.visibility='hidden'"}">`;
+  }
+
+  const dexNo = (id) => String(id).padStart(4, "0").replace(/^0(?=\d{3})/, "");
+
+  function openPokedex() {
+    dexSweep(true);
+    const statusOf = (id) => ({
+      seen: dexSets.seen.has(id),
+      caught: dexSets.caught.has(id),
+      seenShiny: dexSets.seenShiny.has(id),
+      caughtShiny: dexSets.caughtShiny.has(id),
+    });
+
+    function cell(s) {
+      const st = statusOf(s.id);
+      const cls = st.caught ? "is-caught" : st.seen ? "is-seen" : "is-unseen";
+      return `<button type="button" class="dex-cell ${cls}${s.id === dexSel ? " is-active" : ""}" data-dex="${s.id}" title="Nº ${dexNo(s.id)}${st.seen ? ` · ${esc(s.n)}` : ""}">
+        ${dexSprite(s, st.caughtShiny)}
+        <span class="dex-no">${dexNo(s.id)}</span>
+        ${st.caught ? `<span class="dex-ball">${POKEBALL_IMG}</span>` : ""}
+        ${st.seenShiny ? `<span class="dex-shine" title="Variocolor ${st.caughtShiny ? "capturado" : "visto"}">${DEX_SPARKLE_SVG}</span>` : ""}
+      </button>`;
+    }
+
+    function screen(popup) {
+      const s = species(dexSel);
+      const el = popup.querySelector(".dex-screen");
+      if (!s || !el) return;
+      const st = statusOf(s.id);
+      const types = st.seen ? s.t.map((t) => `<span class="dex-type" style="--tc:${TYPE_COLORS[t] || "#888"}">${esc(dex.types[t] || t)}</span>`).join("") : "";
+      const line = st.caught ? `${POKEBALL_IMG}<span>Capturado</span>` : st.seen ? "<span>Visto</span>" : "<span>Sin ver</span>";
+      el.innerHTML = `
+        <div class="dex-scr-mon ${st.seen ? "" : "is-unseen"}">${dexSprite(s, st.caughtShiny)}${st.seenShiny ? `<span class="dex-shine">${DEX_SPARKLE_SVG}</span>` : ""}</div>
+        <div class="dex-scr-info">
+          <span class="dex-scr-no">Nº ${dexNo(s.id)}</span>
+          <b class="dex-scr-name">${st.seen ? esc(s.n) : "?????"}</b>
+          <span class="dex-scr-types">${types}</span>
+          <span class="dex-scr-state ${st.caught ? "is-caught" : ""}">${line}</span>
+          ${st.seenShiny ? `<span class="dex-scr-state is-shiny">${DEX_SPARKLE_SVG}<span>Variocolor ${st.caughtShiny ? "capturado" : "visto"}</span></span>` : ""}
+        </div>`;
+    }
+
+    function grid(popup) {
+      const [a, b] = DEX_GENS[dexGen];
+      if (dexSel < a || dexSel > b) dexSel = a;
+      const list = [];
+      for (let id = a; id <= b; id++) if (species(id)) list.push(species(id));
+      popup.querySelector(".dex-grid").innerHTML = list.map(cell).join("");
+      popup.querySelector(".dex-grid").scrollTop = 0;
+      popup.querySelectorAll(".dex-gen").forEach((g) => g.classList.toggle("is-active", Number(g.dataset.gen) === dexGen));
+      const inGen = list.filter((s) => dexSets.caught.has(s.id)).length;
+      popup.querySelector(".dex-gen-count").textContent = `${inGen}/${list.length}`;
+      screen(popup);
+    }
+
+    const r = econState?.dex;
+    openModal({
+      width: 1000,
+      html: `
+        <div class="dex">
+          <div class="dex-top">
+            <span class="dex-lens" aria-hidden="true"></span>
+            <span class="dex-leds" aria-hidden="true"><i class="is-red"></i><i class="is-yellow"></i><i class="is-green"></i></span>
+            <span class="dex-name">Pokédex</span>
+            <span class="dex-totals">
+              <span><small>Vistos</small><b>${dexSets.seen.size}</b></span>
+              <span><small>Capturados</small><b>${dexSets.caught.size}</b></span>
+            </span>
+          </div>
+          <div class="dex-main">
+            <div class="dex-left">
+              <div class="dex-bezel">
+                <span class="dex-bezel-dots" aria-hidden="true"><i></i><i></i></span>
+                <div class="dex-screen"></div>
+                <span class="dex-bezel-foot" aria-hidden="true"><i class="dex-red-btn"></i><span class="dex-speaker"><i></i><i></i><i></i><i></i></span></span>
+              </div>
+              <p class="dex-reward">${COIN_SVG}<span>Especie nueva ${fmtMoney(r?.species || 300)} · cada ${r?.every || 50}, ${fmtMoney(r?.milestone || 5000)} · variocolor nuevo ${fmtMoney(r?.shiny || 2000)}</span></p>
+            </div>
+            <div class="dex-right">
+              <div class="dex-gens">
+                ${ROMAN.map((g, i) => `<button type="button" class="dex-gen" data-gen="${i}" title="${i + 1}ª generación">${g}</button>`).join("")}
+                <span class="dex-gen-count"></span>
+              </div>
+              <div class="dex-grid"></div>
+            </div>
+          </div>
+        </div>`,
+      showConfirmButton: false,
+      showCloseButton: true,
+      customClass: { popup: "pp-dex-popup" },
+      didOpen: (popup) => {
+        grid(popup);
+        popup.addEventListener("click", (e) => {
+          const g = e.target.closest(".dex-gen");
+          if (g) {
+            dexGen = Number(g.dataset.gen);
+            return grid(popup);
+          }
+          const c = e.target.closest(".dex-cell");
+          if (!c) return;
+          dexSel = Number(c.dataset.dex);
+          popup.querySelectorAll(".dex-cell.is-active").forEach((x) => x.classList.remove("is-active"));
+          c.classList.add("is-active");
+          screen(popup);
+        });
+      },
+    });
+  }
+
+  // ---------------- Encargos
+  // 3 diarios y 1 semanal, los mismos para todos (los elige el servidor).
+  // Capturas, bayas, cepillados, objetos recogidos y evoluciones los cuenta
+  // el parque (state.tasks, que se sube con la cuenta); Pokédle, Voltorb y
+  // Blackjack los cuenta el servidor.
+  function bump(kind) {
+    const day = econDay();
+    const week = econWeek(day);
+    const t = state.tasks && typeof state.tasks === "object" ? state.tasks : {};
+    if (t.day !== day) Object.assign(t, { day, d: {} });
+    if (t.week !== week) Object.assign(t, { week, w: {} });
+    t.d[kind] = (t.d[kind] || 0) + 1;
+    t.w[kind] = (t.w[kind] || 0) + 1;
+    state.tasks = t;
+    renderEcon();
+  }
+
+  function taskList() {
+    if (!econState?.tasks) return [];
+    const t = state.tasks || {};
+    return econState.tasks.map((x) => {
+      let progress = x.progress;
+      if (!x.srv) {
+        progress = x.weekly ? (t.week === econState.week ? t.w?.[x.kind] || 0 : 0) : t.day === econState.day ? t.d?.[x.kind] || 0 : 0;
+      }
+      progress = Math.min(progress, x.target);
+      return { ...x, progress, done: progress >= x.target };
+    });
+  }
+
+  const TASK_SVG = {
+    catch: () => POKEBALL_IMG,
+    feed: () => itemImg("oran-berry"),
+    clean: () => `<img src="${combSrc()}" alt="" draggable="false">`,
+    pickup: () => BAG_SVG,
+    evolve: () => icon("sparkles"),
+    pokedle: () => '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>',
+    voltorb: () => `<img src="assets/pokepark/voltorb/icon.png" alt="" draggable="false">`,
+    bj: () => GAMES_SVG,
+  };
+
+  async function openTasks() {
+    let popupEl = null;
+    let busy = false;
+    // Si ha cambiado el día desde la última vez, se piden los nuevos.
+    if (!econState || econState.day !== econDay()) await refreshEcon();
+    else refreshEcon().then(() => popupEl && paint());
+
+    function row(t) {
+      const ic = TASK_SVG[t.kind];
+      const pct = Math.round((t.progress / t.target) * 100);
+      return `
+        <div class="pp-task${t.done ? " is-done" : ""}${t.claimed ? " is-claimed" : ""}${t.weekly ? " is-weekly" : ""}">
+          <span class="pp-task-ic">${typeof ic === "function" ? ic() : ic || ""}</span>
+          <span class="pp-task-txt">
+            <b>${esc(t.text)}</b>
+            <span class="pp-task-prog"><i><em style="width:${pct}%"></em></i><small>${t.progress}/${t.target}</small></span>
+          </span>
+          <span class="pp-task-reward">${COIN_SVG}${fmtMoney(t.reward)}</span>
+          ${
+            t.claimed
+              ? `<span class="pp-task-ok">${icon("check")}Cobrado</span>`
+              : `<button type="button" class="sl-btn sl-btn-primary sl-btn-sm" data-task="${t.key}" ${t.done && !busy ? "" : "disabled"}>Cobrar</button>`
+          }
+        </div>`;
+    }
+
+    function paint() {
+      const p = popupEl;
+      if (!p) return;
+      const body = p.querySelector(".pp-tasks-body");
+      if (!econState) {
+        body.innerHTML = `<p class="pp-bag-empty">Necesitas conexión para ver los encargos.</p>`;
+        return;
+      }
+      const list = taskList();
+      const since = (Date.now() - econAt) / 1000;
+      const dayLeft = Math.max(0, econState.dayEndsIn - since) * 1000;
+      const weekLeft = Math.max(0, econState.weekEndsIn - since) * 1000;
+      const days = Math.floor(weekLeft / 86400000);
+      body.innerHTML = `
+        <h4 class="pp-tasks-h">Hoy<small>Se renuevan en ${fmtDuration(dayLeft)}</small></h4>
+        ${list.filter((t) => !t.weekly).map(row).join("")}
+        <h4 class="pp-tasks-h">Esta semana<small>Quedan ${days >= 1 ? `${days} ${days === 1 ? "día" : "días"}` : fmtDuration(weekLeft)}</small></h4>
+        ${list.filter((t) => t.weekly).map(row).join("")}`;
+    }
+
+    await openModal({
+      eyebrow: "PokéPark",
+      title: "Encargos",
+      width: 640,
+      html: `<div class="pp-tasks"><div class="pp-tasks-body"><p class="mg-loading">Cargando…</p></div></div>`,
+      showConfirmButton: false,
+      showCloseButton: true,
+      customClass: { popup: "pp-tasks-popup" },
+      didOpen: (popup) => {
+        popupEl = popup;
+        paint();
+        popup.addEventListener("click", async (e) => {
+          const b = e.target.closest("[data-task]");
+          if (!b || busy) return;
+          busy = true;
+          paint();
+          await window.electronAPI.pokeparkSaveNow(state);
+          const res = await econ("econ/task", { key: b.dataset.task });
+          busy = false;
+          if (!res.ok) showNotification(res.error, "error");
+          else {
+            econState.tasks = res.tasks;
+            setMoney(res);
+            showNotification(`Encargo cumplido: +${fmtMoney(res.amount)}.`);
+          }
+          renderEcon();
+          paint();
+        });
+      },
+      willClose: () => {
+        popupEl = null;
+      },
+    });
+  }
+
   // ------------------------------------------------------------ Minijuegos
-  // Pokédle, Voltorb Flip y Blackjack. Se juegan en el proceso principal
-  // (minigames.js): aquí solo se pinta lo que llega y se cobra/paga en el
-  // monedero del parque. La apuesta se cobra y se guarda en el acto, antes de
-  // ver nada; el premio lo calcula main con la apuesta que guardó.
+  // Pokédle, Voltorb Flip y Blackjack. Se juegan en el servidor (econ/* de la
+  // API, a través de minigames.js en main): él guarda la partida, cobra la
+  // apuesta y paga el premio en el dinero de la cuenta. Aquí solo se pinta lo
+  // que llega y se apunta el saldo nuevo.
   const mg = (action, ...args) =>
     window.electronAPI.minigames(action, ...args).catch(() => ({ ok: false, error: "Algo ha fallado. Prueba otra vez." }));
   const gameBets = { voltorb: 500, bj: 500 };
   const betTouched = { voltorb: false, bj: false }; // la primera ficha sustituye a la apuesta por defecto
-  const VOLTORB_MULTS = [1.1, 1.25, 1.5, 1.85, 2.5, 2.6, 3.5, 3.5]; // los de minigames.js
+  const VOLTORB_MULTS = [1.1, 1.25, 1.5, 1.85, 2.5, 2.6, 3.5, 3.5]; // los de pokepark_econ.php
 
-  function spend(n) {
-    if (unlimited()) return true;
-    if (!(n > 0) || state.money < n) return false;
-    state.money -= n;
-    window.electronAPI.pokeparkSave(state); // ya, sin esperar al guardado normal
-    render();
-    return true;
-  }
-
-  function earn(n) {
-    if (!(n > 0)) return;
-    if (!unlimited()) state.money += n;
-    window.electronAPI.pokeparkSave(state);
-    render();
+  // El saldo lo decide el servidor: cada respuesta trae "money" y aquí solo
+  // se apunta para enseñarlo (también sin conexión, el último conocido).
+  function setMoney(res) {
+    if (!res || typeof res.money !== "number") return;
+    state.money = res.money;
+    save();
+    renderMoney();
   }
 
   const SUIT_SVG = {
@@ -3898,14 +4350,14 @@
     }
 
     async function loadPokedle() {
-      const res = await mg("pokedleToday", state.pokedle || null);
+      const res = await mg("pokedleToday");
       if (!res.ok) {
         pk = { error: res.error };
         return paint();
       }
       pk = { ...res, at: Date.now() };
-      state.pokedle = res.progress;
-      save();
+      setMoney(res);
+      for (const sl of pk.slots) if (sl.answer) dexSee(sl.answer.id);
       const firstOpen = pk.slots.findIndex((s) => s.state === "open");
       pkIdx = firstOpen >= 0 ? firstOpen : 0;
       paint();
@@ -3925,18 +4377,19 @@
       if (busy || !text.trim()) return;
       busy = true;
       pkMsg = "";
-      const res = await mg("pokedleGuess", pkIdx, text, state.pokedle || null);
+      const res = await mg("pokedleGuess", pkIdx, text);
       busy = false;
       if (!res.ok) {
         pkMsg = res.error;
         return paint(true);
       }
       pk.slots[pkIdx] = res.slot;
-      state.pokedle = res.progress;
+      if (res.slot.answer) dexSee(res.slot.answer.id);
+      setMoney(res);
       if (res.reward) {
-        earn(res.reward);
         window.Achievements?.track("pokedle");
-      } else save();
+        refreshEcon();
+      }
       paint(res.slot.state === "open");
     }
 
@@ -4033,14 +4486,12 @@
     async function voltorbStart() {
       const bet = Math.floor(Number(gameBets.voltorb));
       if (!(bet >= 100)) return showNotification("La apuesta mínima es de 100 ₽.", "error");
-      if (!spend(bet)) return showNotification("No tienes Pokédólares suficientes.", "error");
+      if (!unlimited() && state.money < bet) return showNotification("No tienes Pokédólares suficientes.", "error");
       busy = true;
       const res = await mg("voltorbStart", bet);
       busy = false;
-      if (!res.ok) {
-        earn(bet); // no ha empezado: se devuelve
-        return showNotification(res.error, "error");
-      }
+      if (!res.ok) return showNotification(res.error, "error");
+      setMoney(res);
       vt = res;
       vtSeen = new Set();
       paint();
@@ -4053,8 +4504,11 @@
       busy = false;
       if (!res.ok) return showNotification(res.error, "error"), paint();
       vt = res;
-      if (res.payout) earn(res.payout);
-      if (res.result === "won") window.Achievements?.track("voltorbWins");
+      setMoney(res);
+      if (res.result === "won") {
+        window.Achievements?.track("voltorbWins");
+        refreshEcon();
+      }
       paint();
     }
 
@@ -4114,35 +4568,34 @@
     async function bjDeal() {
       const bet = Math.floor(Number(gameBets.bj));
       if (!(bet >= 100)) return showNotification("La apuesta mínima es de 100 ₽.", "error");
-      if (!spend(bet)) return showNotification("No tienes Pokédólares suficientes.", "error");
+      if (!unlimited() && state.money < bet) return showNotification("No tienes Pokédólares suficientes.", "error");
       busy = true;
       const res = await mg("bjDeal", bet);
       busy = false;
-      if (!res.ok) {
-        earn(bet);
-        return showNotification(res.error, "error");
-      }
+      if (!res.ok) return showNotification(res.error, "error");
       bjv = res;
       bjSeen = { player: [], dealer: [] };
-      if (res.payout) earn(res.payout);
+      setMoney(res);
       paint();
     }
 
     async function bjAct(action) {
       if (busy || !bjv?.active) return;
-      if (action === "bjDouble" && !spend(bjv.bet)) return showNotification("No tienes Pokédólares suficientes para doblar.", "error");
+      if (action === "bjDouble" && !unlimited() && state.money < bjv.bet) return showNotification("No tienes Pokédólares suficientes para doblar.", "error");
       busy = true;
       paint();
       const res = await mg(action);
       busy = false;
       if (!res.ok) {
-        if (action === "bjDouble") earn(bjv.bet);
         showNotification(res.error, "error");
         return paint();
       }
       bjv = res;
-      if (res.payout) earn(res.payout);
-      if (res.result === "win" || res.result === "blackjack") window.Achievements?.track("bjWins");
+      setMoney(res);
+      if (res.result === "win" || res.result === "blackjack") {
+        window.Achievements?.track("bjWins");
+        refreshEcon();
+      }
       paint();
     }
 
@@ -4266,15 +4719,13 @@
     // Blackjack te plantas (así no se puede escapar de una mala mano).
     if (vt?.active) {
       const r = await mg("voltorbRetire");
-      if (r.ok && r.payout) {
-        earn(r.payout);
-        showNotification(`Te has retirado de Voltorb Flip con ${fmtMoney(r.payout)}.`);
-      }
+      setMoney(r);
+      if (r.ok && r.payout) showNotification(`Te has retirado de Voltorb Flip con ${fmtMoney(r.payout)}.`);
     }
     if (bjv?.active) {
       const r = await mg("bjStand");
       if (r.ok) {
-        if (r.payout) earn(r.payout);
+        setMoney(r);
         showNotification(
           r.result === "win" ? `Blackjack: te has plantado y ganas ${fmtMoney(r.payout)}.` : r.result === "push" ? "Blackjack: empate, recuperas la apuesta." : "Blackjack: te has plantado y pierdes la mano."
         );
@@ -4319,6 +4770,16 @@
   const POKEBALL_SVG =
     '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h6"/><path d="M15 12h6"/><circle cx="12" cy="12" r="3"/></svg>';
   const POKEBALL_IMG = `<img src="assets/pokepark/items/poke-ball.png" alt="" draggable="false">`;
+  // Maletín (trabajo del equipo), portapapeles (encargos) y Pokédex.
+  const WORK_SVG =
+    '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/><path d="M3 13h18"/></svg>';
+  const TASKS_SVG =
+    '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1"/><path d="m9 12 2 2 4-4"/><path d="M9 17h6"/></svg>';
+  const POKEDEX_SVG =
+    '<svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2.5" width="16" height="19" rx="2.5"/><circle cx="8.5" cy="6.5" r="1.8"/><path d="M13 6.5h3"/><rect x="7" y="10.5" width="10" height="7" rx="1"/></svg>';
+  // Brillos de variocolor de la Pokédex (dos estrellas de cuatro puntas).
+  const DEX_SPARKLE_SVG =
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 2l1.6 5.4L16 9l-5.4 1.6L9 16l-1.6-5.4L2 9l5.4-1.6Z" fill="#ffd94a" stroke="#b07a00" stroke-width="1"/><path d="M18 13l.9 3.1L22 17l-3.1.9L18 21l-.9-3.1L14 17l3.1-.9Z" fill="#fff3a8" stroke="#b07a00" stroke-width="1"/></svg>';
   const BAG_SVG =
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8h12l1 12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/><path d="M5 13h14"/><path d="M11 13v2h2v-2"/></svg>';
   const SUN_SVG =
@@ -4358,15 +4819,18 @@
 
     const saved = await window.electronAPI.pokeparkGet().catch(() => null);
     state = normalizeState(saved);
-    if (applyGifts(state, saved)) save();
     ready = true;
     shell();
     checkVisitorLeave();
     expireGround();
     if (state.starter && state.party.length) refreshWild();
+    dexInit();
     save();
     render();
     syncTrades();
+    // El saldo, el trabajo y los encargos los da el servidor; de paso se
+    // cobra lo que haya pendiente de la Pokédex.
+    refreshEcon().then((r) => r && claimDex());
     setInterval(tick, TICK_MS);
     // Con ofertas propias pendientes se mira cada 5 s, para ver el
     // intercambio casi a la vez que quien lo acepta.
@@ -4386,12 +4850,9 @@
   window.PokePark = {
     onShow() {
       if (!ready) return;
-      if (giftMsg) {
-        showNotification(giftMsg);
-        giftMsg = "";
-      }
       render();
       syncTrades();
+      if (!econState || Date.now() - econAt > 60 * 1000) refreshEcon();
       if (state.visitor && !state.visitor.seen) setTimeout(announceVisitor, 400);
     },
     _spriteError: spriteError,
@@ -4405,13 +4866,15 @@
       if (saved === undefined) return;
       // Sin parque guardado (otra cuenta que aún no tiene): parque nuevo.
       state = normalizeState(saved && Array.isArray(saved.party) ? saved : null);
-      if (applyGifts(state, saved)) save();
+      dexInit();
+      econState = null;
       if (state.starter && state.party.length) refreshWild();
       selectedUid = null;
       for (const a of actors.values()) a.el.remove();
       actors.clear();
       render();
       syncTrades(); // los intercambios también son de la cuenta
+      refreshEcon().then((r) => r && claimDex()); // y el dinero
     },
     // Depuración: traer un visitante (id de especie opcional) o que se vaya ya.
     _summon(sp) {
@@ -4432,6 +4895,9 @@
     _tick: () => tick(),
     _syncTrades: () => syncTrades(),
     _trades: () => trades,
+    _econ: () => econState,
+    _refreshEcon: () => refreshEcon(),
+    _bump: (kind) => bump(kind),
   };
 
   init();

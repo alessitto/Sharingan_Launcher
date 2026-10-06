@@ -1447,22 +1447,12 @@ function setupSpotify() {
   for (const [name, fn] of Object.entries(spotify.ipc)) ipcMain.handle(`spotify:${name}`, (_e, ...args) => fn(...args));
 }
 
-// Minijuegos del PokéPark (minigames.js): se juegan aquí, la ventana solo ve
-// lo que ya está a la vista.
+// Minijuegos del PokéPark (minigames.js): se juegan en el servidor (econ/*
+// de la API); aquí solo se hace la silueta del Pokédle.
 function setupMinigames() {
-  let dex = { species: [], types: {} };
-  try {
-    dex = JSON.parse(fs.readFileSync(path.join(__dirname, "assets", "pokepark", "pokedex.json"), "utf8"));
-  } catch (err) {
-    console.error("pokedex.json", err);
-  }
   const games = createMinigames({
-    fs,
-    path,
-    fetch,
-    dataDir: app.getPath("userData"),
-    dex,
-    getAccount: () => appSettings.cloudUser?.id ?? null,
+    econ: () => cloud.econ,
+    describe: () => cloud.describe,
     spriteDataUrl,
   });
   for (const [name, fn] of Object.entries(games.ipc)) ipcMain.handle(`minigames:${name}`, (_e, ...args) => fn(...args));

@@ -27,10 +27,11 @@ const API_URL = process.env.SL_CLOUD_URL || "https://alejandrodev.es/sharingan_a
 const PUSH_DELAY_MS = 4000;
 
 class CloudError extends Error {
-  constructor(code, status) {
+  constructor(code, status, serverMessage) {
     super(code);
     this.code = code;
     this.status = status;
+    this.serverMessage = serverMessage || null; // texto ya listo para enseñar (economía del PokéPark)
   }
 }
 
@@ -69,6 +70,7 @@ const MESSAGES = {
 };
 const describe = (err) => {
   if (MESSAGES[err?.code]) return MESSAGES[err.code];
+  if (err?.serverMessage) return err.serverMessage;
   if (/^http_5/.test(err?.code || "")) return "El servidor no responde bien ahora mismo. Prueba en un rato.";
   return "Ha fallado la conexión con el servidor.";
 };
@@ -146,7 +148,7 @@ function createCloud(hooks) {
       const code = json?.error || `http_${res.status}`;
       // Token caducado o anulado: se cierra la sesión local.
       if (res.status === 401 && tok && route !== "auth/login") setSession(null, null);
-      throw new CloudError(code, res.status);
+      throw new CloudError(code, res.status, typeof json?.message === "string" ? json.message : null);
     }
     return json;
   }
@@ -268,7 +270,14 @@ function createCloud(hooks) {
     pushTimer = setTimeout(() => push().catch(() => {}), PUSH_DELAY_MS);
   }
 
-  async function push() {
+  let pushPromise = null;
+  function push() {
+    if (pushing) return pushPromise;
+    pushPromise = doPush();
+    return pushPromise;
+  }
+
+  async function doPush() {
     clearTimeout(pushTimer);
     if (!token() || !dirty.size || pushing || entering || foreignData()) return;
     pushing = true;
@@ -376,8 +385,23 @@ function createCloud(hooks) {
     return { user: res.user };
   }
 
+  // ------------------------------------------------------------ Economía del PokéPark
+  // El dinero vive en el servidor (pokepark_econ.php). Las rutas que leen el
+  // parque sincronizado (trabajo, Pokédex, encargos, vender...) necesitan que
+  // esté subido: antes se sube lo pendiente.
+  const ECON_READS_PARK = new Set(["econ/state", "econ/work", "econ/dex", "econ/task", "econ/sell", "econ/pokedle"]);
+  async function econ(route, body, query) {
+    if (typeof route !== "string" || !/^econ\/[a-z/]+$/.test(route)) throw new CloudError("not_found", 404);
+    if (ECON_READS_PARK.has(route)) {
+      if (pushing) await pushPromise?.catch(() => {});
+      if (dirty.has("pokepark")) await push();
+    }
+    return api(route, { body, query });
+  }
+
   const actions = {
     status: async () => status(),
+    econ: (route, body, query) => econ(route, body, query),
     register: (username, password) => enter("auth/register", username, password),
     login: (username, password) => enter("auth/login", username, password),
     logout: async () => {
@@ -461,6 +485,8 @@ function createCloud(hooks) {
     // en otro PC (p. ej. un token renovado allí).
     syncProfile: () => syncProfile().catch(() => {}),
     markProfile,
+    econ,
+    describe,
     flush: () => Promise.all([push().catch(() => {}), pushProfile().catch(() => {})]),
     // Client ID de Spotify del dueño (solo se lo da la API a él).
     spotifyClient: async () => (await api("spotify/client")).clientId || null,
