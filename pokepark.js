@@ -4378,6 +4378,9 @@
             }</span>
             ${slot.state === "win" ? `<span class="mg-pk-reward">+${fmtMoney(pk.reward)}</span>` : ""}
           </div>
+          <!-- Abajo, alto fijo: intentos, pistas, formulario y avisos van
+               apareciendo sin cambiar el tamaño del escenario. -->
+          <div class="mg-pk-bottom">
           ${
             slot.answer
               ? ""
@@ -4396,6 +4399,7 @@
                 : `<button type="button" class="sl-btn sl-btn-primary mg-pk-go" data-pk-next>Siguiente silueta</button>`
           }
           ${pkMsg ? `<p class="mg-msg">${esc(pkMsg)}</p>` : ""}
+          </div>
           <datalist id="mgNames">${names.map((n) => `<option value="${esc(n)}">`).join("")}</datalist>
         </div>`;
     }

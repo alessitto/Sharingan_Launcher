@@ -4297,7 +4297,9 @@ b > .pp-shiny-ic {
    ventana. El tablero de Voltorb ya se ajusta al alto de la pantalla. */
 .mg-body {
   margin-top: 12px;
-  height: min(740px, calc(100vh - 200px));
+  /* El cuerpo de los modales tiene de tope 100vh - 200px; aquí se le restan
+     las pestañas para que no haga scroll el modal entero. */
+  height: min(740px, calc(100vh - 272px));
   overflow-y: auto;
 }
 
@@ -4708,7 +4710,7 @@ b > .pp-shiny-ic {
 .mg-vf-board {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
-  width: min(100%, 520px, calc(100vh - 420px));
+  width: min(100%, 520px, calc(100vh - 450px));
   margin: 0 auto;
   padding: 1.5%;
   border-radius: 6px;
@@ -5127,7 +5129,7 @@ b > .pp-shiny-ic {
   display: flex;
   justify-content: center;
   gap: 0;
-  min-height: min(112px, calc((100vh - 560px) * 0.5));
+  min-height: min(112px, calc((100vh - 590px) * 0.5));
 }
 
 .mg-bj-cards .mg-card + .mg-card {
@@ -5184,8 +5186,8 @@ b > .pp-shiny-ic {
 
 .mg-card {
   position: relative;
-  width: min(78px, calc((100vh - 560px) * 0.35));
-  height: min(112px, calc((100vh - 560px) * 0.5));
+  width: min(78px, calc((100vh - 590px) * 0.35));
+  height: min(112px, calc((100vh - 590px) * 0.5));
   border-radius: 9px;
   background: #fbf8f1;
   box-shadow: -2px 4px 12px rgba(0, 0, 0, 0.35);
@@ -6102,7 +6104,7 @@ b > .pp-shiny-ic {
   grid-template-columns: 300px minmax(0, 1fr);
   gap: 18px;
   padding: 18px;
-  height: min(540px, calc(100vh - 290px));
+  height: min(540px, calc(100vh - 322px));
   min-height: 340px;
 }
 
@@ -6469,4 +6471,132 @@ b > .pp-shiny-ic {
 .mg-banner.is-empty {
   visibility: hidden;
   animation: none;
+}
+
+/* ------------------------------------------------------------ 3.8.3: ventanas de alto fijo
+   Los contenedores con alto fijo y scroll recortaban los anillos y sombras
+   de lo que va pegado al borde (el círculo elegido del Pokédle): llevan un
+   poco de relleno compensado con margen negativo, así el contenido sigue
+   en el mismo sitio. */
+.mg-body {
+  margin: 8px -4px 0;
+  padding: 4px;
+}
+
+.pp-bag-body,
+.pp-trades-popup .pp-trades {
+  margin-left: -4px;
+  margin-right: -4px;
+  padding: 4px;
+}
+
+/* Pokédle: ocupa todo el alto. El escenario se queda con lo que sobra y la
+   parte de abajo tiene alto fijo, así el escenario no cambia de tamaño al
+   salir pistas, fallos o avisos. Sprite y textos escalan con el escenario. */
+.mg-pk {
+  height: 100%;
+}
+
+.mg-pk-dots {
+  flex: none;
+}
+
+.mg-pk-stage {
+  flex: 1 1 0;
+  height: auto;
+  min-height: 170px;
+  container-type: size;
+}
+
+/* Crecen con el alto del escenario, pero sin pasar de lo que cabe a lo ancho
+   (si no, "Pokémon" se partía en dos líneas). */
+.mg-pk-img {
+  width: min(84cqh, 46cqw, 380px);
+  height: min(84cqh, 46cqw, 380px);
+}
+
+.mg-pk-q {
+  font-size: min(44cqh, 16.5cqw);
+}
+
+.mg-pk-logo {
+  font-size: min(18.5cqh, 7cqw);
+  white-space: nowrap;
+}
+
+.mg-pk-logo.is-name {
+  font-size: clamp(22px, min(17cqh, 6.4cqw), 72px);
+  white-space: normal;
+}
+
+.mg-pk-says {
+  font-size: min(12cqh, 4.5cqw);
+}
+
+.mg-pk-bottom {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 158px;
+}
+
+/* Voltorb Flip: el panel de apuesta (con "Jugar") siempre a la vista; si en
+   pantallas bajas o con letras grandes (Terminal, Retro) las reglas no caben,
+   hacen scroll ellas, no la ventana. */
+.mg-vf {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.mg-vf > * {
+  flex: none;
+}
+
+.mg-vf > .mg-vf-rules {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  align-content: start;
+}
+
+/* Pokédex: la pantallita de la izquierda se adapta al alto que hay (en
+   pantallas bajas cortaba el texto de recompensas de abajo; en las altas
+   sobraba sitio). */
+@media (min-width: 821px) {
+  .dex-left > * {
+    flex: none;
+  }
+
+  .dex-left > .dex-bezel {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .dex-bezel .dex-screen {
+    flex: 1 1 auto;
+    min-height: 0;
+    justify-content: center;
+  }
+
+  .dex-screen .dex-scr-mon {
+    flex: 1 1 auto;
+    width: 100%;
+    height: auto;
+    min-height: 56px;
+    max-height: 220px;
+    container-type: size;
+  }
+
+  .dex-scr-mon .dex-spr {
+    width: min(200px, 94cqh);
+    height: min(200px, 94cqh);
+  }
+
+  .dex-scr-mon .dex-shine {
+    right: calc(50% - min(100px, 47cqh));
+  }
 }
