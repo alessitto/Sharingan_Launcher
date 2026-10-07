@@ -1683,14 +1683,20 @@
         }
       }
 
+      // Solo se repintan las tarjetas de los juegos que han cambiado.
       window.electronAPI.onPlaytime?.(({ running, games }) => {
+        const before = playingNow;
         playingNow = new Set((running || []).map(String));
+        const touched = new Set([...before, ...playingNow, ...(games || []).map((u) => String(u.id))]);
         for (const upd of games || []) {
           for (const g of [...libraryGamesCache, ...completedGamesCache]) {
             if (String(g.id) === String(upd.id)) Object.assign(g, upd);
           }
         }
-        refreshPlayLines();
+        for (const g of [...libraryGamesCache, ...completedGamesCache]) {
+          if (!touched.has(String(g.id))) continue;
+          document.querySelectorAll(`.card-play[data-play="${CSS.escape(String(g.id))}"]`).forEach((el) => (el.innerHTML = playLineHtml(g)));
+        }
       });
       window.electronAPI.playtimeRunning?.().then((ids) => {
         playingNow = new Set((ids || []).map(String));
@@ -3837,10 +3843,18 @@
       // ===============================
       // GAMEPAD: foco + acciones
       // ===============================
+      // El bucle del mando solo corre con un mando conectado (antes leía
+      // los mandos 60 veces por segundo aunque no hubiera ninguno).
+      let padLoop = 0;
+      function startPadLoop() {
+        if (!padLoop) padLoop = requestAnimationFrame(tickGamepad);
+      }
+
       function setupGamepad() {
         window.addEventListener("gamepadconnected", (e) => {
           activePadIndex = e.gamepad.index;
           showNotification(`Mando conectado`, "success");
+          startPadLoop();
         });
 
         window.addEventListener("gamepaddisconnected", (e) => {
@@ -3848,7 +3862,7 @@
           showNotification(`Mando desconectado`, "error");
         });
 
-        requestAnimationFrame(tickGamepad);
+        if ((navigator.getGamepads?.() || []).some(Boolean)) startPadLoop();
       }
 
       function getPad() {
@@ -4011,7 +4025,7 @@
           if (Swal.isVisible()) {
             if (pressA && Swal.getConfirmButton()?.offsetParent) Swal.clickConfirm();
             if (pressB) Swal.close();
-            requestAnimationFrame(tickGamepad);
+            padLoop = requestAnimationFrame(tickGamepad);
             return;
           }
 
@@ -4034,7 +4048,8 @@
           }
         }
 
-        requestAnimationFrame(tickGamepad);
+        // Sin mandos conectados el bucle se para hasta que llegue uno.
+        padLoop = (navigator.getGamepads?.() || []).some(Boolean) ? requestAnimationFrame(tickGamepad) : 0;
       }
     </script>
   </body>

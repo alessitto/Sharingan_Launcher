@@ -268,8 +268,10 @@
 
   function scan() {
     if (!active) return;
-    placeIndicator(false);
-    placeEdge();
+    // Posiciones (leen el layout) solo si falta la cápsula o el borde; los
+    // cambios de pestaña y de tamaño ya los vigilan navMo y resize.
+    if (!indicator?.isConnected) placeIndicator(false);
+    if (!edge?.isConnected) placeEdge();
     if (!refract) return;
     for (const node of [...tracked.keys()]) if (!node.isConnected) forget(node);
     for (const cfg of TARGETS) {
@@ -324,7 +326,11 @@
     return { x: item.offsetLeft, y: item.offsetTop, w: item.offsetWidth, h: item.offsetHeight };
   }
 
+  let lastBox = "";
   function setBox(b) {
+    const key = `${b.x}|${b.y}|${b.w}|${b.h}`;
+    if (key === lastBox) return; // sin cambios: no se toca el estilo
+    lastBox = key;
     indicator.style.width = `${b.w}px`;
     indicator.style.height = `${b.h}px`;
     indicator.style.transform = `translate(${b.x}px, ${b.y}px)`;
@@ -341,6 +347,7 @@
   function droplet(from, to) {
     anim?.cancel();
     const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    lastBox = "";
     setBox(to);
     if (reduce) return;
     const dir = to.x + to.w / 2 >= from.x + from.w / 2 ? 1 : -1;
@@ -386,6 +393,7 @@
     if (!indicator || !indicator.isConnected) {
       indicator = document.createElement("span");
       indicator.className = "lg-tab-indicator";
+      lastBox = "";
       nav.prepend(indicator);
       nav.classList.add("lg-has-indicator");
       lastActive = null;
@@ -439,8 +447,9 @@
       edge = document.createElement("div");
       edge.className = "lg-scroll-edge";
       edge.setAttribute("aria-hidden", "true");
-      edge.innerHTML = '<i class="lg-se lg-se-1"></i><i class="lg-se lg-se-2"></i><i class="lg-se lg-se-3"></i><i class="lg-se-tint"></i>';
+      edge.innerHTML = '<i class="lg-se lg-se-2"></i><i class="lg-se lg-se-3"></i><i class="lg-se-tint"></i>';
       appEl.appendChild(edge);
+      edgeOpacity = -1;
     }
     if (scroller !== main) {
       scroller?.removeEventListener("scroll", onScroll);
@@ -454,9 +463,16 @@
     onScroll();
   }
 
+  // Arriba del todo el borde se oculta del todo (visibility): así sus
+  // desenfoques no se calculan mientras no se ven.
+  let edgeOpacity = -1;
   function onScroll() {
     if (!edge || !scroller) return;
-    edge.style.opacity = String(Math.min(1, scroller.scrollTop / 40));
+    const o = Math.round(Math.min(1, scroller.scrollTop / 40) * 20) / 20;
+    if (o === edgeOpacity) return;
+    edgeOpacity = o;
+    edge.style.opacity = String(o);
+    edge.style.visibility = o > 0 ? "" : "hidden";
   }
 
   // ------------------------------------------------------------ Luz al pasar el ratón
@@ -468,16 +484,29 @@
   const SURFACE_SEL = ".topnav, .swal2-popup.sl-modal, .sp-full .sp-search, .pp-dock, .index-bar";
   let lastPointer = null;
   let pointerRaf = 0;
+  let lastX = -99;
+  let lastY = -99;
   function onPointer(e) {
     if (!active) return;
+    // Movimientos de menos de 3 px no cambian la luz a la vista.
+    if (Math.abs(e.clientX - lastX) < 3 && Math.abs(e.clientY - lastY) < 3) return;
+    lastX = e.clientX;
+    lastY = e.clientY;
     lastPointer = e;
     if (!pointerRaf) pointerRaf = requestAnimationFrame(paintGlow);
   }
+  // Cambiar una variable en un elemento recalcula los estilos de todo lo
+  // que tiene dentro (en una ventana, mucho): solo si el valor cambia.
   const setLight = (node, e) => {
     if (!node) return;
     const r = node.getBoundingClientRect();
-    node.style.setProperty("--lg-x", `${Math.round(e.clientX - r.left)}px`);
-    node.style.setProperty("--lg-y", `${Math.round(e.clientY - r.top)}px`);
+    const x = `${Math.round(e.clientX - r.left)}px`;
+    const y = `${Math.round(e.clientY - r.top)}px`;
+    if (node.__lgX === x && node.__lgY === y) return;
+    node.__lgX = x;
+    node.__lgY = y;
+    node.style.setProperty("--lg-x", x);
+    node.style.setProperty("--lg-y", y);
   };
   function paintGlow() {
     pointerRaf = 0;

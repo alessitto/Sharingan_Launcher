@@ -275,10 +275,21 @@ function createCloud(hooks) {
     notify("cloud:status", status());
   }
 
+  // El PokéPark se guarda cada minuto (y a menudo al jugar): si solo ha
+  // cambiado él, se sube como mucho una vez por minuto sin reiniciar la
+  // espera. Lo demás (biblioteca, logros) sigue subiendo a los 4 s. Lo que
+  // necesita el parque al día (dinero, tienda, encargos...) sube antes por
+  // su cuenta (econ) y al cerrar se sube todo (flush).
+  const PARK_PUSH_MS = 60 * 1000;
   function markDirty(what) {
     if (!token() || entering || foreignData()) return;
     dirty.add(what);
     settings.cloudDirty = [...dirty];
+    const onlyPark = [...dirty].every((d) => d === "pokepark");
+    if (onlyPark) {
+      if (!pushTimer) pushTimer = setTimeout(() => push().catch(() => {}), PARK_PUSH_MS);
+      return;
+    }
     clearTimeout(pushTimer);
     pushTimer = setTimeout(() => push().catch(() => {}), PUSH_DELAY_MS);
   }
@@ -292,6 +303,7 @@ function createCloud(hooks) {
 
   async function doPush() {
     clearTimeout(pushTimer);
+    pushTimer = null;
     if (!token() || !dirty.size || pushing || entering || foreignData()) return;
     pushing = true;
     const what = [...dirty];
@@ -387,6 +399,7 @@ function createCloud(hooks) {
   async function enter(route, username, password) {
     const res = await api(route, { body: { username, password }, auth: false });
     clearTimeout(pushTimer);
+    pushTimer = null;
     entering = true;
     try {
       setSession(res.token, res.user);

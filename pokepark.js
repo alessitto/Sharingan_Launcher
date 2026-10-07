@@ -2645,6 +2645,12 @@
     rafId = null;
     const visible = document.getElementById("pokepark")?.classList.contains("active");
     if (!visible && hand) cancelHand();
+    // Fuera del PokéPark no se anima nada: el bucle se para y onShow() lo
+    // vuelve a poner en marcha (antes seguía 60 veces por segundo).
+    if (!visible) {
+      lastFrame = 0;
+      return;
+    }
     const dt = Math.min(0.05, (t - (lastFrame || t)) / 1000);
     lastFrame = t;
     if (visible) {
@@ -2684,9 +2690,21 @@
         a.x = Math.max(0, Math.min(w, a.x));
         a.y = Math.max(0, Math.min(h, a.y));
         const depth = 0.78 + (a.y / h) * 0.32; // más grande cuanto más cerca
-        a.el.style.transform = `translate(${a.x}px, ${a.y}px) scale(${depth})`;
-        a.el.style.setProperty("--face", a.facing);
-        a.el.style.zIndex = String(10 + Math.round(a.y));
+        // Solo se toca el estilo si ha cambiado (los quietos no recalculan nada).
+        const tf = `translate(${a.x.toFixed(1)}px, ${a.y.toFixed(1)}px) scale(${depth.toFixed(3)})`;
+        if (a.tf !== tf) {
+          a.tf = tf;
+          a.el.style.transform = tf;
+        }
+        if (a.face !== a.facing) {
+          a.face = a.facing;
+          a.el.style.setProperty("--face", a.facing);
+        }
+        const z = 10 + Math.round(a.y);
+        if (a.z !== z) {
+          a.z = z;
+          a.el.style.zIndex = String(z);
+        }
       }
     }
     rafId = requestAnimationFrame(frame);
@@ -4875,6 +4893,7 @@
     },
     onShow() {
       if (!ready) return;
+      if (!rafId) rafId = requestAnimationFrame(frame); // la animación vuelve
       render();
       syncTrades();
       if (!econState || Date.now() - econAt > 60 * 1000) refreshEcon();

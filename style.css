@@ -7137,16 +7137,12 @@ body.is-guest .cm-myrate {
   inset: 0;
 }
 
-.lg-se-1 {
-  backdrop-filter: blur(1.5px);
-  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 62%, transparent 100%);
-  mask-image: linear-gradient(to bottom, #000 0%, #000 62%, transparent 100%);
-}
-
+/* Dos capas (antes tres): la más suave apenas se notaba y costaba lo
+   mismo. La de 5 px llega un poco más abajo para cubrir su hueco. */
 .lg-se-2 {
   backdrop-filter: blur(5px);
-  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 42%, transparent 78%);
-  mask-image: linear-gradient(to bottom, #000 0%, #000 42%, transparent 78%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 50%, transparent 92%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 50%, transparent 92%);
 }
 
 .lg-se-3 {

@@ -64,26 +64,28 @@ function processPaths(pids) {
   });
 }
 
-// Los .exe que hay en la carpeta del juego (hasta 4 niveles).
-function exeNamesIn(dir) {
+// Los .exe que hay en la carpeta del juego (hasta 4 niveles). Asíncrono:
+// leer a la vez las carpetas de muchos juegos bloqueaba el proceso
+// principal (y con él la ventana) un momento.
+async function exeNamesIn(dir) {
   const names = new Set();
-  const walk = (d, depth) => {
+  const walk = async (d, depth) => {
     if (depth > 4 || names.size > 200) return;
     let entries;
     try {
-      entries = fs.readdirSync(d, { withFileTypes: true });
+      entries = await fs.promises.readdir(d, { withFileTypes: true });
     } catch {
       return;
     }
     for (const e of entries) {
       if (e.isDirectory()) {
-        if (!/^(_commonredist|redist|redistributables|directx|support|__installer|installers?)$/i.test(e.name)) walk(path.join(d, e.name), depth + 1);
+        if (!/^(_commonredist|redist|redistributables|directx|support|__installer|installers?)$/i.test(e.name)) await walk(path.join(d, e.name), depth + 1);
       } else if (e.isFile() && e.name.toLowerCase().endsWith(".exe") && !NOT_GAME.test(e.name)) {
         names.add(e.name.toLowerCase());
       }
     }
   };
-  walk(dir, 0);
+  await walk(dir, 0);
   return names;
 }
 
@@ -103,10 +105,10 @@ function createPlaytime({ getGames, onChange }) {
     return null;
   };
 
-  function namesFor(dir) {
+  async function namesFor(dir) {
     const c = exeCache.get(dir);
     if (c && Date.now() - c.at < EXE_CACHE_MS) return c.names;
-    const names = exeNamesIn(dir);
+    const names = await exeNamesIn(dir);
     exeCache.set(dir, { at: Date.now(), names });
     return names;
   }
@@ -118,7 +120,7 @@ function createPlaytime({ getGames, onChange }) {
       const games = getGames().filter((g) => gameDir(g));
       const byName = new Map(); // nombre de .exe -> [juegos]
       for (const g of games) {
-        const names = new Set(namesFor(gameDir(g)));
+        const names = new Set(await namesFor(gameDir(g)));
         if (g.executable) names.add(path.basename(g.executable).toLowerCase());
         for (const n of names) {
           if (!byName.has(n)) byName.set(n, []);
