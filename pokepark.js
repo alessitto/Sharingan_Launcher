@@ -2294,6 +2294,7 @@
     gate.innerHTML = `${state.closed ? LOCK_SVG : UNLOCK_SVG}<span>${state.closed ? "Abrir parque" : "Cerrar parque"}</span>`;
     gate.title = state.closed ? "Volverán los Pokémon salvajes" : "Sin salvajes ni visitas: solo tus Pokémon";
     gate.classList.toggle("is-closed", !!state.closed);
+    renderMoney(); // el último saldo conocido, también sin conexión
     root.querySelector(".pp-park").classList.toggle("is-closed", !!state.closed);
     const empty = root.querySelector(".pp-empty");
     empty.innerHTML = state.party.length

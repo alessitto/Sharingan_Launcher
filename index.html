@@ -2834,7 +2834,22 @@
       // ===============================
       // Tema activo: color (paleta de dos colores) + estilo. Todo lo
       // calcula themes.js; aquí solo se guarda y se pinta el selector.
-      let themeState = { palette: "itachi", effect: "default" };
+      let themeState = { palette: "itachi", effect: "default", tint: "clear" };
+      // Windows con los efectos de transparencia quitados: Liquid Glass va
+      // siempre en Tintado y sin refracción (lo dice main, system:transparency).
+      let reduceTransparency = false;
+
+      function setReduceTransparency(reduced) {
+        reduced = !!reduced;
+        document.documentElement.setAttribute("data-reduce-transparency", reduced ? "1" : "0");
+        if (reduced === reduceTransparency) return;
+        reduceTransparency = reduced;
+        applyTheme({ theme: themeState.palette, themeEffect: themeState.effect });
+        // Si Ajustes > Tema está abierto (y no cerrándose), se repinta.
+        if (document.querySelector(".swal2-popup.st-modal:not(.swal2-hide) .st-theme-page")) openSettingsModal("theme");
+      }
+      window.electronAPI.systemTransparency?.().then((r) => setReduceTransparency(r?.reduced)).catch(() => {});
+      window.electronAPI.onSystemTransparency?.((r) => setReduceTransparency(r?.reduced));
 
       async function loadAppSettings() {
         try {
@@ -2858,7 +2873,10 @@
       }
 
       function applyTheme(settings) {
-        themeState = window.SLThemes.apply(settings || {});
+        const s = settings || {};
+        if (s.glassTint !== undefined) themeState.tint = s.glassTint === "tinted" ? "tinted" : "clear";
+        const tint = themeState.tint;
+        themeState = { ...window.SLThemes.apply({ ...s, glassTint: reduceTransparency ? "tinted" : tint }), tint };
         window.Achievements?.trackTheme(themeState.palette);
         window.Achievements?.trackTheme(`fx:${themeState.effect}`);
       }
@@ -2869,6 +2887,24 @@
         const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
         if (!document.startViewTransition || reduced) return applyTheme(settings);
         document.startViewTransition(() => applyTheme(settings));
+      }
+
+      // Liquid Glass: Transparente o Tintado, con un control segmentado como
+      // los de iOS (la píldora se desliza a la opción elegida).
+      function glassTintHtml() {
+        const sel = reduceTransparency ? "tinted" : themeState.tint;
+        const opt = (id, name, desc) => `
+          <button type="button" class="lg-seg-opt${sel === id ? " is-on" : ""}" role="radio" aria-checked="${sel === id}" data-tint="${id}" ${reduceTransparency ? "disabled" : ""}>
+            <span class="lg-seg-prev is-${id}" aria-hidden="true"><i></i></span>
+            <span class="lg-seg-text"><b>${name}</b><small>${desc}</small></span>
+          </button>`;
+        return `
+          <div class="lg-seg" role="radiogroup" aria-label="Cristal" data-sel="${sel}">
+            <span class="lg-seg-thumb" aria-hidden="true"></span>
+            ${opt("clear", "Transparente", "Se ve el fondo a través del cristal.")}
+            ${opt("tinted", "Tintado", "Más opaco y con más contraste: se lee mejor.")}
+          </div>
+          ${reduceTransparency ? `<p class="st-glass-note">${icon("info")}<span>Windows tiene quitados los efectos de transparencia, así que se usa Tintado.</span></p>` : ""}`;
       }
 
       function themeSwatchHtml(p, selected) {
@@ -2974,6 +3010,10 @@
               </div>`
           ).join("")}</div>
             </section>
+            <section class="st-theme-sec st-glass-sec" ${themeState.effect === "glass" ? "" : "hidden"}>
+              <p class="st-theme-head">Cristal</p>
+              ${glassTintHtml()}
+            </section>
             <p class="tp-soon">${icon("sparkles")}Más colores y estilos llegarán en próximas actualizaciones.</p>`;
         },
         discover: (s) => `
@@ -3048,6 +3088,21 @@
             effectsEl.querySelectorAll(".tp-effect").forEach((el) => el.classList.toggle("is-selected", el === card));
             smoothTheme({ theme: themeState.palette, themeEffect });
             persistSetting({ themeEffect });
+            const glassSec = page.querySelector(".st-glass-sec");
+            if (glassSec) glassSec.hidden = themeEffect !== "glass";
+          });
+          page.querySelector(".st-glass-sec")?.addEventListener("click", (e) => {
+            const b = e.target.closest(".lg-seg-opt");
+            if (!b || b.disabled) return;
+            const glassTint = b.dataset.tint;
+            const seg = b.closest(".lg-seg");
+            seg.dataset.sel = glassTint;
+            seg.querySelectorAll(".lg-seg-opt").forEach((o) => {
+              o.classList.toggle("is-on", o === b);
+              o.setAttribute("aria-checked", String(o === b));
+            });
+            smoothTheme({ theme: themeState.palette, themeEffect: themeState.effect, glassTint });
+            persistSetting({ glassTint });
           });
         } else if (id === "discover") {
           const pageInput = page.querySelector("#settingsGamesPerPage");

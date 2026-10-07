@@ -160,13 +160,18 @@
   // Variables CSS del tema. Los nombres (--ink-*, --washi-*, --red-*) son
   // los de siempre: --ink-* son superficies (del fondo hacia el blanco o el
   // negro), --washi-* el texto y --red-* el acento.
-  function vars(paletteId, effect) {
+  // tinted (solo Liquid Glass): el modo "Tintado" de Apple. Las superficies
+  // dejan de ser casi transparentes (se ven del color del tema con un poco
+  // de transparencia) y el texto pide más contraste, para leerse bien sobre
+  // cualquier fondo, sobre todo en los temas claros.
+  function vars(paletteId, effect, tinted = false) {
     const p = paletteById(paletteId) || paletteById(DEFAULT_PALETTE);
     const bg = hexRgb(p.bg);
     const accent = hexRgb(p.accent);
     const dark = isDark(bg);
     const fg = dark ? WHITE : BLACK;
     const glass = effect === "glass";
+    const tint = glass && tinted;
     const out = {};
 
     const inkSteps = dark
@@ -182,17 +187,20 @@
     // mínimo: así los fondos de tono medio (Naruto, Gengar, Kyogre...) se
     // leen igual de cómodos que los oscuros.
     const card = mix(bg, fg, inkSteps[800]);
-    const TEXT_TARGET = { 100: 10, 200: 7.5, 300: 4.8, 400: 3.4 };
+    const TEXT_TARGET = tint ? { 100: 11, 200: 8.5, 300: 6, 400: 4.5 } : { 100: 10, 200: 7.5, 300: 4.8, 400: 3.4 };
     for (const k of Object.keys(inkSteps)) {
       if (TEXT_TARGET[k]) {
         const base = mix(bg, fg, inkSteps[k]);
         out[`--ink-${k}`] = css(readable(base, fg, card, TEXT_TARGET[k]));
-      } else out[`--ink-${k}`] = glass ? rgba(fg, glassAlpha[k]) : css(mix(bg, fg, inkSteps[k]));
+      } else if (tint) out[`--ink-${k}`] = rgba(mix(bg, fg, inkSteps[k]), 0.9);
+      else out[`--ink-${k}`] = glass ? rgba(fg, glassAlpha[k]) : css(mix(bg, fg, inkSteps[k]));
     }
     out["--ink-950"] = css(bg);
     out["--ink-900-rgb"] = triplet(mix(bg, fg, inkSteps[900]));
 
-    const washi = { 50: [0.02, 13], 100: [0.05, 11], 200: [0.1, 8.5], 300: [0.22, 6.5], 400: [0.38, 5] };
+    const washi = tint
+      ? { 50: [0.02, 14], 100: [0.05, 12], 200: [0.08, 10], 300: [0.18, 8], 400: [0.3, 6.2] }
+      : { 50: [0.02, 13], 100: [0.05, 11], 200: [0.1, 8.5], 300: [0.22, 6.5], 400: [0.38, 5] };
     for (const [k, [t, target]] of Object.entries(washi)) out[`--washi-${k}`] = css(readable(mix(fg, bg, t), fg, card, target));
 
     out["--red-100"] = css(mix(accent, WHITE, 0.7));
@@ -246,7 +254,8 @@
     const { palette, effect } = resolve(settings);
     const doc = global.document?.documentElement;
     if (!doc) return { palette, effect };
-    const { vars: v, dark } = vars(palette, effect);
+    const tinted = settings.glassTint === "tinted";
+    const { vars: v, dark } = vars(palette, effect, tinted);
     // Se limpian las variables del tema anterior (las de Liquid Glass).
     for (const k of applied) if (!(k in v)) doc.style.removeProperty(k);
     applied = Object.keys(v);
@@ -256,7 +265,8 @@
     doc.setAttribute("data-tone", dark ? "dark" : "light");
     if (effect === DEFAULT_EFFECT) doc.removeAttribute("data-effect");
     else doc.setAttribute("data-effect", effect);
-    return { palette, effect };
+    doc.setAttribute("data-glass", tinted ? "tinted" : "clear");
+    return { palette, effect, tinted };
   }
 
   const api = { contrast, CATEGORIES, EFFECTS, PALETTES, paletteById, resolve, vars, apply, windowBg, isDark: (hex) => isDark(hexRgb(hex)) };

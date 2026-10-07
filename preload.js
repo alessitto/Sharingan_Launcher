@@ -120,6 +120,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onFreeNew: (cb) => ipcRenderer.on('free:new', (_e, d) => cb(d)),
   setGlobalShortcuts: (list) => ipcRenderer.invoke('shortcuts:global', list),
   onShortcut: (cb) => ipcRenderer.on('shortcuts:run', (_e, action) => cb(action)),
+  // Transparencia de Windows (Liquid Glass pasa a Tintado si está quitada)
+  systemTransparency: () => ipcRenderer.invoke('system:transparency'),
+  onSystemTransparency: (cb) => ipcRenderer.on('system:transparency', (_e, d) => cb(d)),
 
   openExternal: (url) => ipcRenderer.invoke('app:openExternal', url),
 });

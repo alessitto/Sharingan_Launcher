@@ -7044,3 +7044,383 @@ body.is-guest .cm-myrate {
 .sc-clear {
   margin-top: 4px;
 }
+
+/* =====================================================================
+   3.7.2: Liquid Glass a fondo (pestaña líquida, Tintado, borde de
+   desplazamiento, luz del ratón, refracción en Spotify y Windows sin
+   transparencia)
+   ===================================================================== */
+
+/* ---------- Pestaña líquida: la mueve liquid-glass.js con muelles (forma
+   de gota); aquí solo el aspecto. Sin transiciones de tamaño ni posición,
+   que pelearían con la animación. */
+:root[data-effect="glass"] .lg-tab-indicator {
+  transition: opacity 0.2s, box-shadow 0.35s var(--ease-smooth), background 0.35s var(--ease-smooth);
+  transform-origin: 50% 50%;
+  will-change: transform, width;
+}
+
+:root[data-effect="glass"] .lg-tab-indicator.is-moving {
+  animation: none;
+}
+
+/* Mientras viaja se "levanta": más luz, filo más brillante y sombra. */
+:root[data-effect="glass"] .lg-tab-indicator.is-lifted {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.08)), rgba(var(--red-500-rgb), 0.38);
+  box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.75), inset 0 -1px 0.5px rgba(255, 255, 255, 0.2), 0 6px 22px rgba(0, 0, 0, 0.24),
+    0 0 0 0.5px rgba(255, 255, 255, 0.25);
+}
+
+/* ---------- Tintado (como la opción de iOS 26.1): menos transparencia y
+   más contraste. themes.js ya sube el contraste del texto y hace casi
+   opacas las superficies (--ink-*); aquí, el cristal. */
+:root[data-effect="glass"][data-glass="tinted"] {
+  --lg-fill: rgba(var(--ink-900-rgb), 0.82);
+  --lg-fill-hover: rgba(var(--ink-900-rgb), 0.92);
+  --lg-chrome: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.01)), rgba(var(--ink-900-rgb), 0.86);
+  --lg-sheet: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0)), rgba(var(--ink-900-rgb), 0.95);
+  --lg-text-shadow: none;
+}
+
+:root[data-effect="glass"][data-glass="tinted"][data-tone="light"] {
+  --lg-fill: rgba(255, 255, 255, 0.78);
+  --lg-fill-hover: rgba(255, 255, 255, 0.9);
+  --lg-chrome: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.78)), rgba(var(--bg-rgb), 0.2);
+  --lg-sheet: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.88)), rgba(var(--bg-rgb), 0.2);
+}
+
+:root[data-effect="glass"][data-glass="tinted"] .theme-bg::after {
+  background: rgba(var(--bg-rgb), 0.42);
+}
+
+:root[data-effect="glass"][data-glass="tinted"] .sp-full-bg {
+  opacity: 0.5;
+}
+
+/* ---------- Windows sin transparencia: todo opaco y sin desenfoques */
+:root[data-effect="glass"][data-reduce-transparency="1"] {
+  --lg-chrome: rgb(var(--ink-900-rgb));
+  --lg-sheet: rgb(var(--ink-900-rgb));
+  --lg-fill: rgb(var(--ink-900-rgb));
+}
+
+:root[data-effect="glass"][data-reduce-transparency="1"][data-tone="light"] {
+  --lg-chrome: #fff;
+  --lg-sheet: #fff;
+  --lg-fill: #fff;
+}
+
+:root[data-effect="glass"][data-reduce-transparency="1"] *,
+:root[data-effect="glass"][data-reduce-transparency="1"] *::before,
+:root[data-effect="glass"][data-reduce-transparency="1"] *::after {
+  backdrop-filter: none !important;
+}
+
+/* ---------- Borde de desplazamiento (iOS 26): lo de debajo de la barra se
+   desenfoca poco a poco en vez de cortarse. Tres capas de desenfoque con
+   máscaras escalonadas (desenfoque progresivo) y un velo del color del
+   fondo. La pone y la enciende liquid-glass.js al bajar. */
+.lg-scroll-edge {
+  position: absolute;
+  z-index: 25;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s var(--ease-smooth);
+}
+
+:root:not([data-effect="glass"]) .lg-scroll-edge {
+  display: none;
+}
+
+.lg-scroll-edge > i {
+  position: absolute;
+  inset: 0;
+}
+
+.lg-se-1 {
+  backdrop-filter: blur(1.5px);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 62%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 62%, transparent 100%);
+}
+
+.lg-se-2 {
+  backdrop-filter: blur(5px);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 42%, transparent 78%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 42%, transparent 78%);
+}
+
+.lg-se-3 {
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 22%, transparent 56%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 22%, transparent 56%);
+}
+
+.lg-se-tint {
+  background: linear-gradient(to bottom, rgba(var(--bg-rgb), 0.5) 0%, rgba(var(--bg-rgb), 0.24) 48%, rgba(var(--bg-rgb), 0) 100%);
+}
+
+:root[data-glass="tinted"] .lg-se-tint {
+  background: linear-gradient(to bottom, rgba(var(--bg-rgb), 0.78) 0%, rgba(var(--bg-rgb), 0.4) 52%, rgba(var(--bg-rgb), 0) 100%);
+}
+
+:root[data-reduce-transparency="1"] .lg-se:not(.lg-se-tint) {
+  display: none;
+}
+
+/* ---------- Luz que sigue al ratón en la barra, las ventanas, el índice,
+   el dock del PokéPark y el buscador de Spotify: un brillo suave dentro y
+   el filo más claro cerca del puntero (como el cristal de visionOS/iOS). */
+:root[data-effect="glass"] .topnav::after,
+:root[data-effect="glass"] .index-bar::after,
+:root[data-effect="glass"] .pp-dock::after,
+:root[data-effect="glass"] .sp-full .sp-search::after,
+:root[data-effect="glass"] .swal2-popup.sl-modal::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(circle 240px at var(--lg-x, 50%) var(--lg-y, 50%), rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0) 70%);
+  transition: opacity 0.4s var(--ease-smooth);
+}
+
+:root[data-effect="glass"] .topnav::before,
+:root[data-effect="glass"] .index-bar::before,
+:root[data-effect="glass"] .pp-dock::before,
+:root[data-effect="glass"] .sp-full .sp-search::before,
+:root[data-effect="glass"] .swal2-popup.sl-modal::before {
+  content: "";
+  display: block;
+  position: absolute;
+  inset: 0;
+  width: auto;
+  height: auto;
+  border-radius: inherit;
+  padding: 1px;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(circle 150px at var(--lg-x, 50%) var(--lg-y, 50%), rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0) 72%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  transition: opacity 0.4s var(--ease-smooth);
+  z-index: 2;
+}
+
+:root[data-effect="glass"] .topnav:hover::after,
+:root[data-effect="glass"] .topnav:hover::before,
+:root[data-effect="glass"] .index-bar:hover::after,
+:root[data-effect="glass"] .index-bar:hover::before,
+:root[data-effect="glass"] .pp-dock:hover::after,
+:root[data-effect="glass"] .pp-dock:hover::before,
+:root[data-effect="glass"] .sp-full .sp-search:hover::after,
+:root[data-effect="glass"] .sp-full .sp-search:hover::before,
+:root[data-effect="glass"] .swal2-popup.sl-modal:hover::after,
+:root[data-effect="glass"] .swal2-popup.sl-modal:hover::before {
+  opacity: 1;
+}
+
+/* En claro el brillo dentro apenas se vería: un poco más de luz. */
+:root[data-effect="glass"][data-tone="light"] .topnav::after,
+:root[data-effect="glass"][data-tone="light"] .index-bar::after,
+:root[data-effect="glass"][data-tone="light"] .pp-dock::after,
+:root[data-effect="glass"][data-tone="light"] .sp-full .sp-search::after,
+:root[data-effect="glass"][data-tone="light"] .swal2-popup.sl-modal::after {
+  background: radial-gradient(circle 240px at var(--lg-x, 50%) var(--lg-y, 50%), rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0) 70%);
+}
+
+/* Lo de dentro por encima del brillo. */
+:root[data-effect="glass"] .index-bar > *,
+:root[data-effect="glass"] .pp-dock > * {
+  position: relative;
+  z-index: 1;
+}
+
+:root[data-effect="glass"] .pp-dock .pp-trade-badge {
+  position: absolute;
+}
+
+/* ---------- Spotify: los controles son cristal (la lente la pone
+   liquid-glass.js; aquí el cuerpo, el filo de luz y la pulsación) */
+:root[data-effect="glass"] .sp-full .sp-search {
+  border-color: transparent;
+  background: var(--lg-fill);
+  box-shadow: var(--lg-rim), 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+:root[data-effect="glass"] .sp-full .sp-search:hover,
+:root[data-effect="glass"] .sp-full .sp-search:focus-within,
+:root[data-effect="glass"] .sp-full .sp-search.has-query {
+  border-color: transparent;
+  background: var(--lg-fill-hover);
+  box-shadow: var(--lg-rim), 0 0 0 2px rgba(var(--red-500-rgb), 0.45), 0 10px 28px rgba(0, 0, 0, 0.16);
+}
+
+:root[data-effect="glass"] .sp-full .sp-controls .sp-ctl,
+:root[data-effect="glass"] .sp-full .sp-lyrics-btn {
+  background: var(--lg-fill);
+  box-shadow: var(--lg-rim), 0 6px 18px rgba(0, 0, 0, 0.12);
+  transition: transform 0.45s var(--lg-spring), background 0.25s var(--ease-smooth), color 0.2s;
+}
+
+:root[data-effect="glass"] .sp-full .sp-controls .sp-ctl:hover,
+:root[data-effect="glass"] .sp-full .sp-lyrics-btn:hover {
+  background: var(--lg-fill-hover);
+}
+
+:root[data-effect="glass"] .sp-full .sp-ctl:active,
+:root[data-effect="glass"] .sp-full .sp-play:active,
+:root[data-effect="glass"] .sp-full .sp-icon-btn:active {
+  transform: scale(1.08);
+}
+
+/* El botón grande deja ver un poco el fondo (si no, la lente no se nota). */
+:root[data-effect="glass"] .sp-full .sp-play {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0) 55%), rgba(var(--red-500-rgb), 0.82);
+  box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.65), inset 0 -1px 0.5px rgba(0, 0, 0, 0.12), 0 12px 30px rgba(var(--red-500-rgb), 0.38);
+  transition: transform 0.45s var(--lg-spring), box-shadow 0.25s var(--ease-smooth);
+}
+
+:root[data-effect="glass"] .sp-full .sp-open {
+  border-color: transparent;
+  background: var(--lg-fill);
+  box-shadow: var(--lg-rim);
+}
+
+:root[data-effect="glass"] .sp-full .sp-icon-btn {
+  transition: transform 0.45s var(--lg-spring), background 0.25s var(--ease-smooth);
+}
+
+/* ---------- Control segmentado de Ajustes > Tema > Cristal (como iOS) */
+.lg-seg {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 18px;
+  background: rgba(var(--fg-rgb), 0.07);
+  box-shadow: inset 0 0 0 1px rgba(var(--fg-rgb), 0.06);
+}
+
+.lg-seg-thumb {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc(50% - 6px);
+  border-radius: 14px;
+  background: var(--ink-800);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.16), inset 0 1px 0.5px rgba(255, 255, 255, 0.3);
+  transition: transform 0.5s var(--lg-spring, cubic-bezier(0.34, 1.56, 0.64, 1));
+}
+
+:root[data-effect="glass"] .lg-seg-thumb {
+  background: var(--lg-fill-hover);
+  box-shadow: var(--lg-rim), 0 4px 14px rgba(0, 0, 0, 0.16);
+}
+
+.lg-seg[data-sel="tinted"] .lg-seg-thumb {
+  transform: translateX(calc(100% + 4px));
+}
+
+.lg-seg-opt {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 14px;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--washi-200);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.lg-seg-opt:disabled {
+  cursor: not-allowed;
+}
+
+.lg-seg-opt.is-on {
+  color: var(--washi-50);
+}
+
+.lg-seg-prev {
+  position: relative;
+  flex-shrink: 0;
+  width: 46px;
+  height: 34px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: radial-gradient(circle at 25% 30%, rgba(var(--red-500-rgb), 0.9), transparent 60%), radial-gradient(circle at 80% 80%, rgba(var(--fg-rgb), 0.35), transparent 60%), rgb(var(--bg-rgb));
+}
+
+.lg-seg-prev i {
+  position: absolute;
+  inset: 7px 6px;
+  border-radius: 7px;
+  box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.7), inset 0 -1px 0.5px rgba(255, 255, 255, 0.2);
+}
+
+.lg-seg-prev.is-clear i {
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(2px);
+}
+
+.lg-seg-prev.is-tinted i {
+  background: rgba(var(--ink-900-rgb), 0.9);
+}
+
+.lg-seg-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.lg-seg-text b {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.lg-seg-text small {
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--ink-300);
+}
+
+.st-glass-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--ink-300);
+}
+
+.st-glass-note .i {
+  flex-shrink: 0;
+  width: 15px;
+  height: 15px;
+}
+
+/* Selección de texto con el acento, como en macOS */
+:root[data-effect="glass"] ::selection {
+  background: rgba(var(--red-500-rgb), 0.35);
+}
+
+/* Dock del PokéPark en cristal: los iconos van limpios dentro de la
+   cápsula, como en las barras de herramientas de iOS (sin aro propio). */
+:root[data-effect="glass"] .pp-dock .pp-dock-btn {
+  background: transparent;
+  box-shadow: none;
+}
+
+:root[data-effect="glass"] .pp-dock .pp-dock-btn:hover {
+  background: rgba(var(--fg-rgb), 0.12);
+}

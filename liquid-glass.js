@@ -18,7 +18,13 @@
 //      backdrop-filter, que Chromium (Electron) sí admite.
 // Rendimiento: el filtro se recalcula cada vez que cambia lo de detrás,
 // así que solo va en superficies pequeñas o fijas (barra, índice, botón de
-// subir) y con una sola pasada (sin aberración cromática, que la triplicaba).
+// subir, controles de Spotify) y con una sola pasada (sin aberración
+// cromática, que la triplicaba).
+//
+// Además (3.7.2): pestaña líquida con forma de gota, borde de desplazamiento
+// progresivo bajo la barra, luz que sigue al ratón en la barra y las
+// ventanas, y sin refracción si Windows tiene quitada la transparencia
+// (data-reduce-transparency, lo pone index.html con lo que dice main).
 // Lo que se mueve o va encima de cosas animadas (modales, avisos, menús,
 // el PokéPark) usa el desenfoque normal del CSS, que es mucho más barato.
 // El tamaño del filtro tiene que coincidir con el del elemento, así que se
@@ -32,10 +38,19 @@
 
   // Superficies con refracción. blur: desenfoque del fondo (px); bezel:
   // ancho del borde curvo (px); depth: fuerza de la lente; sat: saturación.
+  // En Spotify el fondo es la carátula desenfocada y quieta: es donde mejor
+  // luce la lente (buscador, controles, dispositivo y botones de arriba).
   const TARGETS = [
     { sel: ".topnav", blur: 1, bezel: 24, depth: 1.9, sat: 1.7 },
     { sel: ".index-bar", blur: 3, bezel: 20, depth: 1.6, sat: 1.6 },
     { sel: ".scroll-top-btn", blur: 2, bezel: 18, depth: 1.6, sat: 1.5 },
+    { sel: ".sp-full .sp-search", blur: 2, bezel: 18, depth: 1.7, sat: 1.6 },
+    { sel: ".sp-full .sp-controls .sp-ctl", blur: 2, bezel: 16, depth: 1.8, sat: 1.6 },
+    { sel: ".sp-full .sp-play", blur: 2, bezel: 22, depth: 1.8, sat: 1.5 },
+    { sel: ".sp-full .sp-device-btn", blur: 2, bezel: 16, depth: 1.6, sat: 1.6 },
+    { sel: ".sp-full .sp-icon-btn", blur: 2, bezel: 14, depth: 1.6, sat: 1.6 },
+    { sel: ".sp-full .sp-open", blur: 2, bezel: 14, depth: 1.6, sat: 1.6 },
+    { sel: ".sp-full .sp-lyrics-btn", blur: 2, bezel: 16, depth: 1.8, sat: 1.6 },
   ];
 
   // ------------------------------------------------------------ Óptica
@@ -210,7 +225,8 @@
   const tracked = new Map(); // elemento -> { cfg, id }
   const pending = new Set();
   let raf = 0;
-  let active = false;
+  let active = false; // estilo glass puesto
+  let refract = false; // y con refracción (no si Windows quita la transparencia)
 
   const ro = new ResizeObserver((entries) => {
     for (const e of entries) pending.add(e.target);
@@ -229,7 +245,7 @@
 
   function apply(node) {
     const info = tracked.get(node);
-    if (!info || !active) return;
+    if (!info || !refract) return;
     if (!node.isConnected) return forget(node);
     const w = Math.round(node.offsetWidth);
     const h = Math.round(node.offsetHeight);
@@ -252,6 +268,9 @@
 
   function scan() {
     if (!active) return;
+    placeIndicator(false);
+    placeEdge();
+    if (!refract) return;
     for (const node of [...tracked.keys()]) if (!node.isConnected) forget(node);
     for (const cfg of TARGETS) {
       document.querySelectorAll(cfg.sel).forEach((node) => {
@@ -262,7 +281,6 @@
       });
     }
     schedule();
-    placeIndicator();
   }
 
   // Los cambios del DOM llegan a ráfagas (el PokéPark repinta a menudo):
@@ -277,17 +295,92 @@
   });
 
   const navMo = new MutationObserver((records) => {
-    // Ignora los cambios del propio indicador (is-moving).
-    if (records.some((r) => r.target.classList?.contains("topnav-item"))) placeIndicator();
+    // Ignora los cambios del propio indicador.
+    if (records.some((r) => r.target.classList?.contains("topnav-item"))) placeIndicator(true);
   });
 
-  // ------------------------------------------------------------ Barra de pestañas
-  // Como la tab bar de iOS 26: una cápsula de cristal que se desliza (con
-  // rebote) hasta la pestaña activa y se estira un poco mientras se mueve.
+  // ------------------------------------------------------------ Pestaña líquida
+  // Como la tab bar de iOS 26: al cambiar de pestaña la cápsula no se
+  // desliza sin más, se comporta como una gota. El borde de delante sale
+  // primero (muelle rápido) y el de detrás lo sigue con retraso (muelle más
+  // blando): se estira hacia la pestaña nueva, adelgaza mientras está
+  // estirada y al llegar rebota un poco. Mientras viaja se "levanta" (más
+  // luz y sombra), como el cristal de Apple al tocarlo.
   let indicator = null;
   let lastActive = null;
+  let anim = null;
 
-  function placeIndicator() {
+  // Muelle amortiguado (masa 1): 0 -> 1 con un pequeño rebote.
+  function spring(t, k, c) {
+    if (t <= 0) return 0;
+    const w0 = Math.sqrt(k);
+    const z = c / (2 * w0);
+    if (z >= 1) return 1 - Math.exp(-w0 * t) * (1 + w0 * t);
+    const wd = w0 * Math.sqrt(1 - z * z);
+    return 1 - Math.exp(-z * w0 * t) * (Math.cos(wd * t) + ((z * w0) / wd) * Math.sin(wd * t));
+  }
+
+  function itemBox(item) {
+    return { x: item.offsetLeft, y: item.offsetTop, w: item.offsetWidth, h: item.offsetHeight };
+  }
+
+  function setBox(b) {
+    indicator.style.width = `${b.w}px`;
+    indicator.style.height = `${b.h}px`;
+    indicator.style.transform = `translate(${b.x}px, ${b.y}px)`;
+  }
+
+  // Dónde se ve ahora la cápsula (también a mitad de una animación).
+  function currentBox(nav) {
+    const r = indicator.getBoundingClientRect();
+    const n = nav.getBoundingClientRect();
+    const h = indicator.offsetHeight;
+    return { x: r.left - n.left - nav.clientLeft, y: r.top - n.top - nav.clientTop + (r.height - h) / 2, w: r.width, h };
+  }
+
+  function droplet(from, to) {
+    anim?.cancel();
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    setBox(to);
+    if (reduce) return;
+    const dir = to.x + to.w / 2 >= from.x + from.w / 2 ? 1 : -1;
+    const L0 = from.x;
+    const R0 = from.x + from.w;
+    const L1 = to.x;
+    const R1 = to.x + to.w;
+    // Delante: rápido y con rebote. Detrás: más blando y un poco después.
+    const lead = (t) => spring(t, 300, 24);
+    const trail = (t) => spring(t - 0.055, 170, 21);
+    const pL = dir > 0 ? trail : lead;
+    const pR = dir > 0 ? lead : trail;
+    const DUR = 0.72;
+    const frames = [];
+    const N = 48;
+    for (let i = 0; i <= N; i++) {
+      const t = (i / N) * DUR;
+      const L = L0 + (L1 - L0) * pL(t);
+      const R = R0 + (R1 - R0) * pR(t);
+      const w = Math.max(8, R - L);
+      const stretch = w / Math.max(1, to.w) - 1;
+      // Estirada adelgaza (gota); al llegar recupera su alto.
+      const sy = 1 - Math.max(-0.04, Math.min(0.14, stretch * 0.2));
+      const h = from.h + (to.h - from.h) * Math.min(1, t / 0.3);
+      const y = from.y + (to.y - from.y) * Math.min(1, t / 0.3);
+      frames.push({ width: `${w}px`, height: `${h}px`, transform: `translate(${L}px, ${y}px) scaleY(${sy.toFixed(4)})` });
+    }
+    indicator.classList.add("is-lifted");
+    anim = indicator.animate(frames, { duration: DUR * 1000, easing: "linear" });
+    const done = () => {
+      indicator?.classList.remove("is-lifted");
+      anim = null;
+      placeIndicator(false);
+    };
+    anim.onfinish = done;
+    anim.oncancel = () => indicator?.classList.remove("is-lifted");
+  }
+
+  function placeIndicator(animate) {
+    if (!active) return;
     const nav = document.querySelector(".topnav");
     if (!nav) return;
     if (!indicator || !indicator.isConnected) {
@@ -300,18 +393,20 @@
     const item = nav.querySelector(".topnav-item.active");
     if (!item) {
       indicator.style.opacity = "0";
+      lastActive = null;
       return;
     }
-    if (lastActive && lastActive !== item) {
-      indicator.classList.remove("is-moving");
-      void indicator.offsetWidth;
-      indicator.classList.add("is-moving");
+    const to = itemBox(item);
+    const changed = lastActive && lastActive !== item;
+    indicator.style.opacity = "1";
+    if (changed && animate) {
+      const from = currentBox(nav);
+      lastActive = item;
+      return droplet(from, to);
     }
     lastActive = item;
-    indicator.style.opacity = "1";
-    indicator.style.width = `${item.offsetWidth}px`;
-    indicator.style.height = `${item.offsetHeight}px`;
-    indicator.style.transform = `translate(${item.offsetLeft}px, ${item.offsetTop}px)`;
+    if (anim) return; // al acabar se recoloca
+    setBox(to);
   }
 
   // Las pestañas despliegan su nombre al pasar el ratón y mueven a las de al
@@ -322,17 +417,55 @@
     followUntil = performance.now() + 450;
     if (running) return;
     const step = () => {
-      placeIndicator();
+      placeIndicator(false);
       if (performance.now() < followUntil) requestAnimationFrame(step);
     };
     requestAnimationFrame(step);
   }
 
-  // ------------------------------------------------------------ Luz al tocar
-  // El cristal interactivo de iOS se ilumina donde está el dedo; aquí, donde
-  // está el ratón (lo pinta el CSS con --lg-x / --lg-y).
-  const GLOW_SEL = ".sl-btn, button, .topnav-item, .game-card, .pp-ov-row, .pp-slot, .pp-visit, .theme-swatch";
-  // Una vez por frame como mucho (el ratón manda eventos más rápido).
+  // ------------------------------------------------------------ Borde de desplazamiento
+  // Como en iOS 26: lo que pasa por debajo de la barra flotante no se corta
+  // en seco, se va desenfocando poco a poco (tres capas de desenfoque con
+  // máscaras escalonadas) y se tiñe con el fondo. Solo aparece al bajar.
+  let edge = null;
+  let scroller = null;
+
+  function placeEdge() {
+    const appEl = document.querySelector(".app");
+    const main = document.querySelector(".main-content");
+    const nav = document.querySelector(".topnav");
+    if (!appEl || !main || !nav) return;
+    if (!edge || !edge.isConnected) {
+      edge = document.createElement("div");
+      edge.className = "lg-scroll-edge";
+      edge.setAttribute("aria-hidden", "true");
+      edge.innerHTML = '<i class="lg-se lg-se-1"></i><i class="lg-se lg-se-2"></i><i class="lg-se lg-se-3"></i><i class="lg-se-tint"></i>';
+      appEl.appendChild(edge);
+    }
+    if (scroller !== main) {
+      scroller?.removeEventListener("scroll", onScroll);
+      scroller = main;
+      main.addEventListener("scroll", onScroll, { passive: true });
+    }
+    edge.style.left = `${main.offsetLeft}px`;
+    edge.style.top = `${main.offsetTop}px`;
+    edge.style.width = `${main.clientWidth}px`;
+    edge.style.height = `${nav.offsetTop + nav.offsetHeight + 46}px`;
+    onScroll();
+  }
+
+  function onScroll() {
+    if (!edge || !scroller) return;
+    edge.style.opacity = String(Math.min(1, scroller.scrollTop / 40));
+  }
+
+  // ------------------------------------------------------------ Luz al pasar el ratón
+  // El cristal de Apple se ilumina donde está el dedo; aquí, donde está el
+  // ratón. Los botones y tarjetas (como antes), la barra de arriba y las
+  // ventanas: un brillo suave dentro y el filo más claro cerca del puntero
+  // (lo pinta el CSS con --lg-x / --lg-y).
+  const GLOW_SEL = ".sl-btn, button, .topnav-item, .game-card, .pp-ov-row, .pp-slot, .pp-visit, .theme-swatch, .fg-card, .tp-effect";
+  const SURFACE_SEL = ".topnav, .swal2-popup.sl-modal, .sp-full .sp-search, .pp-dock, .index-bar";
   let lastPointer = null;
   let pointerRaf = 0;
   function onPointer(e) {
@@ -340,52 +473,80 @@
     lastPointer = e;
     if (!pointerRaf) pointerRaf = requestAnimationFrame(paintGlow);
   }
+  const setLight = (node, e) => {
+    if (!node) return;
+    const r = node.getBoundingClientRect();
+    node.style.setProperty("--lg-x", `${Math.round(e.clientX - r.left)}px`);
+    node.style.setProperty("--lg-y", `${Math.round(e.clientY - r.top)}px`);
+  };
   function paintGlow() {
     pointerRaf = 0;
     const e = lastPointer;
-    const t = e?.target.closest?.(GLOW_SEL);
-    if (!t) return;
-    const r = t.getBoundingClientRect();
-    t.style.setProperty("--lg-x", `${Math.round(e.clientX - r.left)}px`);
-    t.style.setProperty("--lg-y", `${Math.round(e.clientY - r.top)}px`);
+    const t = e?.target;
+    if (!t?.closest) return;
+    setLight(t.closest(GLOW_SEL), e);
+    setLight(t.closest(SURFACE_SEL), e);
   }
 
   // ------------------------------------------------------------ Activar / desactivar
+  const reducedTransparency = () => document.documentElement.getAttribute("data-reduce-transparency") === "1";
+
+  function setRefract(on) {
+    if (on === refract) return;
+    refract = on;
+    if (!on) for (const node of [...tracked.keys()]) forget(node);
+    else scan();
+  }
+
   function setActive(on) {
     if (on === active) return;
     active = on;
+    const nav = document.querySelector(".topnav");
     if (on) {
       // Solo altas/bajas de nodos (los cambios de clase del parque irían a
       // cada frame); la pestaña activa se vigila aparte.
       mo.observe(document.body, { childList: true, subtree: true });
-      const nav = document.querySelector(".topnav");
       if (nav) navMo.observe(nav, { subtree: true, attributes: true, attributeFilter: ["class"] });
       nav?.addEventListener("pointerover", followTabs);
       nav?.addEventListener("pointerout", followTabs);
       document.addEventListener("pointermove", onPointer, { passive: true });
-      window.addEventListener("resize", placeIndicator);
+      window.addEventListener("resize", onResize);
       scan();
       // Las fuentes cambian el ancho de las pestañas al cargar.
-      document.fonts?.ready.then(() => active && placeIndicator());
+      document.fonts?.ready.then(() => active && placeIndicator(false));
     } else {
       mo.disconnect();
       clearTimeout(scanTimer);
       scanTimer = 0;
       navMo.disconnect();
-      const nav = document.querySelector(".topnav");
       nav?.removeEventListener("pointerover", followTabs);
       nav?.removeEventListener("pointerout", followTabs);
       document.removeEventListener("pointermove", onPointer);
-      window.removeEventListener("resize", placeIndicator);
-      for (const node of [...tracked.keys()]) forget(node);
+      window.removeEventListener("resize", onResize);
+      setRefract(false);
+      anim?.cancel();
+      anim = null;
       indicator?.parentElement?.classList.remove("lg-has-indicator");
       indicator?.remove();
       indicator = null;
+      scroller?.removeEventListener("scroll", onScroll);
+      scroller = null;
+      edge?.remove();
+      edge = null;
     }
   }
 
-  const sync = () => setActive(document.documentElement.getAttribute("data-effect") === THEME);
-  new MutationObserver(sync).observe(document.documentElement, { attributes: true, attributeFilter: ["data-effect"] });
+  function onResize() {
+    placeIndicator(false);
+    placeEdge();
+  }
+
+  const sync = () => {
+    const on = document.documentElement.getAttribute("data-effect") === THEME;
+    setActive(on);
+    setRefract(on && !reducedTransparency());
+  };
+  new MutationObserver(sync).observe(document.documentElement, { attributes: true, attributeFilter: ["data-effect", "data-reduce-transparency"] });
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", sync);
   else sync();
 })();

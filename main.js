@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, safeStorage, session, Menu, globalShortcut } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, shell, safeStorage, session, Menu, globalShortcut, nativeTheme } = require("electron");
 const Fuse = require("fuse.js");
 const path = require("path");
 const { execFile, spawn } = require("child_process");
@@ -167,7 +167,9 @@ const GAMES_PER_PAGE_MAX = 200;
 // 10 se vuelven ilegibles (miniaturas minúsculas) en una ventana normal.
 const GRID_COLUMNS_MIN = 3;
 const GRID_COLUMNS_MAX = 10;
-const DEFAULT_PREFS = { gamesPerPage: 60, gridColumns: 5, theme: "itachi", themeEffect: "default", shortcuts: [] };
+const DEFAULT_PREFS = { gamesPerPage: 60, gridColumns: 5, theme: "itachi", themeEffect: "default", shortcuts: [], glassTint: "clear" };
+// Liquid Glass: "clear" (Transparente) o "tinted" (Tintado).
+const cleanTint = (v) => (v === "tinted" ? "tinted" : "clear");
 
 // Atajos de teclado (Ajustes > Atajos): [{ action, keys, global }]. Sin
 // ninguno de serie; los pone el usuario. "keys" va en formato de Electron
@@ -236,7 +238,7 @@ function saveSettings() {
 // Lo que viaja con la cuenta además de biblioteca/PokéPark: ajustes de
 // aspecto y las claves (IA, Spotify, tiendas). En el PC siguen cifradas con
 // safeStorage; a la API van en claro por HTTPS y allí se cifran.
-const PROFILE_PREFS = ["theme", "themeEffect", "gridColumns", "gamesPerPage", "shortcuts"];
+const PROFILE_PREFS = ["theme", "themeEffect", "gridColumns", "gamesPerPage", "shortcuts", "glassTint"];
 const PROFILE_SECRETS = ["aiKey", "spotifyAuth", "storeAuth"];
 
 function decryptSetting(key) {
@@ -264,6 +266,7 @@ function setProfile(data) {
     Object.assign(appSettings, clampTheme(p.theme ?? appSettings.theme, p.themeEffect ?? appSettings.themeEffect));
   }
   appSettings.shortcuts = cleanShortcuts(p.shortcuts);
+  if (p.glassTint !== undefined) appSettings.glassTint = cleanTint(p.glassTint);
   const s = data?.secrets || {};
   if (s.spotifyClientId) appSettings.spotifyClientId = String(s.spotifyClientId);
   else delete appSettings.spotifyClientId;
@@ -314,6 +317,7 @@ ipcMain.handle("settings:set", (_e, patch = {}) => {
     Object.assign(appSettings, clampTheme(patch.theme ?? appSettings.theme, patch.themeEffect ?? appSettings.themeEffect));
   }
   if (patch.shortcuts !== undefined) appSettings.shortcuts = cleanShortcuts(patch.shortcuts);
+  if (patch.glassTint !== undefined) appSettings.glassTint = cleanTint(patch.glassTint);
   saveSettings();
   return publicSettings();
 });
@@ -890,6 +894,7 @@ app.whenReady().then(() => {
   loadData();
   setupPlaytime();
   setupFreeGames();
+  nativeTheme.on("updated", () => checkTransparency());
   // En la app instalada: sin menú (fuera Ctrl+R / Ctrl+Shift+I) ni
   // herramientas de desarrollador, para que no se pueda trastear con el
   // dinero o los minijuegos desde la consola.
@@ -904,6 +909,7 @@ app.whenReady().then(() => {
   }
   win.on("focus", () => {
     checkPendingInstalls();
+    checkTransparency();
     if (Date.now() - profileCheckAt > 5 * 60 * 1000) {
       profileCheckAt = Date.now();
       cloud?.syncProfile();
@@ -1545,6 +1551,35 @@ function notifyFreeGames(items) {
 }
 ipcMain.handle("free:get", (_e, force) => freeGames?.get(!!force) || { items: [], fetchedAt: 0, stores: {} });
 ipcMain.handle("free:refresh", () => freeGames?.refresh().catch(() => freeGames.list()));
+
+// -------------------- Transparencia de Windows --------------------
+// Si en Windows están quitados los "Efectos de transparencia" (Personalización
+// > Colores), Liquid Glass pasa solo a Tintado y sin refracción. Se mira el
+// registro (EnableTransparency) y lo que diga Chromium; se vuelve a mirar al
+// volver a la ventana y cuando Windows avisa de un cambio de tema.
+let reducedTransparency = null;
+function readTransparency() {
+  return new Promise((resolve) => {
+    execFile(
+      "reg",
+      ["query", "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize", "/v", "EnableTransparency"],
+      { windowsHide: true },
+      (err, stdout) => {
+        const m = String(stdout || "").match(/EnableTransparency\s+REG_DWORD\s+0x([0-9a-f]+)/i);
+        const off = m ? parseInt(m[1], 16) === 0 : false;
+        resolve(off || nativeTheme.prefersReducedTransparency === true);
+      }
+    );
+  });
+}
+async function checkTransparency() {
+  const reduced = await readTransparency();
+  if (reduced === reducedTransparency) return reduced;
+  reducedTransparency = reduced;
+  if (win && !win.isDestroyed()) win.webContents.send("system:transparency", { reduced });
+  return reduced;
+}
+ipcMain.handle("system:transparency", async () => ({ reduced: await checkTransparency() }));
 
 // -------------------- Atajos globales --------------------
 // Los que el usuario marca como globales funcionan aunque el launcher esté
