@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, safeStorage, session, Menu, Notification, globalShortcut } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, shell, safeStorage, session, Menu, globalShortcut } = require("electron");
 const Fuse = require("fuse.js");
 const path = require("path");
 const { execFile, spawn } = require("child_process");
@@ -314,7 +314,6 @@ ipcMain.handle("settings:set", (_e, patch = {}) => {
     Object.assign(appSettings, clampTheme(patch.theme ?? appSettings.theme, patch.themeEffect ?? appSettings.themeEffect));
   }
   if (patch.shortcuts !== undefined) appSettings.shortcuts = cleanShortcuts(patch.shortcuts);
-  if (patch.freeNotify !== undefined) appSettings.freeNotify = !!patch.freeNotify;
   saveSettings();
   return publicSettings();
 });
@@ -1519,8 +1518,8 @@ const hltb = createHltb({
 ipcMain.handle("games:hltb", (_e, q) => hltb.lookup({ name: String(q?.name || ""), year: q?.year || null, igdbId: q?.igdbId || null }).catch(() => null));
 
 // -------------------- Juegos gratis (freegames.js) --------------------
-// Al salir uno nuevo se avisa con una notificación de Windows (si no se ha
-// quitado el aviso en la página). Pulsarla abre la página de gratis.
+// Al salir uno nuevo se avisa dentro del launcher (notificación de la app,
+// no de Windows: el usuario no la quiere).
 let freeGames = null;
 function setupFreeGames() {
   freeGames = createFreeGames({
@@ -1534,28 +1533,15 @@ function setupFreeGames() {
   freeGames.start();
 }
 
-const STORE_LABEL = { steam: "Steam", epic: "Epic Games", gog: "GOG" };
+// Los nuevos (los ya avisados van en settings.freeSeen) se le pasan a la
+// ventana, que los enseña con su propia notificación.
 function notifyFreeGames(items) {
   const now = items.filter((x) => !x.upcoming);
   const seen = new Set(Array.isArray(appSettings.freeSeen) ? appSettings.freeSeen : []);
   const fresh = now.filter((x) => !seen.has(x.id));
   appSettings.freeSeen = [...new Set([...now.map((x) => x.id), ...seen])].slice(0, 400);
   saveSettings();
-  if (!fresh.length || appSettings.freeNotify === false || !Notification.isSupported()) return;
-  const one = fresh.length === 1;
-  const n = new Notification({
-    title: one ? "Gratis en " + STORE_LABEL[fresh[0].store] : fresh.length + " juegos gratis nuevos",
-    body: one ? fresh[0].title + ": consíguelo antes de que se acabe." : fresh.map((x) => x.title + " (" + STORE_LABEL[x.store] + ")").join(", "),
-    icon: path.join(__dirname, "assets", "icon.png"),
-  });
-  n.on("click", () => {
-    if (!win || win.isDestroyed()) return;
-    if (win.isMinimized()) win.restore();
-    win.show();
-    win.focus();
-    win.webContents.send("free:open");
-  });
-  n.show();
+  if (fresh.length && win && !win.isDestroyed()) win.webContents.send("free:new", fresh);
 }
 ipcMain.handle("free:get", (_e, force) => freeGames?.get(!!force) || { items: [], fetchedAt: 0, stores: {} });
 ipcMain.handle("free:refresh", () => freeGames?.refresh().catch(() => freeGames.list()));

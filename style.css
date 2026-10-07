@@ -6870,57 +6870,6 @@ body.is-guest .cm-myrate {
   color: var(--ink-300);
 }
 
-/* Interruptor "Avisarme" */
-.fg-notify {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--washi-100);
-  cursor: pointer;
-  user-select: none;
-}
-
-.fg-notify input {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.fg-switch {
-  position: relative;
-  width: 34px;
-  height: 20px;
-  border-radius: 999px;
-  background: var(--ink-700);
-  transition: background 0.2s;
-}
-
-.fg-switch::after {
-  content: "";
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: #fff;
-  transition: transform 0.2s var(--ease-smooth);
-}
-
-.fg-notify input:checked + .fg-switch {
-  background: #5cc98a;
-}
-
-.fg-notify input:checked + .fg-switch::after {
-  transform: translateX(14px);
-}
-
-.fg-notify input:focus-visible + .fg-switch {
-  outline: 2px solid var(--red-500);
-  outline-offset: 2px;
-}
-
 /* ---------- Ajustes: atajos de teclado */
 .st-body.st-shortcuts-page {
   overflow-y: auto;

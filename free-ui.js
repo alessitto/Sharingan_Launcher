@@ -3,11 +3,11 @@
 // =====================================================================
 // Los datos los trae freegames.js (main) al arrancar y cada hora; aquí se
 // pintan, se quitan los que terminan (cada minuto se recalcula) y el botón
-// "Gratis" de Descubrir lleva la cuenta de los que hay ahora.
+// "Gratis" de Descubrir lleva la cuenta de los que hay ahora. Cuando sale
+// uno nuevo se avisa con la notificación del launcher.
 (function () {
   const STORES = { steam: "Steam", epic: "Epic Games", gog: "GOG" };
   let list = { items: [], fetchedAt: 0, stores: {} };
-  let notify = true;
   let loading = false;
 
   const root = () => document.getElementById("freeRoot");
@@ -73,9 +73,6 @@
           <h2 class="section-title">Juegos gratis</h2>
         </div>
         <div class="page-head-actions">
-          <label class="fg-notify" title="Aviso de Windows cuando salga uno nuevo">
-            <input type="checkbox" data-notify ${notify ? "checked" : ""}><span class="fg-switch"></span>Avisarme
-          </label>
           <button type="button" class="filter-btn" data-refresh ${loading ? "disabled" : ""}>${icon("refresh")}${loading ? "Buscando…" : "Actualizar"}</button>
           <button type="button" class="filter-btn" data-back>${icon("back")}Volver a Descubrir</button>
         </div>
@@ -123,19 +120,19 @@
     if (e.target.closest("[data-back]")) return showSection("popular", document.querySelector('.topnav-item[aria-label="Descubrir"]'));
     if (e.target.closest("[data-refresh]")) return load(true);
   });
-  document.addEventListener("change", (e) => {
-    if (!e.target.matches?.("#freeRoot [data-notify]")) return;
-    notify = e.target.checked;
-    window.electronAPI.setSettings({ freeNotify: notify });
-  });
 
   window.electronAPI.onFreeGames?.((d) => {
     list = d || list;
     render();
   });
-  window.electronAPI.onFreeOpen?.(() => open());
-  window.electronAPI.getSettings?.().then((s) => {
-    notify = s?.freeNotify !== false;
+  // Uno nuevo: aviso del launcher (no de Windows).
+  window.electronAPI.onFreeNew?.((fresh) => {
+    if (!Array.isArray(fresh) || !fresh.length) return;
+    showNotification(
+      fresh.length === 1
+        ? `Gratis en ${STORES[fresh[0].store]}: ${fresh[0].title}. Lo tienes en Descubrir > Gratis.`
+        : `${fresh.length} juegos gratis nuevos: ${fresh.map((x) => x.title).join(", ")}. Están en Descubrir > Gratis.`
+    );
   });
   // Cuenta atrás y lo que termina: cada minuto.
   setInterval(() => (document.getElementById("free")?.classList.contains("active") ? render() : updateButton()), 60 * 1000);

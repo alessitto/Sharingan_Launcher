@@ -117,7 +117,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   freeGames: (force) => ipcRenderer.invoke('free:get', force),
   freeRefresh: () => ipcRenderer.invoke('free:refresh'),
   onFreeGames: (cb) => ipcRenderer.on('free:changed', (_e, d) => cb(d)),
-  onFreeOpen: (cb) => ipcRenderer.on('free:open', () => cb()),
+  onFreeNew: (cb) => ipcRenderer.on('free:new', (_e, d) => cb(d)),
   setGlobalShortcuts: (list) => ipcRenderer.invoke('shortcuts:global', list),
   onShortcut: (cb) => ipcRenderer.on('shortcuts:run', (_e, action) => cb(action)),
 
