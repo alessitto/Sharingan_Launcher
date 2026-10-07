@@ -6793,11 +6793,21 @@ body.is-guest .cm-myrate {
 }
 
 .fg-body h3 {
-  margin: 0;
+  margin: 0 0 4px;
   font-size: 15px;
   font-weight: 600;
   line-height: 1.3;
   color: var(--washi-50);
+  /* Como mucho dos líneas */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Precio, tiempo y botón siempre abajo, ocupe el título una línea o dos */
+.fg-body .fg-price {
+  margin-top: auto;
 }
 
 .fg-price {
@@ -6836,7 +6846,7 @@ body.is-guest .cm-myrate {
 
 .fg-body .sl-btn {
   align-self: flex-start;
-  margin-top: auto;
+  margin-top: 6px;
 }
 
 .fg-body .sl-btn .i {
