@@ -542,7 +542,7 @@ body.in-pokepark .main-content {
 }
 
 .pp-mon-img {
-  --k: 1.25;
+  --k: calc(1.25 * var(--z, 1));
   --drop: calc(var(--pad, 0) * var(--k) * 1px);
   position: absolute;
   left: 0;
@@ -6451,15 +6451,4 @@ b > .pp-shiny-ic {
 :root[data-effect] .dex-gen-count,
 :root[data-effect] .dex-no {
   font-family: "Press Start 2P", monospace !important;
-}
-
-/* Animados 3D de Showdown (los que no tienen animado pixel): vienen algo más
-   grandes que los de 5ª gen y no son pixel art, así que se encogen un poco
-   y se suavizan al escalar. */
-.pp-mon-img.is-3d {
-  --k: 0.95;
-}
-
-.pp-sprite.is-3d {
-  image-rendering: auto;
 }

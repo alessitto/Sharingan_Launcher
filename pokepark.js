@@ -125,10 +125,6 @@
 
   const SHOWDOWN = "https://play.pokemonshowdown.com/sprites";
   const SPRITE_ANI = (id, shiny) => `${SHOWDOWN}/gen5ani${shiny ? "-shiny" : ""}/${id}.gif`;
-  // Los que no tienen animado pixel (sobre todo 6ª-9ª gen y megas nuevas)
-  // usan el animado 3D de Showdown (a: 2 en pokedex.json), que es algo más
-  // grande: se encoge con .is-3d para que cuadre con los demás.
-  const SPRITE_3D = (id, shiny) => `${SHOWDOWN}/ani${shiny ? "-shiny" : ""}/${id}.gif`;
   const SPRITE_PNG = (id, shiny) => `${SHOWDOWN}/gen5${shiny ? "-shiny" : ""}/${id}.png`;
   // Sprites originales de los objetos, incluidos en la app (assets/pokepark/items).
   const ITEM_IMG = (slug) => `assets/pokepark/items/${slug}.png`;
@@ -480,8 +476,7 @@
     if (!s) return Promise.resolve(null);
     const key = `${s.id}${shiny ? "s" : ""}`;
     if (spriteCache.has(key)) return spriteCache.get(key);
-    const ani = s.a === 2 ? [[SPRITE_3D(s.sd, shiny), "3d"]] : s.a ? [[SPRITE_ANI(s.sd, shiny), true]] : [];
-    const tries = s.sd ? [...ani, [SPRITE_PNG(s.sd, shiny), false]] : [];
+    const tries = s.sd ? [...(s.a ? [[SPRITE_ANI(s.sd, shiny), true]] : []), [SPRITE_PNG(s.sd, shiny), false]] : [];
     if (s.sprite) tries.push([shiny ? s.sprite.replace("/pokemon/", "/pokemon/shiny/") : s.sprite, false]);
     const p = (async () => {
       for (const [url, ani] of tries) {
@@ -528,7 +523,11 @@
         img.style.setProperty("--pad", r.pad);
         img.style.setProperty("--h", r.h);
         img.classList.toggle("is-static", !r.ani);
-        img.classList.toggle("is-3d", r.ani === "3d");
+        // Algunos PNG fijos (sobre todo de 8ª-9ª gen) llenan todo el lienzo
+        // aunque el Pokémon sea pequeño: "z" en pokedex.json los encoge.
+        const z = !r.ani && species(sp)?.z;
+        if (z) img.style.setProperty("--z", z);
+        else img.style.removeProperty("--z");
         img.src = r.src;
       });
     });
