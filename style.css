@@ -6463,3 +6463,606 @@ body.is-guest .cm-myrate {
   min-width: 0;
   max-width: 34px;
 }
+
+/* =====================================================================
+   3.6.1: tiempo jugado, duración, juegos gratis y atajos de teclado
+   ===================================================================== */
+
+/* ---------- Tiempo jugado en las tarjetas (siempre ocupa su línea, para
+   que todas las tarjetas midan lo mismo) */
+.game-card .card-play {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 18px;
+  margin: -2px 2px 0;
+  font-size: 12px;
+  color: var(--ink-300);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.card-play > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card-play .i {
+  flex-shrink: 0;
+  width: 13px;
+  height: 13px;
+}
+
+.card-play .cp-none {
+  opacity: 0.6;
+}
+
+.card-play .cp-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #5cc98a;
+  font-weight: 600;
+}
+
+.cp-live i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #5cc98a;
+  box-shadow: 0 0 0 0 rgba(92, 201, 138, 0.6);
+  animation: cpPulse 1.6s ease-out infinite;
+}
+
+@keyframes cpPulse {
+  to {
+    box-shadow: 0 0 0 7px rgba(92, 201, 138, 0);
+  }
+}
+
+.cp-streak {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  padding: 1px 6px 1px 4px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #ff9f43;
+  background: rgba(255, 159, 67, 0.14);
+}
+
+.cp-streak .i {
+  width: 12px;
+  height: 12px;
+}
+
+/* ---------- Ficha: tu tiempo y duración */
+.info-play {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--ink-800);
+  background: rgba(var(--ink-900-rgb), 0.6);
+}
+
+.info-play-title {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent-text);
+}
+
+.info-play-title .i {
+  width: 14px;
+  height: 14px;
+}
+
+.info-play dt {
+  font-size: 11px;
+  color: var(--ink-300);
+}
+
+.info-play dd {
+  margin: 2px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--washi-50);
+}
+
+.info-play.is-empty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--ink-300);
+}
+
+.info-play.is-empty .i {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+}
+
+.info-hltb-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.info-hltb-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--ink-800);
+  background: rgba(var(--ink-900-rgb), 0.5);
+}
+
+.info-hltb-tile span {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-300);
+}
+
+.info-hltb-tile b {
+  font-family: "Shippori Mincho", serif;
+  font-size: 22px;
+  color: var(--washi-50);
+}
+
+.info-hltb-tile i {
+  height: 4px;
+  margin-top: 4px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.info-hltb-tile em {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--red-500);
+}
+
+.info-hltb {
+  margin-bottom: 26px;
+}
+
+.info-hltb-wait,
+.info-hltb-src {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--ink-300);
+}
+
+.info-hltb-src a {
+  color: var(--accent-text);
+}
+
+@media (max-width: 700px) {
+  .info-hltb-tiles {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- Juegos gratis */
+.free-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--control-h);
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--washi-50);
+  background: linear-gradient(120deg, rgba(92, 201, 138, 0.26), rgba(92, 201, 138, 0.07));
+  border: 1px solid rgba(92, 201, 138, 0.5);
+}
+
+.free-btn:hover {
+  background: linear-gradient(120deg, rgba(92, 201, 138, 0.38), rgba(92, 201, 138, 0.12));
+}
+
+.free-btn .i {
+  width: 16px;
+  height: 16px;
+  color: #5cc98a;
+}
+
+.free-count {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 20px;
+  text-align: center;
+  color: #10301f;
+  background: #5cc98a;
+}
+
+.free-count[hidden] {
+  display: none;
+}
+
+.free-root .page-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.fg-sub {
+  margin: -6px 0 18px;
+  font-size: 13px;
+  color: var(--ink-300);
+}
+
+.fg-h {
+  margin: 28px 0 12px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent-text);
+}
+
+.fg-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.fg-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--ink-800);
+  background: var(--ink-900);
+  transition: transform 0.25s var(--ease-smooth), border-color 0.2s;
+}
+
+.fg-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(92, 201, 138, 0.55);
+}
+
+.fg-card.is-upcoming {
+  opacity: 0.85;
+}
+
+.fg-img {
+  position: relative;
+  aspect-ratio: 460 / 215;
+  background: var(--ink-800);
+}
+
+.fg-img img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.fg-store {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(10, 10, 14, 0.78);
+  backdrop-filter: blur(6px);
+}
+
+.fg-store svg {
+  width: 14px;
+  height: 14px;
+}
+
+.fg-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  padding: 12px 14px 14px;
+}
+
+.fg-body h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--washi-50);
+}
+
+.fg-price {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  font-size: 13px;
+}
+
+.fg-price s {
+  color: var(--ink-300);
+}
+
+.fg-price b {
+  color: #5cc98a;
+}
+
+.fg-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--ink-300);
+}
+
+.fg-time .i {
+  width: 13px;
+  height: 13px;
+}
+
+.fg-time.is-soon {
+  color: #ff9f43;
+  font-weight: 600;
+}
+
+.fg-body .sl-btn {
+  align-self: flex-start;
+  margin-top: auto;
+}
+
+.fg-body .sl-btn .i {
+  width: 15px;
+  height: 15px;
+}
+
+.fg-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 48px 16px;
+  text-align: center;
+}
+
+.fg-empty .i {
+  width: 34px;
+  height: 34px;
+  color: #5cc98a;
+}
+
+.fg-empty p {
+  margin: 0;
+  font-size: 15px;
+  color: var(--washi-50);
+}
+
+.fg-empty span {
+  font-size: 13px;
+  color: var(--ink-300);
+}
+
+/* Interruptor "Avisarme" */
+.fg-notify {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--washi-100);
+  cursor: pointer;
+  user-select: none;
+}
+
+.fg-notify input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.fg-switch {
+  position: relative;
+  width: 34px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--ink-700);
+  transition: background 0.2s;
+}
+
+.fg-switch::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.2s var(--ease-smooth);
+}
+
+.fg-notify input:checked + .fg-switch {
+  background: #5cc98a;
+}
+
+.fg-notify input:checked + .fg-switch::after {
+  transform: translateX(14px);
+}
+
+.fg-notify input:focus-visible + .fg-switch {
+  outline: 2px solid var(--red-500);
+  outline-offset: 2px;
+}
+
+/* ---------- Ajustes: atajos de teclado */
+.st-body.st-shortcuts-page {
+  overflow-y: auto;
+  margin-right: -14px;
+  padding-right: 14px;
+  padding-bottom: 24px;
+}
+
+.sc-intro {
+  display: flex;
+  gap: 10px;
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-300);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.sc-intro > .i {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  color: var(--accent-text);
+}
+
+.sc-intro span .i {
+  width: 12px;
+  height: 12px;
+  vertical-align: -1px;
+}
+
+.sc-group {
+  margin-bottom: 14px;
+}
+
+.sc-group h4 {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent-text);
+}
+
+.sc-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 5px 6px 5px 12px;
+  border-radius: 10px;
+  transition: background 0.15s;
+}
+
+.sc-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.sc-row.is-recording {
+  background: rgba(var(--red-500-rgb), 0.12);
+  box-shadow: inset 0 0 0 1px rgba(var(--red-500-rgb), 0.5);
+}
+
+.sc-label {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--washi-100);
+}
+
+.sc-keys {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.sc-keys em {
+  font-style: normal;
+  font-size: 12px;
+  color: var(--ink-300);
+}
+
+.sc-row.is-recording .sc-keys em {
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+.sc-keys kbd {
+  min-width: 26px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--ink-700);
+  border-bottom-width: 2px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  color: var(--washi-50);
+  background: var(--ink-800);
+}
+
+.sc-global,
+.sc-del {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink-300);
+  cursor: pointer;
+}
+
+.sc-global .i,
+.sc-del .i {
+  width: 15px;
+  height: 15px;
+}
+
+.sc-global:hover:not(:disabled),
+.sc-del:hover {
+  color: var(--washi-50);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.sc-global.is-on {
+  color: #5cc98a;
+  border-color: rgba(92, 201, 138, 0.5);
+  background: rgba(92, 201, 138, 0.12);
+}
+
+.sc-global:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.sc-clear {
+  margin-top: 4px;
+}

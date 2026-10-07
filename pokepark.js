@@ -4848,6 +4848,30 @@
   });
 
   window.PokePark = {
+    // Atajos de teclado: abrir cada cosa del dock sin el ratón.
+    open(what) {
+      if (!ready) return;
+      const run = {
+        shop: openShop,
+        games: () => openGames(),
+        tasks: openTasks,
+        pokedex: openPokedex,
+        bag: openBag,
+        box: openBox,
+        trades: () => openTrades(),
+        work: claimWork,
+        fullscreen: () => {
+          const park = root.querySelector(".pp-park");
+          if (document.fullscreenElement) document.exitFullscreen();
+          else park?.requestFullscreen?.().catch(() => {});
+        },
+      }[what];
+      // Si hay otra ventana abierta se cierra antes.
+      if (run) {
+        if (Swal.isVisible() && what !== "work" && what !== "fullscreen") Swal.close();
+        setTimeout(run, Swal.isVisible() ? 250 : 0);
+      }
+    },
     onShow() {
       if (!ready) return;
       render();

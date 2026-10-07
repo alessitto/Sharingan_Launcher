@@ -110,5 +110,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onStoresProgress: (cb) => ipcRenderer.on('stores:progress', (_e, p) => cb(p)),
   onGamesChanged: (cb) => ipcRenderer.on('games:changed', () => cb()),
 
+  // Tiempo jugado, duración (HowLongToBeat), juegos gratis y atajos
+  playtimeRunning: () => ipcRenderer.invoke('playtime:running'),
+  onPlaytime: (cb) => ipcRenderer.on('playtime:changed', (_e, d) => cb(d)),
+  hltb: (q) => ipcRenderer.invoke('games:hltb', q),
+  freeGames: (force) => ipcRenderer.invoke('free:get', force),
+  freeRefresh: () => ipcRenderer.invoke('free:refresh'),
+  onFreeGames: (cb) => ipcRenderer.on('free:changed', (_e, d) => cb(d)),
+  onFreeOpen: (cb) => ipcRenderer.on('free:open', () => cb()),
+  setGlobalShortcuts: (list) => ipcRenderer.invoke('shortcuts:global', list),
+  onShortcut: (cb) => ipcRenderer.on('shortcuts:run', (_e, action) => cb(action)),
+
   openExternal: (url) => ipcRenderer.invoke('app:openExternal', url),
 });

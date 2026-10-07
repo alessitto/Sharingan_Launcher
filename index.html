@@ -76,6 +76,10 @@
               <h2 class="section-title">Descubrir</h2>
             </div>
             <div class="page-head-actions">
+              <button type="button" id="freeBtn" class="free-btn" onclick="FreeGames.open()" title="Juegos de pago que están gratis para quedártelos">
+                <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5"/></svg>
+                <span>Gratis</span><em class="free-count" hidden></em>
+              </button>
               <button type="button" id="jarvisBtn" class="jarvis-btn needs-account" onclick="openJarvis()" title="Recomendaciones según tu biblioteca">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9Z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9Z"/></svg>
                 <span>Recomendación por Jarvis</span>
@@ -124,6 +128,11 @@
               Cargar más
             </button>
           </div>
+        </section>
+
+        <!-- Juegos gratis (lógica en free-ui.js; los datos, freegames.js en main) -->
+        <section id="free" class="section">
+          <div class="free-root" id="freeRoot"></div>
         </section>
 
         <!-- Biblioteca -->
@@ -197,6 +206,8 @@
     <script src="node_modules/sweetalert2/dist/sweetalert2.all.min.js"></script>
     <script src="themes.js"></script>
     <script src="pokepark.js" defer></script>
+    <script src="free-ui.js" defer></script>
+    <script src="shortcuts.js" defer></script>
     <script src="liquid-glass.js" defer></script>
     <script src="achievements.js" defer></script>
     <script src="community.js" defer></script>
@@ -260,6 +271,13 @@
         trash: '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>',
         pencil: '<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/>',
         plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+        gift: '<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5"/>',
+        keyboard: '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 13h.01M18 13h.01M10 13h4M7 16.5h10"/>',
+        clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+        flame: '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
+        globe: '<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>',
+        external: '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
+        back: '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
         search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
         searchX: '<path d="m13.5 8.5-5 5"/><path d="m8.5 8.5 5 5"/><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
         check: '<path d="M20 6 9 17l-5-5"/>',
@@ -1486,6 +1504,7 @@
                   ? `<div class="info-score" title="Nota media en IGDB (${details.total_rating_count} valoraciones)"><b>${score}</b><span>Nota en IGDB</span></div>`
                   : ""
               }
+              ${owned ? infoPlayHtml(game) : ""}
               ${
                 slRating
                   ? `<div class="info-score is-sl" title="Media de ${slRating.count} ${slRating.count === 1 ? "valoración" : "valoraciones"} en Sharingan Launcher"><b>${String(Math.round(slRating.avg * 10) / 10).replace(".", ",")}${icon("star")}</b><span>Nota en Sharingan Launcher</span></div>`
@@ -1498,6 +1517,8 @@
               ${genres.length ? `<div class="info-genres">${genres.map((g) => `<span>${escapeHtml(g)}</span>`).join("")}</div>` : ""}
               ${facts.length ? `<dl class="info-facts">${facts.map(([k, v]) => `<div><dt>${k}</dt><dd>${escapeHtml(String(v))}</dd></div>`).join("")}</dl>` : ""}
               ${details?.summary ? `<p class="info-summary">${escapeHtml(details.summary)}</p>` : ""}
+              <h4 class="info-subtitle">Duración</h4>
+              <div class="info-hltb" data-hltb><p class="info-hltb-wait">Buscando en HowLongToBeat…</p></div>
               <h4 class="info-subtitle">Requisitos en PC</h4>
               <div class="req-real-container">
                 <div class="req-box"><h5 class="req-title">Mínimos</h5>${formatSteamReqs(reqs.min)}</div>
@@ -1520,6 +1541,57 @@
           showConfirmButton: false,
           showCloseButton: true,
           customClass: { popup: "info-popup" },
+        });
+        fillHltb({ name: details?.name || game.name, year, igdbId: details?.id || game.igdbId || null, played: owned ? game.playSecs : 0 });
+      }
+
+      // Tu tiempo con el juego (en la columna de la portada).
+      function infoPlayHtml(g) {
+        if (!(g.playSecs > 0) && !playingNow.has(String(g.id))) {
+          return canTrack(g) ? `<div class="info-play is-empty">${icon("clock")}<span>Aún no lo has jugado desde el launcher.</span></div>` : "";
+        }
+        const streak = playStreak(g.playDays);
+        const rows = [
+          ["Jugado", fmtPlaytime(g.playSecs)],
+          ["Última vez", playingNow.has(String(g.id)) ? "Ahora mismo" : playAgo(g.lastPlayed)],
+          ["Racha", streak ? `${streak} ${streak === 1 ? "día" : "días"}` : "—"],
+          ["Sesiones", String(g.playSessions || 1)],
+        ];
+        return `<div class="info-play"><p class="info-play-title">${icon("clock")}Tu tiempo</p>${rows
+          .map(([k, v]) => `<div><dt>${k}</dt><dd>${escapeHtml(v)}</dd></div>`)
+          .join("")}</div>`;
+      }
+
+      // Duración según HowLongToBeat (o IGDB si no responde). Llega después
+      // de abrir la ficha para no hacerla esperar.
+      async function fillHltb({ name, year, igdbId, played }) {
+        const box = () => document.querySelector(".info-popup [data-hltb]");
+        const d = await window.electronAPI.hltb({ name, year, igdbId }).catch(() => null);
+        const el = box();
+        if (!el) return;
+        if (!d) {
+          el.innerHTML = `<p class="info-hltb-wait">No hay datos de duración para este juego.</p>`;
+          return;
+        }
+        // Como en HowLongToBeat: horas redondeadas a la media hora.
+        const h = (secs) => (secs > 0 ? (secs < 3600 ? `${Math.round(secs / 60)} min` : `${String(Math.round(secs / 1800) / 2).replace(".", ",")} h`) : "—");
+        const tiles = [
+          ["Historia", d.main],
+          ["Historia y extras", d.plus],
+          ["Completarlo al 100 %", d.full],
+        ];
+        el.innerHTML = `
+          <div class="info-hltb-tiles">${tiles
+            .map(([k, v]) => `<div class="info-hltb-tile"><span>${k}</span><b>${h(v)}</b>${played > 0 && v > 0 ? `<i><em style="width:${Math.min(100, Math.round((played / v) * 100))}%"></em></i>` : ""}</div>`)
+            .join("")}</div>
+          <p class="info-hltb-src">${played > 0 ? `Llevas ${fmtPlaytime(played)}. ` : ""}Fuente: ${
+            d.source === "hltb"
+              ? `<a href="#" data-ext="https://howlongtobeat.com/game/${d.id}">HowLongToBeat</a>`
+              : "IGDB"
+          }</p>`;
+        el.querySelector("[data-ext]")?.addEventListener("click", (e) => {
+          e.preventDefault();
+          window.electronAPI.openExternal(e.currentTarget.dataset.ext);
         });
       }
 
@@ -1544,11 +1616,88 @@
           ${crownHtml}
           <div class="card-cover"><img src="${coverOf(game)}" alt="${escapeHtml(name)}" loading="lazy" onerror="this.onerror=null;this.src='assets/no-cover.png'"></div>
           <h3>${escapeHtml(name)}</h3>
+          ${mode === "library" || mode === "completed" ? `<p class="card-play" data-play="${game.id}">${playLineHtml(game)}</p>` : ""}
           <div class="card-actions">${cardActionsHtml(game, mode)}</div>
         `;
 
         return div;
       }
+
+      // ===============================
+      // Tiempo jugado (lo mide playtime.js en main)
+      // ===============================
+      // Los juegos con carpeta o .exe se miden solos; los demás no se pueden.
+      let playingNow = new Set();
+      const canTrack = (g) => !!(g && !g.notInstalled && (g.installDir || g.executable));
+
+      function fmtPlaytime(secs) {
+        const m = Math.round((secs || 0) / 60);
+        if (m < 1) return "menos de 1 min";
+        if (m < 60) return `${m} min`;
+        const h = Math.floor(m / 60);
+        if (h >= 10) return `${h.toLocaleString("es-ES")} h`;
+        return `${h} h${m % 60 ? ` ${m % 60} min` : ""}`;
+      }
+
+      const localDay = (t) => {
+        const d = new Date(t);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      };
+
+      function playAgo(ms) {
+        if (!ms) return "";
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const days = Math.floor((today.getTime() - new Date(ms).setHours(0, 0, 0, 0)) / 86400000);
+        if (days <= 0) return "hoy";
+        if (days === 1) return "ayer";
+        if (days < 30) return `hace ${days} días`;
+        return new Date(ms).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: days > 300 ? "numeric" : undefined });
+      }
+
+      // Días seguidos jugando hasta hoy (o hasta ayer, si hoy aún no).
+      function playStreak(days) {
+        const set = new Set(days || []);
+        const d = new Date();
+        if (!set.has(localDay(d))) d.setDate(d.getDate() - 1);
+        let n = 0;
+        while (set.has(localDay(d))) {
+          n++;
+          d.setDate(d.getDate() - 1);
+        }
+        return n;
+      }
+
+      function playLineHtml(g) {
+        if (playingNow.has(String(g.id))) return `<span class="cp-live"><i></i>Jugando ahora · ${fmtPlaytime(g.playSecs)}</span>`;
+        if (!(g.playSecs > 0)) return canTrack(g) ? `<span class="cp-none">Sin jugar todavía</span>` : "";
+        const streak = playStreak(g.playDays);
+        return `${icon("clock")}<span>${fmtPlaytime(g.playSecs)} · ${playAgo(g.lastPlayed)}</span>${
+          streak >= 2 ? `<b class="cp-streak" title="${streak} días seguidos">${icon("flame")}${streak}</b>` : ""
+        }`;
+      }
+
+      function refreshPlayLines() {
+        for (const g of [...libraryGamesCache, ...completedGamesCache]) {
+          document.querySelectorAll(`.card-play[data-play="${CSS.escape(String(g.id))}"]`).forEach((el) => (el.innerHTML = playLineHtml(g)));
+        }
+      }
+
+      window.electronAPI.onPlaytime?.(({ running, games }) => {
+        playingNow = new Set((running || []).map(String));
+        for (const upd of games || []) {
+          for (const g of [...libraryGamesCache, ...completedGamesCache]) {
+            if (String(g.id) === String(upd.id)) Object.assign(g, upd);
+          }
+        }
+        refreshPlayLines();
+      });
+      window.electronAPI.playtimeRunning?.().then((ids) => {
+        playingNow = new Set((ids || []).map(String));
+        refreshPlayLines();
+      });
+      // A medianoche cambian "hoy/ayer" y las rachas.
+      setInterval(refreshPlayLines, 10 * 60 * 1000);
 
       // Card de Descubrir ("add"). Aparte porque además de renderizarse en
       // bloque (displayGames) se necesita para ir añadiendo una a una al
@@ -2752,6 +2901,7 @@
         { id: "discover", name: "Descubrir", icon: "grid", account: true },
         { id: "spotify", name: "Spotify", icon: "music", account: true },
         { id: "ai", name: "Inteligencia artificial", icon: "lightbulb", account: true },
+        { id: "shortcuts", name: "Atajos de teclado", icon: "keyboard", account: true },
         { id: "data", name: "Datos", icon: "save" },
         { id: "updates", name: "Actualizaciones", icon: "download" },
       ];
@@ -2791,6 +2941,7 @@
 
       const settingsPageHtml = {
         account: () => `<div class="st-account"></div>`,
+        shortcuts: () => `<div class="st-shortcuts"></div>`,
         stores: () => `<div class="st-stores"></div>`,
         // Tema: colores y estilos en la misma página (con scroll propio).
         theme: () => {
@@ -2875,7 +3026,9 @@
       };
 
       function bindSettingsPage(id, page) {
-        if (id === "account") {
+        if (id === "shortcuts") {
+          window.Shortcuts?.renderSettings(page.querySelector(".st-shortcuts"));
+        } else if (id === "account") {
           window.Community?.renderAccount(page.querySelector(".st-account"), () => openSettingsModal("account"));
         } else if (id === "theme") {
           const colorsEl = page.querySelector("#themeColors");

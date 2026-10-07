@@ -881,6 +881,21 @@
   // Para Ajustes › Spotify.
   window.SpotifyUI = {
     config: () => refreshConfig(),
+    // Para los atajos de teclado: reproducir/pausar, siguiente y anterior,
+    // aunque la pantalla de Spotify esté cerrada.
+    control: async (act) => {
+      if (!connected) return showNotification("Conecta Spotify en Ajustes para usar este atajo.", "error");
+      if (act === "toggle") {
+        if (!state) await poll();
+        if (!state) return;
+        const playing = state.isPlaying;
+        state.progressMs = position();
+        fetchedAt = performance.now();
+        state.isPlaying = !playing;
+        render();
+        await run(playing ? "pause" : "play");
+      } else if (act === "next" || act === "previous") await run(act);
+    },
     // Abre la pantalla de Spotify. Sin conectar (o con `setup`), el asistente
     // en ese paso.
     open: (step = 0, { setup: force = false } = {}) => {

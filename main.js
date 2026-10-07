@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, safeStorage, session, Menu } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, shell, safeStorage, session, Menu, Notification, globalShortcut } = require("electron");
 const Fuse = require("fuse.js");
 const path = require("path");
 const { execFile, spawn } = require("child_process");
@@ -8,6 +8,9 @@ const { createCloud } = require("./cloud");
 const { createSpotify } = require("./spotify");
 const { createStores } = require("./stores");
 const { createMinigames } = require("./minigames");
+const { createPlaytime } = require("./playtime");
+const { createHltb } = require("./hltb");
+const { createFreeGames } = require("./freegames");
 const themes = require("./themes");
 let cloud = null; // se crea al arrancar (setupCloud)
 let stores = null; // cuentas de Steam/Epic/GOG (setupStores)
@@ -164,7 +167,24 @@ const GAMES_PER_PAGE_MAX = 200;
 // 10 se vuelven ilegibles (miniaturas minúsculas) en una ventana normal.
 const GRID_COLUMNS_MIN = 3;
 const GRID_COLUMNS_MAX = 10;
-const DEFAULT_PREFS = { gamesPerPage: 60, gridColumns: 5, theme: "itachi", themeEffect: "default" };
+const DEFAULT_PREFS = { gamesPerPage: 60, gridColumns: 5, theme: "itachi", themeEffect: "default", shortcuts: [] };
+
+// Atajos de teclado (Ajustes > Atajos): [{ action, keys, global }]. Sin
+// ninguno de serie; los pone el usuario. "keys" va en formato de Electron
+// (Ctrl+Shift+P, Alt+F5, MediaPlayPause...).
+function cleanShortcuts(list) {
+  if (!Array.isArray(list)) return [];
+  const out = [];
+  const used = new Set();
+  for (const x of list.slice(0, 100)) {
+    const action = String(x?.action || "");
+    const keys = String(x?.keys || "");
+    if (!/^[a-z0-9-]{2,40}$/.test(action) || !/^[A-Za-z0-9+\-=,./]{1,60}$/.test(keys) || used.has(keys)) continue;
+    used.add(keys);
+    out.push({ action, keys, global: !!x.global });
+  }
+  return out;
+}
 let appSettings = { ...DEFAULT_PREFS };
 
 function clampGamesPerPage(value) {
@@ -216,7 +236,7 @@ function saveSettings() {
 // Lo que viaja con la cuenta además de biblioteca/PokéPark: ajustes de
 // aspecto y las claves (IA, Spotify, tiendas). En el PC siguen cifradas con
 // safeStorage; a la API van en claro por HTTPS y allí se cifran.
-const PROFILE_PREFS = ["theme", "themeEffect", "gridColumns", "gamesPerPage"];
+const PROFILE_PREFS = ["theme", "themeEffect", "gridColumns", "gamesPerPage", "shortcuts"];
 const PROFILE_SECRETS = ["aiKey", "spotifyAuth", "storeAuth"];
 
 function decryptSetting(key) {
@@ -243,6 +263,7 @@ function setProfile(data) {
   if (p.theme !== undefined || p.themeEffect !== undefined) {
     Object.assign(appSettings, clampTheme(p.theme ?? appSettings.theme, p.themeEffect ?? appSettings.themeEffect));
   }
+  appSettings.shortcuts = cleanShortcuts(p.shortcuts);
   const s = data?.secrets || {};
   if (s.spotifyClientId) appSettings.spotifyClientId = String(s.spotifyClientId);
   else delete appSettings.spotifyClientId;
@@ -292,6 +313,8 @@ ipcMain.handle("settings:set", (_e, patch = {}) => {
   if (patch.theme !== undefined || patch.themeEffect !== undefined) {
     Object.assign(appSettings, clampTheme(patch.theme ?? appSettings.theme, patch.themeEffect ?? appSettings.themeEffect));
   }
+  if (patch.shortcuts !== undefined) appSettings.shortcuts = cleanShortcuts(patch.shortcuts);
+  if (patch.freeNotify !== undefined) appSettings.freeNotify = !!patch.freeNotify;
   saveSettings();
   return publicSettings();
 });
@@ -866,6 +889,8 @@ app.whenReady().then(() => {
   setupStores();
   setupMinigames();
   loadData();
+  setupPlaytime();
+  setupFreeGames();
   // En la app instalada: sin menú (fuera Ctrl+R / Ctrl+Shift+I) ni
   // herramientas de desarrollador, para que no se pueda trastear con el
   // dinero o los minijuegos desde la consola.
@@ -893,6 +918,8 @@ app.whenReady().then(() => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
+
+app.on("will-quit", () => globalShortcut.unregisterAll());
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
@@ -1211,6 +1238,7 @@ ipcMain.handle("games:launch", async (e, id) => {
   step("launching");
   const result = await launchGameByPlatform(g);
   if (!result.ok) return result;
+  playtime?.kick();
 
   // Si se sabe el .exe del juego, se espera a verlo en marcha (hasta 45s:
   // Steam puede tardar en sincronizar o actualizar antes de abrirlo).
@@ -1457,6 +1485,106 @@ function setupMinigames() {
   });
   for (const [name, fn] of Object.entries(games.ipc)) ipcMain.handle(`minigames:${name}`, (_e, ...args) => fn(...args));
 }
+
+// -------------------- Tiempo jugado (playtime.js) --------------------
+// Se guarda en cada juego de la biblioteca y de pasados (playSecs,
+// lastPlayed, playSessions, playDays), así viaja con la cuenta con el resto
+// de la biblioteca. A la ventana se le manda solo lo que cambia.
+let playtime = null;
+const PLAY_FIELDS = ["playSecs", "lastPlayed", "playSessions", "playDays"];
+function setupPlaytime() {
+  playtime = createPlaytime({
+    getGames: () => [...games, ...completedGames],
+    onChange: ({ save, sync, running }) => {
+      if (save) writeLibraryFile();
+      if (sync) cloud?.markDirty("library");
+      if (!win || win.isDestroyed()) return;
+      const ids = new Set(running);
+      const changed = [...games, ...completedGames]
+        .filter((g) => ids.has(String(g.id)) || g.lastPlayed > Date.now() - 2 * 60 * 1000)
+        .map((g) => Object.fromEntries([["id", g.id], ...PLAY_FIELDS.map((k) => [k, g[k]])]));
+      win.webContents.send("playtime:changed", { running, games: changed });
+    },
+  });
+  playtime.start();
+}
+ipcMain.handle("playtime:running", () => playtime?.running() || []);
+
+// -------------------- Duración (hltb.js) --------------------
+const hltb = createHltb({
+  fetch,
+  cacheFile: path.join(app.getPath("userData"), "hltb-cache.json"),
+  igdbQuery: (body, endpoint) => igdbGamesQuery(body, endpoint),
+});
+ipcMain.handle("games:hltb", (_e, q) => hltb.lookup({ name: String(q?.name || ""), year: q?.year || null, igdbId: q?.igdbId || null }).catch(() => null));
+
+// -------------------- Juegos gratis (freegames.js) --------------------
+// Al salir uno nuevo se avisa con una notificación de Windows (si no se ha
+// quitado el aviso en la página). Pulsarla abre la página de gratis.
+let freeGames = null;
+function setupFreeGames() {
+  freeGames = createFreeGames({
+    fetch,
+    cacheFile: path.join(app.getPath("userData"), "freegames.json"),
+    onChange: (list) => {
+      if (win && !win.isDestroyed()) win.webContents.send("free:changed", list);
+      notifyFreeGames(list.items);
+    },
+  });
+  freeGames.start();
+}
+
+const STORE_LABEL = { steam: "Steam", epic: "Epic Games", gog: "GOG" };
+function notifyFreeGames(items) {
+  const now = items.filter((x) => !x.upcoming);
+  const seen = new Set(Array.isArray(appSettings.freeSeen) ? appSettings.freeSeen : []);
+  const fresh = now.filter((x) => !seen.has(x.id));
+  appSettings.freeSeen = [...new Set([...now.map((x) => x.id), ...seen])].slice(0, 400);
+  saveSettings();
+  if (!fresh.length || appSettings.freeNotify === false || !Notification.isSupported()) return;
+  const one = fresh.length === 1;
+  const n = new Notification({
+    title: one ? "Gratis en " + STORE_LABEL[fresh[0].store] : fresh.length + " juegos gratis nuevos",
+    body: one ? fresh[0].title + ": consíguelo antes de que se acabe." : fresh.map((x) => x.title + " (" + STORE_LABEL[x.store] + ")").join(", "),
+    icon: path.join(__dirname, "assets", "icon.png"),
+  });
+  n.on("click", () => {
+    if (!win || win.isDestroyed()) return;
+    if (win.isMinimized()) win.restore();
+    win.show();
+    win.focus();
+    win.webContents.send("free:open");
+  });
+  n.show();
+}
+ipcMain.handle("free:get", (_e, force) => freeGames?.get(!!force) || { items: [], fetchedAt: 0, stores: {} });
+ipcMain.handle("free:refresh", () => freeGames?.refresh().catch(() => freeGames.list()));
+
+// -------------------- Atajos globales --------------------
+// Los que el usuario marca como globales funcionan aunque el launcher esté
+// en segundo plano. La ventana manda cuáles registrar (solo con sesión) y
+// al pulsarlos se le devuelve la acción. Los de Spotify no sacan la ventana.
+ipcMain.handle("shortcuts:global", (_e, list) => {
+  globalShortcut.unregisterAll();
+  const failed = [];
+  for (const x of cleanShortcuts(list).filter((sc) => sc.global)) {
+    try {
+      const ok = globalShortcut.register(x.keys, () => {
+        if (!win || win.isDestroyed()) return;
+        if (!x.action.startsWith("sp-")) {
+          if (win.isMinimized()) win.restore();
+          win.show();
+          win.focus();
+        }
+        win.webContents.send("shortcuts:run", x.action);
+      });
+      if (!ok) failed.push(x.keys);
+    } catch {
+      failed.push(x.keys);
+    }
+  }
+  return { failed };
+});
 
 function setupStores() {
   stores = createStores({

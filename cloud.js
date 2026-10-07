@@ -164,12 +164,25 @@ function createCloud(hooks) {
   };
 
   // ------------------------------------------------------------ Combinar
+  // Tiempo jugado de dos PCs: se queda lo mayor y se juntan los días.
+  function mergePlay(a, b) {
+    if (!a) return b;
+    const out = { ...a, ...b };
+    for (const k of ["playSecs", "lastPlayed", "playSessions"]) {
+      const v = Math.max(Number(a[k]) || 0, Number(b[k]) || 0);
+      if (v) out[k] = v;
+    }
+    const days = [...new Set([...(a.playDays || []), ...(b.playDays || [])])].sort().slice(-120);
+    if (days.length) out.playDays = days;
+    return out;
+  }
+
   function mergeLibrary(local, remote) {
     const byId = (list) => new Map((list || []).map((g) => [Number(g.id), g]));
     const completed = byId(remote?.completedGames);
-    for (const [id, g] of byId(local?.completedGames)) completed.set(id, { ...completed.get(id), ...g });
+    for (const [id, g] of byId(local?.completedGames)) completed.set(id, mergePlay(completed.get(id), g));
     const games = byId(remote?.games);
-    for (const [id, g] of byId(local?.games)) games.set(id, { ...games.get(id), ...g });
+    for (const [id, g] of byId(local?.games)) games.set(id, mergePlay(games.get(id), g));
     for (const id of completed.keys()) games.delete(id); // pasado gana a pendiente
 
     const sagas = new Map();
