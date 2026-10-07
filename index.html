@@ -1459,54 +1459,92 @@
         if (!Swal.isVisible() || !document.querySelector(".sl-loading")) return; // cerrado mientras cargaba
         const reqs = reqsResult || { min: "", rec: "" };
 
-        // Comparación numérica fiable contra tu equipo en RAM, VRAM,
-        // almacenamiento libre y versión de Windows - las únicas que se
-        // pueden comparar con un número sin ambigüedad. El modelo de CPU/GPU
-        // se muestra sin veredicto: compararlos de forma fiable necesitaría
-        // una base de datos de benchmarks, y un veredicto equivocado ahí es
-        // peor que ninguno.
-        const extractGb = (str) => {
-          const m = str.match(/(\d+(?:[.,]\d+)?)\s*GB/i);
-          return m ? parseFloat(m[1].replace(",", ".")) : NaN;
-        };
-        const extractWinVersion = (str) => {
-          const m = str.match(/windows\s*(\d+)/i);
-          return m ? parseInt(m[1], 10) : NaN;
-        };
-        const verdict = (key, val) => {
-          if (!mySpecs) return "";
-          const k = key.toLowerCase();
-          let req = NaN;
-          let mine = NaN;
-          if (/memoria|^ram$/.test(k)) [req, mine] = [extractGb(val), mySpecs.ram];
-          else if (/almacenamiento|espacio|storage/.test(k)) [req, mine] = [extractGb(val), mySpecs.freeStorage ?? NaN];
-          else if (/^so$|^os$|sistema operativo/.test(k)) [req, mine] = [extractWinVersion(val), extractWinVersion(mySpecs.os || "")];
-          else if (/vram/i.test(val) || /vram/.test(k)) [req, mine] = [extractGb(val), mySpecs.vram || NaN];
-          if (Number.isNaN(req) || Number.isNaN(mine)) return "";
-          return mine >= req ? "req-pass" : "req-fail";
+        // Semáforo (hardware/compare.js en main): cada componente se compara
+        // por puntuación con el mínimo y el recomendado; el global es el peor.
+        const hwCheck = reqsResult ? await window.electronAPI.hardwareCheck({ min: reqs.min, rec: reqs.rec }).catch(() => null) : null;
+        if (!Swal.isVisible() || !document.querySelector(".sl-loading")) return;
+        const REQ_CLS = { green: "req-pass", yellow: "req-warn", red: "req-fail", unknown: "req-unknown" };
+        const REQ_ICON = { green: "check", yellow: "alert", red: "x", unknown: "help" };
+        const COMP_NAME = { cpu: "Procesador", gpu: "Gráfica", ram: "RAM", vram: "VRAM", storage: "Disco", os: "Windows", dx: "DirectX" };
+        const lineStatus = (line, level) => {
+          const cat = hwCheck?.cats?.[line];
+          const comp = cat && hwCheck?.[level]?.components?.[cat];
+          return comp && REQ_CLS[comp.status] ? comp : null;
         };
 
-        const formatSteamReqs = (text) => {
+        const formatSteamReqs = (text, level) => {
           if (!text || /no especificado|no disponible/i.test(text)) return `<p class="req-empty">Steam no indica requisitos.</p>`;
           const rows = text
             .split("\n")
             .map((l) => l.replace(/•/g, "").trim())
-            .filter((l) => l && !/^(mínimos?|recomendados?):?$/i.test(l));
+            .filter((l) => l && !/^(mínimos?|recomendados?|minimum|recommended):?$/i.test(l));
           return `<div class="req-list">${rows
             .map((line) => {
               const at = line.indexOf(":");
               if (at > -1 && at < 24) {
                 const key = line.slice(0, at).replace(/\*/g, "").trim();
                 const val = line.slice(at + 1).trim();
-                const v = verdict(key, val);
-                return `<div class="req-line ${v}"><span class="req-key">${escapeHtml(key)}${
-                  v ? `<i class="req-mark">${icon(v === "req-pass" ? "check" : "x")}</i>` : ""
+                const c = lineStatus(line, level);
+                return `<div class="req-line ${c ? REQ_CLS[c.status] : ""}"${c?.why ? ` title="${escapeHtml(c.why)}"` : ""}><span class="req-key">${escapeHtml(key)}${
+                  c ? `<i class="req-mark">${icon(REQ_ICON[c.status])}</i>` : ""
                 }</span><span class="req-val">${escapeHtml(val)}</span></div>`;
               }
               return `<div class="req-line is-note"><span class="req-val">${escapeHtml(line)}</span></div>`;
             })
             .join("")}</div>`;
         };
+
+        // Resumen arriba: el color global, qué lo causa y un chip por componente
+        const verdictHtml = () => {
+          const r = hwCheck?.min;
+          if (!r) return "";
+          const head = {
+            green: Object.values(r.components).every((c) => c.status !== "green" || c.meetsRec !== false) && hwCheck.rec?.global === "green" ? "Cumple los recomendados" : "Tu equipo lo mueve",
+            yellow: "Justo: al límite del mínimo",
+            red: `No llega al mínimo: ${r.culprits.map((k) => COMP_NAME[k].toLowerCase()).join(", ")}`,
+            unknown: "No hay datos suficientes para compararlo",
+          }[r.global];
+          const chips = Object.entries(r.components)
+            .filter(([, c]) => REQ_CLS[c.status])
+            .map(([k, c]) => `<span class="req-chip is-${c.status}" title="${escapeHtml(c.why || "")}">${icon(REQ_ICON[c.status])}${COMP_NAME[k]}</span>`)
+            .join("");
+          const whyRows = ["cpu", "gpu"]
+            .map((k) => r.components[k])
+            .filter((c) => c?.why && c.status !== "na")
+            .map((c) => `<li>${escapeHtml(c.why)}</li>`)
+            .join("");
+          const unknown = r.unknown.length ? `<p class="req-verdict-note">Sin verificar: ${r.unknown.map((k) => COMP_NAME[k].toLowerCase()).join(", ")}.</p>` : "";
+          // Integrada con la RAM en un solo canal: un segundo módulo la acelera
+          const h = hwCheck.hw;
+          const channelTip =
+            h?.gpu?.integrated && h.channels === "single" && ["yellow", "red"].includes(r.components.gpu?.status)
+              ? `<p class="req-verdict-note">Tu RAM va en un solo canal: con un segundo módulo igual, la gráfica integrada rendiría alrededor de un ${Math.round((Math.pow(2, hwCheck.k2 ?? 0.2) - 1) * 100)} % más.</p>`
+              : "";
+          return `
+            <div class="req-verdict is-${r.global}">
+              <p class="req-verdict-title"><i class="req-dot"></i>${escapeHtml(head)}</p>
+              <div class="req-chips">${chips}</div>
+              ${whyRows ? `<ul class="req-verdict-why">${whyRows}</ul>` : ""}
+              ${unknown}
+              ${channelTip}
+            </div>`;
+        };
+
+        // Tu equipo, como lo ve el semáforo (con la integrada real, el canal
+        // de la RAM y si es portátil)
+        const hw = hwCheck?.hw || mySpecs?.hw;
+        const sameGameName = (x, y) => String(x).toLowerCase().replace(/[^a-z0-9]+/g, "") === String(y).toLowerCase().replace(/[^a-z0-9]+/g, "");
+        const specsLine = hw
+          ? [
+              hw.cpu.label,
+              `${hw.ram} GB RAM${hw.channels === "single" ? " (un solo canal)" : ""}`,
+              `${hw.gpu.label}${hw.gpu.notes?.length ? ` (${hw.gpu.notes.join(", ")})` : ""}`,
+              hw.freeStorage != null ? `${hw.freeStorage} GB libres` : null,
+              hw.laptop ? "portátil" : null,
+            ]
+              .filter(Boolean)
+              .join(" · ")
+          : null;
 
         const coverUrl = details?.cover?.image_id
           ? `https://images.igdb.com/igdb/image/upload/t_cover_big/${details.cover.image_id}.jpg`
@@ -1549,18 +1587,18 @@
               <h4 class="info-subtitle">Duración</h4>
               <div class="info-hltb" data-hltb>${hltbHtml(null, owned ? game.playSecs : 0)}</div>
               <h4 class="info-subtitle">Requisitos en PC</h4>
+              ${reqsResult?.matchedName && sameGameName(reqsResult.matchedName, game.name) === false ? `<p class="req-matched">${icon("info")}<span>Requisitos de «${escapeHtml(reqsResult.matchedName)}» en Steam (encontrado por el nombre).</span></p>` : ""}
+              ${verdictHtml()}
               <div class="req-real-container">
-                <div class="req-box"><h5 class="req-title">Mínimos</h5>${formatSteamReqs(reqs.min)}</div>
-                <div class="req-box"><h5 class="req-title">Recomendados</h5>${formatSteamReqs(reqs.rec)}</div>
+                <div class="req-box"><h5 class="req-title">Mínimos</h5>${formatSteamReqs(reqs.min, "min")}</div>
+                <div class="req-box"><h5 class="req-title">Recomendados</h5>${formatSteamReqs(reqs.rec, "rec")}</div>
               </div>
               ${
-                mySpecs
-                  ? `<p class="my-specs">${icon("info")}<span>Tu equipo: ${escapeHtml(mySpecs.cpu)} · ${mySpecs.ram} GB RAM · ${escapeHtml(mySpecs.gpu)}${
-                      mySpecs.freeStorage != null ? ` · ${mySpecs.freeStorage} GB libres` : ""
-                    }. En verde lo que cumples y en rojo lo que no.</span></p>`
+                specsLine
+                  ? `<p class="my-specs">${icon("info")}<span>Tu equipo: ${escapeHtml(specsLine)}. Verde: de sobra · amarillo: justo · rojo: no llega · gris: sin datos para comparar.</span></p>`
                   : ""
               }
-              <p class="info-source">Ficha: IGDB · Requisitos: Steam</p>
+              <p class="info-source">Ficha: IGDB · Requisitos: Steam · Rendimiento: Blender Open Data y Wikipedia</p>
             </div>
           </div>`;
 

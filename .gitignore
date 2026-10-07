@@ -33,3 +33,5 @@ Thumbs.db
 # Logs
 logs/
 *.log
+# Datos en bruto de tools/hw-db (1,9 GB de Blender Open Data + Wikipedia)
+tools/hw-db/raw/

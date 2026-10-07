@@ -1265,6 +1265,146 @@ button:disabled:active {
   color: #ec7b8f;
 }
 
+/* Semáforo de requisitos: amarillo (justo) y gris (sin datos) */
+.req-warn {
+  background: rgba(231, 183, 79, 0.13);
+}
+
+.req-warn .req-key,
+.req-warn .req-val {
+  color: #e7c070;
+}
+
+.req-unknown .req-key {
+  color: var(--ink-400);
+}
+
+.req-unknown .req-mark {
+  color: var(--ink-500);
+}
+
+.req-verdict {
+  --req-c: var(--ink-400);
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--req-c) 45%, transparent);
+  background: color-mix(in srgb, var(--req-c) 10%, transparent);
+}
+
+.req-verdict.is-green {
+  --req-c: #8fbf6f;
+}
+
+.req-verdict.is-yellow {
+  --req-c: #e7b74f;
+}
+
+.req-verdict.is-red {
+  --req-c: #ec6f86;
+}
+
+.req-verdict-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--washi-50);
+}
+
+.req-dot {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--req-c);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--req-c) 25%, transparent);
+}
+
+.req-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.req-chip {
+  --req-c: var(--ink-400);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px 3px 7px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--req-c);
+  background: color-mix(in srgb, var(--req-c) 13%, transparent);
+  cursor: default;
+}
+
+.req-chip .i {
+  width: 12px;
+  height: 12px;
+  stroke-width: 3;
+}
+
+.req-chip.is-green {
+  --req-c: #9cc07f;
+}
+
+.req-chip.is-yellow {
+  --req-c: #e7c070;
+}
+
+.req-chip.is-red {
+  --req-c: #ec7b8f;
+}
+
+.req-verdict-why {
+  margin: 10px 0 0;
+  padding: 0 0 0 18px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--ink-300);
+}
+
+.req-verdict-note {
+  margin: 6px 0 0;
+  font-size: 11.5px;
+  color: var(--ink-400);
+}
+
+.req-matched {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--ink-300);
+}
+
+.req-matched .i {
+  width: 14px;
+  height: 14px;
+  margin-top: 2px;
+  flex: none;
+}
+
+:root[data-tone="light"] .req-warn .req-key,
+:root[data-tone="light"] .req-warn .req-val,
+:root[data-tone="light"] .req-chip.is-yellow {
+  color: #8a6510;
+}
+
+:root[data-tone="light"] .req-chip.is-green {
+  color: #2f6a1c;
+}
+
+:root[data-tone="light"] .req-chip.is-red {
+  color: #b0213c;
+}
+
 .my-specs {
   display: flex;
   gap: 8px;

@@ -1,0 +1,27 @@
+{
+  "_comment": "Correcciones a mano que build.js aplica encima de lo calculado. gpu/cpu: { clave: { s: puntuación (misma escala), a: arquitectura, dx, note } }. alias: { clave que llega: clave buena }. cpuIgpu: { cpu: clave de su integrada }. Cada entrada dice de dónde sale.",
+  "gpu": {
+    "nv 6600": { "s": 3, "a": "curie", "dx": 9, "note": "estimación: GeForce 6, sin FP32 en Wikipedia (≈ 1/6 de una 8800 GT)" },
+    "nv 6600 gt": { "s": 3.5, "a": "curie", "dx": 9, "note": "estimación: GeForce 6" },
+    "nv 6800": { "s": 4, "a": "curie", "dx": 9, "note": "estimación: GeForce 6" },
+    "nv 6800 gt": { "s": 4.5, "a": "curie", "dx": 9, "note": "estimación: GeForce 6" },
+    "nv 7600 gt": { "s": 5, "a": "curie", "dx": 9, "note": "estimación: GeForce 7 (≈ 1/3 de una 8800 GT)" },
+    "nv 7600 gs": { "s": 4, "a": "curie", "dx": 9, "note": "estimación: GeForce 7" },
+    "nv 7800 gt": { "s": 6, "a": "curie", "dx": 9, "note": "estimación: GeForce 7" },
+    "nv 7800 gtx": { "s": 7, "a": "curie", "dx": 9, "note": "estimación: GeForce 7" },
+    "nv 7900 gs": { "s": 6, "a": "curie", "dx": 9, "note": "estimación: GeForce 7" },
+    "nv 7900 gt": { "s": 7, "a": "curie", "dx": 9, "note": "estimación: GeForce 7" },
+    "nv 7900 gtx": { "s": 8.5, "a": "curie", "dx": 9, "note": "estimación: GeForce 7 (≈ 1/2 de una 8800 GT)" },
+    "nv 7950 gt": { "s": 8, "a": "curie", "dx": 9, "note": "estimación: GeForce 7" },
+    "amd x800": { "s": 3, "a": "r500", "dx": 9, "note": "estimación: Radeon X800, sin FP32 en Wikipedia" },
+    "amd x800 xt": { "s": 3.5, "a": "r500", "dx": 9, "note": "estimación: Radeon X800" },
+    "amd x1300": { "s": 1.5, "a": "r500", "dx": 9, "note": "estimación: Radeon X1300" },
+    "amd x1600": { "s": 3, "a": "r500", "dx": 9, "note": "estimación: Radeon X1600" },
+    "amd x1900": { "s": 7, "a": "r500", "dx": 9, "note": "estimación: Radeon X1900" },
+    "amd x1950": { "s": 8, "a": "r500", "dx": 9, "note": "estimación: Radeon X1950" },
+    "amd x1950 pro": { "s": 7, "a": "r500", "dx": 9, "note": "estimación: Radeon X1950 Pro" }
+  },
+  "cpu": {},
+  "alias": {},
+  "cpuIgpu": {}
+}

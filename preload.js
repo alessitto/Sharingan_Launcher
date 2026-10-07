@@ -35,6 +35,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Specs del equipo, para comparar contra los requisitos del juego
   getSystemSpecs: () => ipcRenderer.invoke('system:getSpecs'),
+  hardwareCheck: (reqs) => ipcRenderer.invoke('hardware:check', reqs),
 
   // Historial de versiones
   getAppVersion: () => ipcRenderer.invoke('app:getVersion'),

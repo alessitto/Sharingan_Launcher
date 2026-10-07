@@ -1,11 +1,13 @@
 {
   "name": "sharingan-launcher",
-  "version": "3.8.3-beta",
+  "version": "3.8.4-beta",
   "description": "Estas cansado de tener muchos juegos en diferentes launchers, simplificalo y unelos todos en uno, Sharingan Launcher.",
   "main": "main.js",
   "scripts": {
     "start": "electron main.js",
-    "dist": "electron-builder --win"
+    "dist": "electron-builder --win",
+    "test": "node --test \"test/**/*.test.js\"",
+    "hw-db": "node tools/hw-db/build.js"
   },
   "keywords": [],
   "author": "",
@@ -48,6 +50,11 @@
         "repo": "Sharingan_Launcher",
         "releaseType": "release"
       }
+    ],
+    "files": [
+      "**/*",
+      "!tools/hw-db/raw/**",
+      "!test/**"
     ]
   }
 }

@@ -1,0 +1,68 @@
+{
+ "620": {
+  "name": "Portal 2",
+  "spanish": {
+   "min": "Mínimo:\n• SO *: Windows 7 / Vista / XP\n• Procesador: P4 a 3,0 GHz, doble núcleo a 2,0 GHz (o superior) o AMD64 X2 (o superior)\n• Memoria: 2 GB de RAM\n• Gráficos: La tarjeta gráfica debe tener un tamaño de 128 MB como mínimo y ser compatible con Pixel Shader 2.0b (ATI Radeon X800 o superior / NVIDIA GeForce 7600 o superior / Gráficos HD Intel 2000 o superior).\n• DirectX: Versión 9.0c\n• Almacenamiento: 8 GB de espacio disponible\n• Tarjeta de sonido: Compatible con DirectX 9.0c",
+   "rec": ""
+  },
+  "english": {
+   "min": "Minimum:\n• OS *: Windows 7 / Vista / XP\n• Processor: 3.0 GHz P4, Dual Core 2.0 (or higher) or AMD64X2 (or higher)\n• Memory: 2 GB RAM\n• Graphics: Video card must be 128 MB or more and with support for Pixel Shader 2.0b (ATI Radeon X800 or higher / NVIDIA GeForce 7600 or higher / Intel HD Graphics 2000 or higher).\n• DirectX: Version 9.0c\n• Storage: 8 GB available space\n• Sound Card: DirectX 9.0c compatible",
+   "rec": ""
+  }
+ },
+ "8930": {
+  "name": "Sid Meier's Civilization® V",
+  "spanish": {
+   "min": "Mínimo:\n• SO: Windows® XP SP3 / Windows® Vista SP2 / Windows® 7\n• Procesador: Intel Core 2 Duo a 1.8 GHz o AMD Athlon X2 64 a 2.0 GHz\n• Memoria: 2 GB de RAM\n• Gráficos: ATI HD2600 XT con 256 MB o superior, nVidia 7900 GS con 256 MB o superior, Core i3 o gráfica integrada superior\n• DirectX®: DirectX® versión 9.0c\n• Disco Duro: 8 GB de espacio libre\n• Sonido: Compatible con DirectX 9.0c",
+   "rec": "Recomendado:\n• SO: Windows® Vista SP2 / Windows® 7\n• Procesador: Quad Core a 1.8 GHz\n• Memoria: 4 GB de RAM\n• Gráficos: Familia ATI 4800 con 512 MB o superior, familia nVidia 9800 con 512 MB o superior\n• DirectX®: DirectX® versión 11\n• Disco Duro: 8 GB de espacio libre\n• Sonido: Compatible con DirectX 9.0c"
+  },
+  "english": {
+   "min": "Minimum:\n• OS *: Windows® Vista SP2/ Windows® 7\n• Processor: Intel Core 2 Duo 1.8 GHz or AMD Athlon X2 64 2.0 GHz\n• Memory: 2GB RAM\n• Graphics:256 MB ATI HD2600 XT or better, 256 MB nVidia 7900 GS or better, or Core i3 or better integrated graphics\n• DirectX®: DirectX® version 9.0c\n• Hard Drive: 8 GB Free\n• Sound: DirectX 9.0c-compatible sound card\n• Note: Optimized for the touch-screen Ultrabook™ device",
+   "rec": "Recommended:\n• OS *: Windows® Vista SP2/ Windows® 7\n• Processor: 1.8 GHz Quad Core CPU\n• Memory: 4 GB RAM\n• Graphics: 512 MB ATI 4800 series or better, 512 MB nVidia 9800 series or better\n• DirectX®: DirectX® version 11\n• Hard Drive: 8 GB Free\n• Sound: DirectX 9.0c-compatible sound card\n• Note: Optimized for the touch-screen Ultrabook™ device"
+  }
+ },
+ "292030": {
+  "name": "The Witcher 3: Wild Hunt — Remastered",
+  "spanish": {
+   "min": "Mínimo:\n• SO: 64-bit Windows 11\n• Procesador: Core i5-8400 / Ryzen 5 2600\n• Memoria: 12 GB de RAM\n• Gráficos: GeForce GTX 1660 / Radeon RX 5500 XT 8GB / Arc A580\n• Almacenamiento: 60 SSD GB de espacio disponible\n• Notas adicionales: VRAM 6 GB",
+   "rec": "Recomendado:\n• SO: 64-bit Windows 11\n• Procesador: Intel Core i7 8700K / AMD Ryzen 5 3600X\n• Memoria: 16 GB de RAM\n• Gráficos: RTX 2060 Super / AMD Radeon RX 6600 XT / Intel Arc B580\n• Almacenamiento: 60 SSD GB de espacio disponible\n• Notas adicionales: VRAM 8 GB"
+  },
+  "english": {
+   "min": "Minimum:\n• OS: 64-bit Windows 11\n• Processor: Core i5-8400 / Ryzen 5 2600\n• Memory: 12 GB RAM\n• Graphics: GeForce GTX 1660 / Radeon RX 5500 XT 8GB / Arc A580\n• Storage: 60 SSD GB available space\n• Additional Notes: VRAM 6 GB",
+   "rec": "Recommended:\n• OS: 64-bit Windows 11\n• Processor: Intel Core i7 8700K / AMD Ryzen 5 3600X\n• Memory: 16 GB RAM\n• Graphics: RTX 2060 Super / AMD Radeon RX 6600 XT / Intel Arc B580\n• Storage: 60 SSD GB available space\n• Additional Notes: VRAM 8 GB"
+  }
+ },
+ "367520": {
+  "name": "Hollow Knight",
+  "spanish": {
+   "min": "Mínimo:\n• Requiere un procesador y un sistema operativo de 64 bits\n• SO: Windows 10 version 21H1 (build 19043) or newer\n• Procesador: Intel Core i3-3240, AMD FX-4300\n• Memoria: 4 GB de RAM\n• Gráficos: GeForce GTX 560 Ti (1GB), Radeon HD 7750 (1GB)\n• DirectX: Versión 10\n• Almacenamiento: 9 GB de espacio disponible",
+   "rec": "Recomendado:\n• Requiere un procesador y un sistema operativo de 64 bits\n• SO: Windows 10 version 21H1 (build 19043) or newer\n• Procesador: Intel Core i5-3470\n• Memoria: 8 GB de RAM\n• Gráficos: GeForce GTX 1050 (2GB), Radeon R9 380 (2GB)\n• DirectX: Versión 10\n• Almacenamiento: 9 GB de espacio disponible"
+  },
+  "english": {
+   "min": "Minimum:\n• Requires a 64-bit processor and operating system\n• OS: Windows 10 version 21H1 (build 19043) or newer\n• Processor: Intel Core i3-3240, AMD FX-4300\n• Memory: 4 GB RAM\n• Graphics: GeForce GTX 560 Ti (1GB), Radeon HD 7750 (1GB)\n• DirectX: Version 10\n• Storage: 9 GB available space",
+   "rec": "Recommended:\n• Requires a 64-bit processor and operating system\n• OS: Windows 10 version 21H1 (build 19043) or newer\n• Processor: Intel Core i5-3470\n• Memory: 8 GB RAM\n• Graphics: GeForce GTX 1050 (2GB), Radeon R9 380 (2GB)\n• DirectX: Version 10\n• Storage: 9 GB available space"
+  }
+ },
+ "1091500": {
+  "name": "Cyberpunk 2077",
+  "spanish": {
+   "min": "Mínimo:\n• Requiere un procesador y un sistema operativo de 64 bits\n• SO: 64-bit Windows 10\n• Procesador: Core i7-6700 or Ryzen 5 1600\n• Memoria: 12 GB de RAM\n• Gráficos: GeForce GTX 1060 6GB or Radeon RX 580 8GB or Arc A380\n• DirectX: Versión 12\n• Almacenamiento: 70 GB de espacio disponible\n• Notas adicionales: SSD required. Attention: In this game you will encounter a variety of visual effects that may provide seizures or loss of consciousness in a minority of people. If you or someone you know experiences any of the above symptoms while playing, stop and seek medical attention immediately.",
+   "rec": "Recomendado:\n• Requiere un procesador y un sistema operativo de 64 bits\n• SO: 64-bit Windows 10\n• Procesador: Core i7-12700 or Ryzen 7 7800X3D\n• Memoria: 16 GB de RAM\n• Gráficos: GeForce RTX 2060 SUPER or Radeon RX 5700 XT or Arc A770\n• DirectX: Versión 12\n• Almacenamiento: 70 GB de espacio disponible\n• Notas adicionales: SSD required."
+  },
+  "english": {
+   "min": "Minimum:\n• Requires a 64-bit processor and operating system\n• OS: 64-bit Windows 10\n• Processor: Core i7-6700 or Ryzen 5 1600\n• Memory: 12 GB RAM\n• Graphics: GeForce GTX 1060 6GB or Radeon RX 580 8GB or Arc A380\n• DirectX: Version 12\n• Storage: 70 GB available space\n• Additional Notes: SSD required. Attention: In this game you will encounter a variety of visual effects that may provide seizures or loss of consciousness in a minority of people. If you or someone you know experiences any of the above symptoms while playing, stop and seek medical attention immediately.",
+   "rec": "Recommended:\n• Requires a 64-bit processor and operating system\n• OS: 64-bit Windows 10\n• Processor: Core i7-12700 or Ryzen 7 7800X3D\n• Memory: 16 GB RAM\n• Graphics: GeForce RTX 2060 SUPER or Radeon RX 5700 XT or Arc A770\n• DirectX: Version 12\n• Storage: 70 GB available space\n• Additional Notes: SSD required."
+  }
+ },
+ "1245620": {
+  "name": "ELDEN RING",
+  "spanish": {
+   "min": "Mínimo:\n• Requiere un procesador y un sistema operativo de 64 bits\n• SO: Windows 10\n• Procesador: INTEL CORE I5-8400 or AMD RYZEN 3 3300X\n• Memoria: 12 GB de RAM\n• Gráficos: NVIDIA GEFORCE GTX 1060 3 GB or AMD RADEON RX 580 4 GB\n• DirectX: Versión 12\n• Almacenamiento: 60 GB de espacio disponible\n• Tarjeta de sonido: Windows Compatible Audio Device\n• Notas adicionales:",
+   "rec": "Recomendado:\n• Requiere un procesador y un sistema operativo de 64 bits\n• SO: Windows 10/11\n• Procesador: INTEL CORE I7-8700K or AMD RYZEN 5 3600X\n• Memoria: 16 GB de RAM\n• Gráficos: NVIDIA GEFORCE GTX 1070 8 GB or AMD RADEON RX VEGA 56 8 GB\n• DirectX: Versión 12\n• Almacenamiento: 60 GB de espacio disponible\n• Tarjeta de sonido: Windows Compatible Audio Device\n• Notas adicionales:"
+  },
+  "english": {
+   "min": "Minimum:\n• Requires a 64-bit processor and operating system\n• OS: Windows 10\n• Processor: INTEL CORE I5-8400 or AMD RYZEN 3 3300X\n• Memory: 12 GB RAM\n• Graphics: NVIDIA GEFORCE GTX 1060 3 GB or AMD RADEON RX 580 4 GB\n• DirectX: Version 12\n• Storage: 60 GB available space\n• Sound Card: Windows Compatible Audio Device\n• Additional Notes:",
+   "rec": "Recommended:\n• Requires a 64-bit processor and operating system\n• OS: Windows 10/11\n• Processor: INTEL CORE I7-8700K or AMD RYZEN 5 3600X\n• Memory: 16 GB RAM\n• Graphics: NVIDIA GEFORCE GTX 1070 8 GB or AMD RADEON RX VEGA 56 8 GB\n• DirectX: Version 12\n• Storage: 60 GB available space\n• Sound Card: Windows Compatible Audio Device\n• Additional Notes:"
+  }
+ }
+}

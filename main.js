@@ -17,6 +17,12 @@ let stores = null; // cuentas de Steam/Epic/GOG (setupStores)
 const fs = require("fs");
 const fetch = require("node-fetch"); // npm install node-fetch@2
 const si = require("systeminformation"); // npm install systeminformation
+// Semáforo de requisitos: detección del equipo, requisitos de Steam y
+// comparación por puntuaciones (data/hw-scores.json, ver tools/hw-db).
+const hwDetect = require("./hardware/detect");
+const hwReqs = require("./hardware/reqs");
+const hwCompare = require("./hardware/compare");
+const hwScores = require("./hardware/scores");
 
 // Una sola ventana: si ya está abierta, abrirla otra vez la trae al frente
 // (dos instancias escribiendo los mismos archivos acababan pisándose).
@@ -2711,39 +2717,51 @@ ipcMain.handle("app:openExternal", (_e, url) => {
 });
 
 // -------------------- System Specs IPC --------------------
+// Se lee una vez por sesión (hardware/detect.js). El espacio libre es el de
+// la unidad con más hueco: no sabemos dónde se instalará el juego.
 ipcMain.handle("system:getSpecs", async () => {
   try {
-    const cpu = await si.cpu();
-    const mem = await si.mem();
-    const graphics = await si.graphics();
-    const osInfo = await si.osInfo();
-    const fsSize = await si.fsSize().catch(() => []);
-
-    const gpu =
-      graphics.controllers.find((c) => c.vram > 1024) ||
-      graphics.controllers[0];
-    const vramGb = gpu?.vram ? Math.round((gpu.vram / 1024) * 10) / 10 : 0;
-
-    // Espacio libre: no sabemos en que unidad va a instalar el usuario el
-    // juego, asi que se toma la unidad con mas espacio libre (heuristica
-    // "cabria en algun sitio", no una unidad concreta).
-    const drives = (fsSize || []).filter((d) => d.size > 0);
-    const freeStorage = drives.length
-      ? Math.floor(Math.max(...drives.map((d) => d.available / 1024 / 1024 / 1024)))
-      : null;
-
+    const hw = await hwDetect.detect(si);
+    const g = hw.gpu;
     return {
-      cpu: `${cpu.manufacturer} ${cpu.brand}`,
-      ram: Math.floor(mem.total / 1024 / 1024 / 1024), // GB
-      gpu: gpu
-        ? `${gpu.model} (${Math.floor(gpu.vram / 1024)} GB)`
-        : "Integrada",
-      vram: vramGb,
-      os: osInfo.distro,
-      freeStorage,
+      cpu: hw.cpu.label,
+      ram: hw.ram,
+      gpu: `${g.label}${!g.integrated && g.vramGb ? ` (${Math.round(g.vramGb)} GB)` : ""}`,
+      vram: hw.vram,
+      freeStorage: hw.freeStorage,
+      hw,
     };
   } catch (e) {
     console.error(e);
+    return null;
+  }
+});
+
+// Semáforo: requisitos (texto de Steam) frente al equipo. Devuelve la
+// comparación con los mínimos (la que manda) y con los recomendados (para
+// la columna de recomendados), y la categoría de cada línea.
+ipcMain.handle("hardware:check", async (_e, { min, rec } = {}) => {
+  try {
+    const hw = await hwDetect.detect(si);
+    const pMin = hwReqs.parseRequirements(min);
+    const pRec = hwReqs.parseRequirements(rec);
+    const cats = {};
+    for (const text of [min, rec]) {
+      for (const l of String(text || "").split("\n")) {
+        const line = l.replace(/•/g, "").trim();
+        const cat = hwReqs.lineCategory(line);
+        if (cat) cats[line] = cat;
+      }
+    }
+    return {
+      min: hwCompare.check(hw, pMin, pRec),
+      rec: pRec ? hwCompare.check(hw, pRec, null) : null,
+      cats,
+      hw,
+      k2: hwScores.calibration()?.k2,
+    };
+  } catch (e) {
+    console.error("[hw] check", e);
     return null;
   }
 });
@@ -2952,10 +2970,28 @@ function stripHtml(html) {
     .join("\n");
 }
 
+// Requisitos ya descargados (por appid de Steam): casi nunca cambian.
+const REQS_CACHE_DAYS = 30;
+const reqsCachePath = path.join(app.getPath("userData"), "steam-reqs-cache.json");
+let reqsCache = null;
+const reqsCacheGet = (id) => {
+  reqsCache ||= safeReadJson(reqsCachePath) || {};
+  const c = reqsCache[id];
+  return c && Date.now() - c.at < REQS_CACHE_DAYS * 864e5 ? c : null;
+};
+const reqsCacheSet = (id, data) => {
+  reqsCache ||= safeReadJson(reqsCachePath) || {};
+  reqsCache[id] = { ...data, at: Date.now() };
+  safeWriteJson(reqsCachePath, reqsCache);
+};
+
 ipcMain.handle(
   "steam:getRequirements",
   async (_e, { igdbId, steamAppId, gameName }) => {
     let targetSteamId = steamAppId;
+    // Si el juego se encuentra buscando por nombre, se dice cuál ha salido
+    // (puede ser otra edición o una secuela).
+    let matchedName = null;
 
     console.log(`[Reqs] Buscando para: "${gameName}" (IGDB: ${igdbId})`);
 
@@ -2998,6 +3034,7 @@ ipcMain.handle(
         if (results.length > 0) {
           const best = results[0].item;
           targetSteamId = best.appid;
+          matchedName = best.name;
           console.log(
             `[Reqs] ¡Encontrado con Fuse! "${gameName}" ~ "${best.name}" (ID: ${targetSteamId})`
           );
@@ -3011,8 +3048,10 @@ ipcMain.handle(
       }
     }
 
-    // 3. Descargar requisitos de la tienda
+    // 3. Descargar requisitos de la tienda (o de la caché)
     if (!targetSteamId) return null;
+    const cached = reqsCacheGet(targetSteamId);
+    if (cached) return cached.none ? null : { min: cached.min, rec: cached.rec, matchedName };
     try {
       const steamUrl = `https://store.steampowered.com/api/appdetails?appids=${targetSteamId}&l=spanish`;
 
@@ -3031,12 +3070,14 @@ ipcMain.handle(
         const pcReqs = appData.data.pc_requirements;
 
         // A veces viene vacio []
-        if (!pcReqs || Array.isArray(pcReqs)) return null;
+        if (!pcReqs || Array.isArray(pcReqs)) {
+          reqsCacheSet(targetSteamId, { none: true });
+          return null;
+        }
 
-        return {
-          min: stripHtml(pcReqs.minimum),
-          rec: stripHtml(pcReqs.recommended),
-        };
+        const out = { min: stripHtml(pcReqs.minimum), rec: stripHtml(pcReqs.recommended) };
+        reqsCacheSet(targetSteamId, out);
+        return { ...out, matchedName };
       }
     } catch (e) {
       console.error("[Reqs] Error fetching store details", e);
