@@ -326,8 +326,69 @@
           game?.coverUrl ||
           (game?.cover?.image_id
             ? `https://images.igdb.com/igdb/image/upload/t_cover_big/${game.cover.image_id}.jpg`
-            : "assets/no-cover.png")
+            : noCoverSvg(game?.name))
         );
+      }
+
+      // Portada para juegos sin portada: una carátula sobria con el nombre del
+      // juego y el tomoe del Sharingan de fondo, con los colores del tema
+      // activo (se vuelve a generar al cambiar de tema, ver refreshNoCovers).
+      // Es un SVG en data URL para que sirva en cualquier <img>.
+      function noCoverSvg(title = "") {
+        const css = getComputedStyle(document.documentElement);
+        const v = (name, fb) => css.getPropertyValue(name).trim() || fb;
+        const bg1 = v("--ink-800", "#1c1c1f");
+        const bg2 = v("--ink-950", v("--ink-900", "#101012"));
+        const accent = v("--red-500", "#a61414");
+        const ink = v("--washi-50", "#f4f1ea");
+        const muted = v("--ink-400", "#8a8a90");
+        const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" })[c]);
+        // Nombre en hasta 3 líneas (~17 caracteres por línea a este tamaño)
+        const words = String(title || "Sin portada").split(/\s+/).filter(Boolean);
+        const lines = [];
+        let line = "";
+        for (const w of words) {
+          const next = line ? `${line} ${w}` : w;
+          if (next.length > 17 && line) {
+            lines.push(line);
+            line = w;
+          } else line = next;
+        }
+        if (line) lines.push(line);
+        if (lines.length > 3) {
+          lines.length = 3;
+          lines[2] = `${lines[2].replace(/\s*\S*$/, "")}…`;
+        }
+        const size = lines.length === 1 && lines[0].length <= 10 ? 30 : 23;
+        const lh = size * 1.18;
+        const y0 = 318 - (lines.length - 1) * lh;
+        const text = lines.map((l, i) => `<tspan x="24" y="${(y0 + i * lh).toFixed(1)}">${esc(l)}</tspan>`).join("");
+        // Tomoe: cabeza redonda sobre el anillo y cola corta curvada
+        const tomoe = (deg) =>
+          `<g transform="rotate(${deg} 132 140)"><circle cx="132" cy="96" r="10.5"/><path d="M121.6 94.5C122 83 133 77 147 80c-8 3-13 8-13 16z"/></g>`;
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 264 352"><desc>sl-nocover|${esc(title)}</desc>
+<defs><linearGradient id="b" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${bg1}"/><stop offset="1" stop-color="${bg2}"/></linearGradient>
+<radialGradient id="g" cx=".5" cy=".38" r=".6"><stop offset="0" stop-color="${accent}" stop-opacity=".22"/><stop offset="1" stop-color="${accent}" stop-opacity="0"/></radialGradient></defs>
+<rect width="264" height="352" fill="url(#b)"/><rect width="264" height="352" fill="url(#g)"/>
+<g fill="none" stroke="${accent}" stroke-opacity=".28"><circle cx="132" cy="140" r="78" stroke-width="1.5"/><circle cx="132" cy="140" r="44" stroke-width="1"/></g>
+<g fill="${accent}" opacity=".38"><circle cx="132" cy="140" r="9"/>${tomoe(0)}${tomoe(120)}${tomoe(240)}</g>
+<rect x="24" y="${(y0 - size - 14).toFixed(1)}" width="26" height="3" rx="1.5" fill="${accent}"/>
+<text font-family="Georgia, 'Times New Roman', serif" font-size="${size}" font-weight="700" fill="${ink}" letter-spacing="-.2">${text}</text>
+<text x="24" y="38" font-family="'Segoe UI', system-ui, sans-serif" font-size="10.5" font-weight="600" letter-spacing="2.2" fill="${muted}">SIN PORTADA</text>
+<rect x=".5" y=".5" width="263" height="351" fill="none" stroke="#fff" stroke-opacity=".06"/></svg>`;
+        return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+      }
+
+      // Tras cambiar de tema: las portadas genéricas que haya en pantalla se
+      // rehacen con los colores nuevos (el nombre va dentro del propio SVG).
+      function refreshNoCovers() {
+        document.querySelectorAll('img[src^="data:image/svg+xml"]').forEach((img) => {
+          const svg = decodeURIComponent(img.getAttribute("src").split(",").slice(1).join(","));
+          const m = /<desc>sl-nocover\|([\s\S]*?)<\/desc>/.exec(svg);
+          if (!m) return;
+          const title = m[1].replace(/&(amp|lt|gt|quot|apos);/g, (_, e) => ({ amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" })[e]);
+          img.src = noCoverSvg(title);
+        });
       }
 
       function releaseYear(game) {
@@ -1047,8 +1108,9 @@
             container.appendChild(buildGameCard(entry.game, "completed"));
             return;
           }
-          appendSagaGroups(container, entry.saga, entry.games, (g) => buildGameCard(g, "completed"));
+          container.appendChild(buildSagaGroup(entry.saga, entry.games, (g) => buildGameCard(g, "completed")));
         });
+        layoutSagaGrid(container);
       }
 
       function currentGridColumns() {
@@ -1056,50 +1118,38 @@
         return window.innerWidth <= 700 ? Math.min(cols, 2) : cols;
       }
 
-      // Bloque de saga dentro de una rejilla (biblioteca y pasados). Ocupa
-      // solo tantas columnas como juegos tenga (hasta el máximo de la fila),
-      // así se coloca en línea con el resto de cards en vez de partir la
-      // fila y dejar huecos. Cada card lleva su número dentro de la saga (el
+      // Bloque de saga: UN div (display: contents) con su cabecera, su marco
+      // y sus cards, que se colocan directamente en la rejilla. Así el
+      // bloque ocupa justo los huecos de sus juegos: 5 de 5 columnas = una
+      // fila, 10 = dos filas, 7 = una fila y dos huecos de la siguiente, y
+      // lo que venga después (otra saga o un juego) se pone al lado. El fondo
+      // y el borde los dibuja drawSagaFrames() en SVG con la forma real (un
+      // rectángulo o una L). Cada card lleva su número dentro de la saga (el
       // de la saga completa, aunque alguno esté en la otra sección).
-      // Una saga con más juegos que columnas se parte en tramos: filas
-      // completas y un último tramo con lo que sobre. Así ocupa justo los
-      // huecos que necesita y lo siguiente (otra saga, o un juego en Pasados)
-      // se coloca al lado de su último juego en vez de dejar la fila a medias.
-      function appendSagaGroups(container, saga, gamesInOrder, buildCard, letter) {
-        const cols = currentGridColumns();
-        const parts = [];
-        for (let i = 0; i < gamesInOrder.length; i += cols) parts.push(gamesInOrder.slice(i, i + cols));
-        parts.forEach((games, i) => container.appendChild(buildSagaGroup(saga, games, buildCard, letter, { part: i, parts: parts.length })));
-      }
-
-      function buildSagaGroup(saga, gamesInOrder, buildCard, letter, { part = 0, parts = 1 } = {}) {
+      function buildSagaGroup(saga, gamesInOrder, buildCard, letter) {
         const wrap = document.createElement("div");
-        wrap.className = `saga-group${part > 0 ? " is-continued" : ""}${part < parts - 1 ? " continues" : ""}`;
+        wrap.className = "saga-group";
         wrap.dataset.sagaId = saga.id;
-        if (letter) wrap.dataset.letter = letter;
-        const span = Math.max(1, Math.min(gamesInOrder.length, currentGridColumns()));
-        wrap.style.gridColumn = `span ${span}`;
-        wrap.style.setProperty("--saga-cols", span);
+
+        wrap.insertAdjacentHTML("beforeend", `<svg class="saga-frame" aria-hidden="true"><path class="sf-bg"/><path class="sf-tint"/></svg>`);
 
         const total = saga.gameIds.length;
         const header = document.createElement("div");
         header.className = "saga-group-header";
-        // Los tramos siguientes llevan la misma cabecera (misma altura que
-        // los bloques de al lado) pero dicen qué juegos son
-        const first = saga.gameIds.indexOf(Number(gamesInOrder[0]?.id)) + 1;
-        const last = saga.gameIds.indexOf(Number(gamesInOrder[gamesInOrder.length - 1]?.id)) + 1;
-        const count = part > 0 && first > 0 ? `continúa · ${first}${last > first ? `–${last}` : ""}` : `${total} ${total === 1 ? "juego" : "juegos"}`;
         header.innerHTML = `
           <span class="saga-group-icon">${icon("layers")}</span>
           <span class="saga-group-name">${escapeHtml(saga.name)}</span>
-          <span class="saga-group-count">${count}</span>
+          <span class="saga-group-count">${total} ${total === 1 ? "juego" : "juegos"}</span>
           <button type="button" class="icon-btn saga-group-edit needs-account" title="Editar saga" aria-label="Editar saga">${icon("pencil")}</button>
         `;
         header.querySelector(".saga-group-edit").onclick = () => openSagasModal(saga.id);
         wrap.appendChild(header);
 
-        gamesInOrder.forEach((g) => {
+        gamesInOrder.forEach((g, i) => {
           const card = buildCard(g);
+          card.classList.add("in-saga");
+          // La barra de letras salta a la primera card (el div no tiene caja)
+          if (i === 0 && letter) card.dataset.letter = letter;
           const pos = saga.gameIds.indexOf(Number(g.id)) + 1;
           const cover = card.querySelector(".card-cover");
           if (cover && pos > 0) {
@@ -1109,6 +1159,128 @@
         });
 
         return wrap;
+      }
+
+      // Coloca sagas y juegos en la rejilla igual que lo hará el navegador
+      // y decide dos cosas: dónde una saga tiene que empezar fila (si no cabe
+      // en lo que queda, o si es más larga que una fila) y qué filas llevan
+      // arriba el hueco de la cabecera de una saga (todas sus cards, sueltas
+      // incluidas, para que queden alineadas).
+      function layoutSagaGrid(container) {
+        const cols = currentGridColumns();
+        let col = 0;
+        let row = 0;
+        const rows = [];
+        const startRows = new Set();
+        const step = () => {
+          col++;
+          if (col === cols) {
+            col = 0;
+            row++;
+          }
+        };
+        for (const el of container.children) {
+          if (el.classList.contains("saga-group")) {
+            const cards = [...el.querySelectorAll(":scope > .game-card")];
+            const n = cards.length;
+            if (!n) continue;
+            const newRow = col > 0 && (n > cols || col + n > cols);
+            if (newRow) {
+              row++;
+              col = 0;
+            }
+            cards[0].style.gridColumnStart = newRow ? "1" : "";
+            startRows.add(row);
+            cards.forEach((c) => {
+              (rows[row] ||= []).push(c);
+              step();
+            });
+          } else if (el.classList.contains("game-card")) {
+            (rows[row] ||= []).push(el);
+            step();
+          } else {
+            // Separador o aviso: fila entera
+            if (col > 0) row++;
+            col = 0;
+            row++;
+          }
+        }
+        rows.forEach((items, r) => items?.forEach((c) => c.classList.toggle("in-strip-row", startRows.has(r))));
+        scheduleSagaFrames(container);
+      }
+
+      // Marco de cada saga: el contorno de sus cards (más un margen), con
+      // las esquinas redondeadas, también la del escalón de la L.
+      const sagaFrameObservers = new WeakMap();
+      function scheduleSagaFrames(container) {
+        if (!sagaFrameObservers.has(container)) {
+          let raf = 0;
+          const ro = new ResizeObserver(() => {
+            cancelAnimationFrame(raf);
+            raf = requestAnimationFrame(() => drawSagaFrames(container));
+          });
+          ro.observe(container);
+          sagaFrameObservers.set(container, ro);
+        }
+        requestAnimationFrame(() => drawSagaFrames(container));
+      }
+
+      function roundedPath(pts, radius) {
+        let d = "";
+        pts.forEach((p, i) => {
+          const prev = pts[(i - 1 + pts.length) % pts.length];
+          const next = pts[(i + 1) % pts.length];
+          const lenIn = Math.hypot(p[0] - prev[0], p[1] - prev[1]);
+          const lenOut = Math.hypot(next[0] - p[0], next[1] - p[1]);
+          const r = Math.min(radius, lenIn / 2, lenOut / 2);
+          const a = [p[0] + ((prev[0] - p[0]) / lenIn) * r, p[1] + ((prev[1] - p[1]) / lenIn) * r];
+          const b = [p[0] + ((next[0] - p[0]) / lenOut) * r, p[1] + ((next[1] - p[1]) / lenOut) * r];
+          d += `${i ? "L" : "M"}${a[0]},${a[1]} Q${p[0]},${p[1]} ${b[0]},${b[1]} `;
+        });
+        return d + "Z";
+      }
+
+      function drawSagaFrames(container) {
+        const PAD = 6; // margen del marco alrededor de las cards
+        for (const g of container.querySelectorAll(":scope > .saga-group")) {
+          const cards = [...g.querySelectorAll(":scope > .game-card")];
+          const svg = g.querySelector(".saga-frame");
+          const header = g.querySelector(".saga-group-header");
+          if (!cards.length || !svg || !cards[0].offsetWidth) continue;
+          // Filas de la saga (por altura), de arriba abajo
+          const byTop = new Map();
+          for (const c of cards) {
+            const t = c.offsetTop;
+            const r = byTop.get(t) || { top: t, bottom: 0, left: Infinity, right: -Infinity };
+            r.bottom = Math.max(r.bottom, t + c.offsetHeight);
+            r.left = Math.min(r.left, c.offsetLeft);
+            r.right = Math.max(r.right, c.offsetLeft + c.offsetWidth);
+            byTop.set(t, r);
+          }
+          const rs = [...byTop.values()].sort((a, b) => a.top - b.top);
+          const strip = parseFloat(getComputedStyle(cards[0]).marginTop) || 0;
+          const last = rs[rs.length - 1];
+          const L = Math.min(...rs.map((r) => r.left)) - PAD;
+          const T = rs[0].top - (strip || PAD);
+          const R = Math.max(...rs.map((r) => r.right)) + PAD;
+          const B = last.bottom + PAD;
+          let pts = [[L, T], [R, T], [R, B], [L, B]];
+          if (rs.length > 1 && last.right + PAD < R - 1) {
+            const Yc = rs[rs.length - 2].bottom + PAD;
+            const Xr = last.right + PAD;
+            pts = [[L, T], [R, T], [R, Yc], [Xr, Yc], [Xr, B], [L, B]];
+          }
+          const d = roundedPath(pts.map(([x, y]) => [x - L, y - T]), 18);
+          svg.style.left = `${L}px`;
+          svg.style.top = `${T}px`;
+          svg.setAttribute("width", R - L);
+          svg.setAttribute("height", B - T);
+          svg.querySelectorAll("path").forEach((p) => p.setAttribute("d", d));
+          // Cabecera: en el hueco de arriba, a lo ancho de la primera fila
+          header.style.left = `${L + 10}px`;
+          header.style.top = `${T + Math.max(0, (strip - header.offsetHeight) / 2)}px`;
+          header.style.width = `${rs[0].right + PAD - L - 20}px`;
+        }
       }
 
       // Botones de una card de biblioteca o de pasados. "Jugar" sale siempre
@@ -1702,7 +1874,7 @@
 
         div.innerHTML = `
           ${crownHtml}
-          <div class="card-cover"><img src="${coverOf(game)}" alt="${escapeHtml(name)}" loading="lazy" onerror="this.onerror=null;this.src='assets/no-cover.png'"></div>
+          <div class="card-cover"><img src="${coverOf(game)}" alt="${escapeHtml(name)}" loading="lazy" onerror="this.onerror=null;this.src=noCoverSvg(this.alt)"></div>
           <h3>${escapeHtml(name)}</h3>
           ${mode === "library" || mode === "completed" ? `<p class="card-play" data-play="${game.id}">${playLineHtml(game)}</p>` : ""}
           <div class="card-actions">${cardActionsHtml(game, mode)}</div>
@@ -1808,7 +1980,7 @@
           game.coverUrl ||
           (game.cover && game.cover.image_id
             ? `https://images.igdb.com/igdb/image/upload/t_cover_big/${game.cover.image_id}.jpg`
-            : "assets/no-cover.png");
+            : noCoverSvg(name));
 
         const index = gamesTemp.length;
         gamesTemp.push(game);
@@ -1969,7 +2141,7 @@
         const hasLoose = entries.some((e) => e.type === "game");
         entries.forEach((entry, i) => {
           if (entry.type === "saga") {
-            appendSagaGroups(container, entry.saga, entry.games, (g) => buildGameCard(g, "library"), letterBucket(entry.key));
+            container.appendChild(buildSagaGroup(entry.saga, entry.games, (g) => buildGameCard(g, "library"), letterBucket(entry.key)));
             return;
           }
           if (hasSagas && entries[i - 1]?.type === "saga") {
@@ -1983,6 +2155,7 @@
           container.appendChild(card);
         });
         container.classList.toggle("has-sagas-only", hasSagas && !hasLoose);
+        layoutSagaGrid(container);
 
         if (mode === "library") renderLibraryIndexBar(entries.map((e) => e.key));
       }
@@ -2009,9 +2182,9 @@
       }
 
       // Coloca las sagas por filas dejando los menos huecos posibles (el
-      // "tetris"). Las sagas con más juegos que columnas se parten en tramos
-      // (appendSagaGroups): ocupan filas enteras y su último tramo deja sitio
-      // al lado. Al empezar fila van primero las grandes (en orden
+      // "tetris"). Las sagas con más juegos que columnas ocupan filas enteras
+      // y su última fila deja sitio al lado (buildSagaGroup / layoutSagaGrid).
+      // Al empezar fila van primero las grandes (en orden
       // alfabético); cada hueco se llena con la saga que mejor encaje (la
       // más grande que quepa). Ej. con 5 columnas: Zelda (6) llena una fila
       // y su sexto juego queda con 4 huecos al lado, donde entra una de 4.
@@ -2986,6 +3159,7 @@
         themeState = { ...window.SLThemes.apply({ ...s, glassTint: reduceTransparency ? "tinted" : tint }), tint };
         window.Achievements?.trackTheme(themeState.palette);
         window.Achievements?.trackTheme(`fx:${themeState.effect}`);
+        refreshNoCovers();
       }
 
       // Al elegir otro color o estilo, la ventana entera hace un fundido

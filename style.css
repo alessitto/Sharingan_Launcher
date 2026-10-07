@@ -1746,22 +1746,45 @@ button:disabled:active {
   stroke-width: 2.2;
 }
 
-/* Bloque de saga dentro de la rejilla (biblioteca y pasados). Subgrid:
-   las cards de dentro miden igual que las sueltas y siguen --grid-cols. */
+/* Bloque de saga dentro de la rejilla (biblioteca y pasados). El div de la
+   saga no tiene caja (display: contents): sus cards van en la rejilla como
+   las sueltas y ocupan justo sus huecos. El marco (SVG con la forma real,
+   rectángulo o L) y la cabecera los coloca drawSagaFrames(). */
+.cards-grid {
+  position: relative;
+  --saga-strip: 48px;
+}
+
 .saga-group {
-  display: grid;
-  grid-template-columns: repeat(var(--saga-cols, 1), minmax(0, 1fr));
-  align-content: start;
-  gap: 12px;
-  padding: 12px;
-  border-radius: var(--radius-xl);
-  border: 1px solid rgba(var(--red-500-rgb), 0.22);
-  background: linear-gradient(180deg, rgba(var(--red-500-rgb), 0.08), rgba(var(--red-500-rgb), 0.015) 140px),
-    rgba(var(--ink-900-rgb), 0.55);
+  display: contents;
+}
+
+/* Filas donde empieza una saga: hueco arriba para su cabecera (en todas
+   las cards de la fila, así quedan alineadas) */
+.cards-grid .game-card.in-strip-row {
+  margin-top: var(--saga-strip);
+}
+
+.saga-frame {
+  position: absolute;
+  z-index: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.saga-frame .sf-bg {
+  fill: rgba(var(--ink-900-rgb), 0.55);
+  stroke: rgba(var(--red-500-rgb), 0.22);
+  stroke-width: 1;
+}
+
+.saga-frame .sf-tint {
+  fill: rgba(var(--red-500-rgb), 0.05);
 }
 
 .saga-group-header {
-  grid-column: 1 / -1;
+  position: absolute;
+  z-index: 2;
   display: flex;
   align-items: center;
   gap: 10px;
