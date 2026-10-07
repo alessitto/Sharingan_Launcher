@@ -4330,6 +4330,9 @@
     const names = [...new Set(dex.species.filter((s) => s.id <= 1025).map((s) => s.n))].sort((a, b) => a.localeCompare(b, "es"));
 
     const banner = (cls, text) => `<p class="mg-banner is-${cls}">${text}</p>`;
+    // Sin resultado, el cartel ocupa su sitio sin verse: al salir el premio
+    // no se mueve el tablero ni la mesa.
+    const noBanner = `<p class="mg-banner is-empty" aria-hidden="true">&nbsp;</p>`;
 
     // ---------------- Pokédle
     function pokedleHtml() {
@@ -4509,7 +4512,9 @@
           : vt.result === "retired"
             ? banner("push", vt.payout ? `Te retiras con ${fmtMoney(vt.payout)}.` : "Te retiras sin premio.")
             : banner("lose", `¡Voltorb! Pierdes ${fmtMoney(vt.bet)}.`)
-        : "";
+        : board
+          ? noBanner
+          : "";
       const actions = vt.active
         ? `<div class="mg-actions">
             <span class="mg-hint">Limpia el tablero: ${fmtMoney(vt.prize)} · Clic derecho: marcar Voltorb</span>
@@ -4559,7 +4564,7 @@
             push: banner("push", "Empate: recuperas la apuesta."),
             lose: banner("lose", `Pierdes ${fmtMoney(bjv.bet * (bjv.doubled ? 2 : 1))}.`),
           }[bjv.result]
-        : "";
+        : noBanner;
       // Solo se anima la carta que no estaba (o la del crupier al destaparse).
       const hand = (who, cards) => {
         const prev = bjSeen[who];
