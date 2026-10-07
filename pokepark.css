@@ -6432,3 +6432,34 @@ b > .pp-shiny-ic {
     max-height: 50vh;
   }
 }
+
+/* Fuentes propias de los minijuegos y la Pokédex: los estilos (Liquid Glass,
+   Retro, Terminal...) cambian la tipografía de toda la app con
+   `body * { font-family: ... !important }`; aquí ganan por especificidad. */
+:root[data-effect] .mg-pk-q,
+:root[data-effect] .mg-pk-logo,
+:root[data-effect] .mg-pk-says {
+  font-family: "Pokemon Solid", "Arial Black", sans-serif !important;
+}
+
+:root[data-effect] .mg-vf-clue,
+:root[data-effect] .dex-name,
+:root[data-effect] .dex-totals b,
+:root[data-effect] .dex-scr-no,
+:root[data-effect] .dex-scr-name,
+:root[data-effect] .dex-gen,
+:root[data-effect] .dex-gen-count,
+:root[data-effect] .dex-no {
+  font-family: "Press Start 2P", monospace !important;
+}
+
+/* Animados 3D de Showdown (los que no tienen animado pixel): vienen algo más
+   grandes que los de 5ª gen y no son pixel art, así que se encogen un poco
+   y se suavizan al escalar. */
+.pp-mon-img.is-3d {
+  --k: 0.95;
+}
+
+.pp-sprite.is-3d {
+  image-rendering: auto;
+}
