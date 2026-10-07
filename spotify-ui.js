@@ -314,7 +314,7 @@
         <section class="sp-player">
           <div class="sp-cover"></div>
           <div class="sp-meta">
-            <p class="sp-title"></p>
+            <p class="sp-title"><span class="sp-title-text"></span></p>
             <p class="sp-artist"></p>
             <button type="button" class="sp-ctl sp-toggle sp-lyrics-btn" data-act="lyrics" aria-pressed="false" title="Ver la letra (L)">${ic("lyrics")}</button>
           </div>
@@ -356,7 +356,7 @@
         q(".sp-cover").innerHTML = it.cover ? `<img src="${esc(it.cover)}" alt="">` : `<span class="is-empty">${ic("music")}</span>`;
         bg.style.backgroundImage = it.cover ? `url("${it.cover.replace(/"/g, "%22")}")` : "";
       }
-      q(".sp-title").textContent = it.name;
+      q(".sp-title-text").textContent = it.name;
       q(".sp-title").title = it.name;
       q(".sp-artist").textContent = [it.artists, it.album].filter(Boolean).join(" · ");
       q(".sp-open").hidden = !it.url;
@@ -364,7 +364,7 @@
       q(".sp-cover").innerHTML = `<span class="is-empty">${ic("music")}</span>`;
       lastCover = null;
       bg.style.backgroundImage = "";
-      q(".sp-title").textContent = "Sin datos";
+      q(".sp-title-text").textContent = "Sin datos";
       q(".sp-artist").textContent = "";
       q(".sp-open").hidden = true;
     }
