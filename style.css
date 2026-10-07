@@ -5929,6 +5929,25 @@ body.pad-in-use {
   overflow: hidden;
 }
 
+/* Sin relleno en el modal, la × de SweetAlert quedaba pegada a la esquina
+   (y en estilos muy redondeados, como Liquid Glass, se salía del arco). */
+.swal2-popup.st-modal .sl-modal-close,
+.swal2-popup.pp-dex-popup .sl-modal-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  margin: 0;
+  z-index: 3;
+}
+
+:root[data-effect="glass"] .swal2-popup.st-modal .sl-modal-close,
+:root[data-effect="paper"] .swal2-popup.st-modal .sl-modal-close,
+:root[data-effect="glass"] .swal2-popup.pp-dex-popup .sl-modal-close,
+:root[data-effect="paper"] .swal2-popup.pp-dex-popup .sl-modal-close {
+  top: 18px;
+  right: 18px;
+}
+
 .st {
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr);

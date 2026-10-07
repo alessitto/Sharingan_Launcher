@@ -1937,6 +1937,21 @@ img.sp-btn-cover {
   opacity: 1;
 }
 
+/* El campo va dentro de la píldora y no lleva caja propia en ningún estilo.
+   Los estilos (Liquid Glass, Terminal, Retro, Cyberpunk...) pintan fondo,
+   borde o sombra a todos los input[type="text"] con más especificidad que
+   la regla de arriba, y dejaban un rectángulo dentro de la píldora. */
+:root .sp-full .sp-search input.sp-search-in[type="text"],
+:root .sp-full .sp-search input.sp-search-in[type="text"]:hover,
+:root .sp-full .sp-search input.sp-search-in[type="text"]:focus {
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  outline: none !important;
+  background: transparent !important;
+  backdrop-filter: none !important;
+}
+
 .sp-search-in::placeholder {
   color: var(--washi-400);
 }
