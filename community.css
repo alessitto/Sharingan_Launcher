@@ -1190,3 +1190,13 @@ body.in-community .main-content {
   flex-shrink: 0;
   margin-left: auto;
 }
+
+/* Huecos reservados (ver bindAuth): no cambian el tamaño de la ventana. */
+.cm-auth .is-ghost {
+  visibility: hidden;
+}
+
+.cm-auth-error,
+.cm-new-help {
+  min-height: 1lh;
+}

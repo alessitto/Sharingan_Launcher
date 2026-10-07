@@ -98,6 +98,9 @@
   // página Cuenta de Ajustes). onDone(res, modo) al entrar bien.
   function bindAuth(wrap, { mode = "login", why = "", onDone, autofocus = true } = {}) {
     let current = mode;
+    // En "Entrar", el campo de repetir la contraseña, la pista y la línea de
+    // error ocupan su sitio sin verse: cambiar de pestaña o que salga un
+    // error no cambia el tamaño de la ventana.
     const form = () => `
       <div class="cm-auth">
         ${why ? `<p class="cm-auth-why">${esc(why)}</p>` : ""}
@@ -107,9 +110,9 @@
         </div>
         <label class="cm-field"><span>Usuario</span><input type="text" class="cm-in-user" maxlength="20" autocomplete="username" spellcheck="false"></label>
         <label class="cm-field"><span>Contraseña</span><input type="password" class="cm-in-pass" maxlength="200" autocomplete="${current === "login" ? "current-password" : "new-password"}"></label>
-        ${current === "register" ? `<label class="cm-field"><span>Repite la contraseña</span><input type="password" class="cm-in-pass2" maxlength="200" autocomplete="new-password"></label>` : ""}
-        ${current === "register" ? `<p class="cm-auth-hint">Usuario de 3 a 20 caracteres y contraseña de 8 o más.</p>` : ""}
-        <p class="cm-auth-error" hidden></p>
+        <label class="cm-field${current === "register" ? "" : " is-ghost"}" ${current === "register" ? "" : 'aria-hidden="true"'}><span>Repite la contraseña</span><input type="password" class="cm-in-pass2" maxlength="200" autocomplete="new-password" ${current === "register" ? "" : 'tabindex="-1" disabled'}></label>
+        <p class="cm-auth-hint${current === "register" ? "" : " is-ghost"}" ${current === "register" ? "" : 'aria-hidden="true"'}>Usuario de 3 a 20 caracteres y contraseña de 8 o más.</p>
+        <p class="cm-auth-error" role="alert"></p>
         <button type="button" class="sl-btn sl-btn-primary cm-auth-go">${current === "register" ? "Crear cuenta" : "Entrar"}</button>
       </div>`;
 
@@ -502,7 +505,7 @@
           <p class="cm-new-help"></p>
           <label class="cm-field"><span>Título</span><input type="text" class="cm-new-title" maxlength="120"></label>
           <label class="cm-field"><span>Descripción</span><textarea class="cm-new-body" rows="6" maxlength="5000"></textarea></label>
-          <p class="cm-auth-error" hidden></p>
+          <p class="cm-auth-error" role="alert"></p>
         </div>`,
       showCancelButton: true,
       confirmButtonText: "Enviar",

@@ -78,7 +78,7 @@
             <div class="page-head-actions">
               <button type="button" id="freeBtn" class="free-btn" onclick="FreeGames.open()" title="Juegos de pago que están gratis para quedártelos">
                 <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5"/></svg>
-                <span>Gratis</span><em class="free-count" hidden></em>
+                <span>Gratis</span><em class="free-count is-empty">0</em>
               </button>
               <button type="button" id="jarvisBtn" class="jarvis-btn needs-account" onclick="openJarvis()" title="Recomendaciones según tu biblioteca">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9Z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9Z"/></svg>
@@ -352,9 +352,38 @@
       // Todo sale de las variables del tema activo, así los modales cambian
       // de color con el tema igual que el resto (antes llevaban el negro y
       // rojo de Uchiha fijos).
+      // Una ventana abierta no encoge: si algo desaparece se queda el hueco
+      // (min-height con lo más alto que ha llegado a medir), así no salta ni
+      // se recoloca. Lo que aparece después de abrir ya tiene su sitio
+      // reservado en cada ventana. SweetAlert reutiliza el mismo popup entre
+      // ventanas, así que cada una empieza de cero.
+      let modalSizeObs = null;
+      function lockModalSize(popup) {
+        modalSizeObs?.disconnect();
+        popup.style.minHeight = "";
+        let max = 0;
+        modalSizeObs = new ResizeObserver(() => {
+          if (!popup.isConnected || popup.classList.contains("swal2-hide")) return;
+          const h = popup.offsetHeight;
+          if (h <= max) return;
+          max = h;
+          popup.style.minHeight = `min(${h}px, calc(100vh - 32px))`;
+        });
+        modalSizeObs.observe(popup);
+      }
+
       function openModal(opts = {}) {
-        const { eyebrow, title, customClass = {}, ...rest } = opts;
+        const { eyebrow, title, customClass = {}, didOpen, didClose, ...rest } = opts;
         return Swal.fire({
+          didOpen: (popup) => {
+            lockModalSize(popup);
+            return didOpen?.(popup);
+          },
+          didClose: () => {
+            modalSizeObs?.disconnect();
+            modalSizeObs = null;
+            return didClose?.();
+          },
           background: "var(--ink-900)",
           color: "var(--washi-100)",
           buttonsStyling: false,
@@ -1518,7 +1547,7 @@
               ${facts.length ? `<dl class="info-facts">${facts.map(([k, v]) => `<div><dt>${k}</dt><dd>${escapeHtml(String(v))}</dd></div>`).join("")}</dl>` : ""}
               ${details?.summary ? `<p class="info-summary">${escapeHtml(details.summary)}</p>` : ""}
               <h4 class="info-subtitle">Duración</h4>
-              <div class="info-hltb" data-hltb><p class="info-hltb-wait">Buscando en HowLongToBeat…</p></div>
+              <div class="info-hltb" data-hltb>${hltbHtml(null, owned ? game.playSecs : 0)}</div>
               <h4 class="info-subtitle">Requisitos en PC</h4>
               <div class="req-real-container">
                 <div class="req-box"><h5 class="req-title">Mínimos</h5>${formatSteamReqs(reqs.min)}</div>
@@ -1562,6 +1591,32 @@
           .join("")}</div>`;
       }
 
+      // Las tres casillas salen siempre (con "…" mientras busca y "—" si no
+      // hay datos), así la ficha no cambia de tamaño al llegar la respuesta.
+      // d: null = buscando, false = sin datos.
+      function hltbHtml(d, played) {
+        // Como en HowLongToBeat: horas redondeadas a la media hora.
+        const h = (secs) => (d === null ? "…" : secs > 0 ? (secs < 3600 ? `${Math.round(secs / 60)} min` : `${String(Math.round(secs / 1800) / 2).replace(".", ",")} h`) : "—");
+        const tiles = [
+          ["Historia", d?.main],
+          ["Historia y extras", d?.plus],
+          ["Completarlo al 100 %", d?.full],
+        ];
+        // La barra de progreso se reserva siempre que hayas jugado.
+        const bar = (v) => (played > 0 ? `<i>${v > 0 ? `<em style="width:${Math.min(100, Math.round((played / v) * 100))}%"></em>` : ""}</i>` : "");
+        const src =
+          d === null
+            ? "Buscando en HowLongToBeat…"
+            : !d
+              ? "No hay datos de duración para este juego."
+              : `${played > 0 ? `Llevas ${fmtPlaytime(played)}. ` : ""}Fuente: ${
+                  d.source === "hltb" ? `<a href="#" data-ext="https://howlongtobeat.com/game/${d.id}">HowLongToBeat</a>` : "IGDB"
+                }`;
+        return `
+          <div class="info-hltb-tiles">${tiles.map(([k, v]) => `<div class="info-hltb-tile"><span>${k}</span><b>${h(v)}</b>${bar(v)}</div>`).join("")}</div>
+          <p class="info-hltb-src">${src}</p>`;
+      }
+
       // Duración según HowLongToBeat (o IGDB si no responde). Llega después
       // de abrir la ficha para no hacerla esperar.
       async function fillHltb({ name, year, igdbId, played }) {
@@ -1569,26 +1624,7 @@
         const d = await window.electronAPI.hltb({ name, year, igdbId }).catch(() => null);
         const el = box();
         if (!el) return;
-        if (!d) {
-          el.innerHTML = `<p class="info-hltb-wait">No hay datos de duración para este juego.</p>`;
-          return;
-        }
-        // Como en HowLongToBeat: horas redondeadas a la media hora.
-        const h = (secs) => (secs > 0 ? (secs < 3600 ? `${Math.round(secs / 60)} min` : `${String(Math.round(secs / 1800) / 2).replace(".", ",")} h`) : "—");
-        const tiles = [
-          ["Historia", d.main],
-          ["Historia y extras", d.plus],
-          ["Completarlo al 100 %", d.full],
-        ];
-        el.innerHTML = `
-          <div class="info-hltb-tiles">${tiles
-            .map(([k, v]) => `<div class="info-hltb-tile"><span>${k}</span><b>${h(v)}</b>${played > 0 && v > 0 ? `<i><em style="width:${Math.min(100, Math.round((played / v) * 100))}%"></em></i>` : ""}</div>`)
-            .join("")}</div>
-          <p class="info-hltb-src">${played > 0 ? `Llevas ${fmtPlaytime(played)}. ` : ""}Fuente: ${
-            d.source === "hltb"
-              ? `<a href="#" data-ext="https://howlongtobeat.com/game/${d.id}">HowLongToBeat</a>`
-              : "IGDB"
-          }</p>`;
+        el.innerHTML = hltbHtml(d || false, played);
         el.querySelector("[data-ext]")?.addEventListener("click", (e) => {
           e.preventDefault();
           window.electronAPI.openExternal(e.currentTarget.dataset.ext);

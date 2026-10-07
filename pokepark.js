@@ -3856,11 +3856,23 @@
     const box = root?.querySelector(".pp-work");
     if (!box) return;
     const w = workInfo();
-    if (!w || !state.party.length) {
+    if (!state.party.length) {
       box.hidden = true;
       return;
     }
     box.hidden = false;
+    // Mientras llega el saldo del servidor (o sin conexión) la fila ya ocupa
+    // su sitio, así el panel no salta cuando aparece.
+    if (!w) {
+      box.classList.remove("is-full");
+      box.title = "";
+      box.innerHTML = `
+        <span class="pp-work-ic">${WORK_SVG}</span>
+        <span class="pp-work-txt"><small>Trabajo del equipo</small><b>—</b></span>
+        <button type="button" class="sl-btn sl-btn-primary sl-btn-sm" disabled>Cobrar</button>
+        <i class="pp-work-bar"><em style="width:0%"></em></i>`;
+      return;
+    }
     box.classList.toggle("is-full", w.full);
     box.title = w.full ? "Tu equipo ha llegado al máximo de 12 h: cobra para que siga trabajando." : `Se llena en ${fmtDuration((w.cap - w.secs) * 1000)}. Como mucho cuenta 12 h.`;
     box.innerHTML = `

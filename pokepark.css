@@ -1046,10 +1046,11 @@ body.in-pokepark .main-content {
   color: var(--on-accent);
 }
 
+/* Alto fijo (no "hasta"): al cambiar de pestaña o de cantidad de objetos
+   la ventana no cambia de tamaño. */
 .pp-bag-body {
   margin-top: 12px;
-  min-height: 200px;
-  max-height: 52vh;
+  height: 52vh;
   overflow-y: auto;
 }
 
@@ -3897,7 +3898,7 @@ body.in-pokepark .main-content {
 }
 
 .pp-shop-popup .pp-bag-body {
-  max-height: 60vh;
+  height: 60vh;
 }
 
 /* Tarjetas de la tienda y de la bolsa */
@@ -4291,9 +4292,13 @@ b > .pp-shiny-ic {
   flex: 1;
 }
 
+/* Alto fijo para los tres juegos: cambiar de pestaña, los carteles de
+   resultado, las pistas del Pokédle o los avisos no cambian el tamaño de la
+   ventana. El tablero de Voltorb ya se ajusta al alto de la pantalla. */
 .mg-body {
   margin-top: 12px;
-  min-height: 420px;
+  height: min(740px, calc(100vh - 200px));
+  overflow-y: auto;
 }
 
 .mg-loading,
@@ -6451,4 +6456,10 @@ b > .pp-shiny-ic {
 :root[data-effect] .dex-gen-count,
 :root[data-effect] .dex-no {
   font-family: "Press Start 2P", monospace !important;
+}
+
+/* Intercambios: alto fijo mientras cargan y con listas de distinto largo. */
+.pp-trades-popup .pp-trades {
+  height: min(600px, 62vh);
+  overflow-y: auto;
 }

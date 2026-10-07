@@ -92,8 +92,10 @@
     const n = nowFree().length;
     const b = document.querySelector("#freeBtn .free-count");
     if (!b) return;
-    b.hidden = !n;
-    b.textContent = n || "";
+    // Sin juegos el contador ocupa su sitio sin verse: el botón no cambia de
+    // ancho al llegar la lista.
+    b.classList.toggle("is-empty", !n);
+    b.textContent = n || 0;
   }
 
   async function load(force) {

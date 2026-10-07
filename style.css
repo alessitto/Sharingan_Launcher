@@ -1720,6 +1720,9 @@ button:disabled:active {
   border: 1px solid var(--ink-700);
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(var(--red-500-rgb), 0.06);
   padding: 26px 28px 24px;
+  /* Con el alto bloqueado (lockModalSize), el hueco queda abajo en vez de
+     repartirse entre las filas. */
+  align-content: start;
 }
 
 .swal2-popup.sl-modal::before {
@@ -2811,8 +2814,9 @@ button:disabled:active {
 }
 
 /* ---------- Historial de versiones ---------- */
+/* Alto fijo: la ventana sale ya con su tamaño mientras carga el historial. */
 .cl-root {
-  max-height: 60vh;
+  height: 60vh;
   overflow-y: auto;
   margin-right: -8px;
   padding-right: 8px;
@@ -6661,7 +6665,6 @@ body.is-guest .cm-myrate {
   margin-bottom: 26px;
 }
 
-.info-hltb-wait,
 .info-hltb-src {
   margin: 8px 0 0;
   font-size: 12px;
@@ -6718,8 +6721,8 @@ body.is-guest .cm-myrate {
   background: #5cc98a;
 }
 
-.free-count[hidden] {
-  display: none;
+.free-count.is-empty {
+  visibility: hidden;
 }
 
 .free-root .page-head-actions {
