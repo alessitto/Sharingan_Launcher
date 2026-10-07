@@ -1047,9 +1047,7 @@
             container.appendChild(buildGameCard(entry.game, "completed"));
             return;
           }
-          container.appendChild(
-            buildSagaGroup(entry.saga, entry.games, (g) => buildGameCard(g, "completed"))
-          );
+          appendSagaGroups(container, entry.saga, entry.games, (g) => buildGameCard(g, "completed"));
         });
       }
 
@@ -1063,9 +1061,20 @@
       // así se coloca en línea con el resto de cards en vez de partir la
       // fila y dejar huecos. Cada card lleva su número dentro de la saga (el
       // de la saga completa, aunque alguno esté en la otra sección).
-      function buildSagaGroup(saga, gamesInOrder, buildCard, letter) {
+      // Una saga con más juegos que columnas se parte en tramos: filas
+      // completas y un último tramo con lo que sobre. Así ocupa justo los
+      // huecos que necesita y lo siguiente (otra saga, o un juego en Pasados)
+      // se coloca al lado de su último juego en vez de dejar la fila a medias.
+      function appendSagaGroups(container, saga, gamesInOrder, buildCard, letter) {
+        const cols = currentGridColumns();
+        const parts = [];
+        for (let i = 0; i < gamesInOrder.length; i += cols) parts.push(gamesInOrder.slice(i, i + cols));
+        parts.forEach((games, i) => container.appendChild(buildSagaGroup(saga, games, buildCard, letter, { part: i, parts: parts.length })));
+      }
+
+      function buildSagaGroup(saga, gamesInOrder, buildCard, letter, { part = 0, parts = 1 } = {}) {
         const wrap = document.createElement("div");
-        wrap.className = "saga-group";
+        wrap.className = `saga-group${part > 0 ? " is-continued" : ""}${part < parts - 1 ? " continues" : ""}`;
         wrap.dataset.sagaId = saga.id;
         if (letter) wrap.dataset.letter = letter;
         const span = Math.max(1, Math.min(gamesInOrder.length, currentGridColumns()));
@@ -1075,10 +1084,15 @@
         const total = saga.gameIds.length;
         const header = document.createElement("div");
         header.className = "saga-group-header";
+        // Los tramos siguientes llevan la misma cabecera (misma altura que
+        // los bloques de al lado) pero dicen qué juegos son
+        const first = saga.gameIds.indexOf(Number(gamesInOrder[0]?.id)) + 1;
+        const last = saga.gameIds.indexOf(Number(gamesInOrder[gamesInOrder.length - 1]?.id)) + 1;
+        const count = part > 0 && first > 0 ? `continúa · ${first}${last > first ? `–${last}` : ""}` : `${total} ${total === 1 ? "juego" : "juegos"}`;
         header.innerHTML = `
           <span class="saga-group-icon">${icon("layers")}</span>
           <span class="saga-group-name">${escapeHtml(saga.name)}</span>
-          <span class="saga-group-count">${total} ${total === 1 ? "juego" : "juegos"}</span>
+          <span class="saga-group-count">${count}</span>
           <button type="button" class="icon-btn saga-group-edit needs-account" title="Editar saga" aria-label="Editar saga">${icon("pencil")}</button>
         `;
         header.querySelector(".saga-group-edit").onclick = () => openSagasModal(saga.id);
@@ -1955,9 +1969,7 @@
         const hasLoose = entries.some((e) => e.type === "game");
         entries.forEach((entry, i) => {
           if (entry.type === "saga") {
-            container.appendChild(
-              buildSagaGroup(entry.saga, entry.games, (g) => buildGameCard(g, "library"), letterBucket(entry.key))
-            );
+            appendSagaGroups(container, entry.saga, entry.games, (g) => buildGameCard(g, "library"), letterBucket(entry.key));
             return;
           }
           if (hasSagas && entries[i - 1]?.type === "saga") {
@@ -1996,24 +2008,39 @@
         return [...packSagaRows(entries.sort(byKey)), ...loose];
       }
 
-      // Coloca las sagas por filas sin dejar huecos: en cada fila va la
-      // primera saga (por orden alfabético) que quepa en lo que queda, así
-      // un bloque grande no deja media fila vacía detrás de uno pequeño.
+      // Coloca las sagas por filas dejando los menos huecos posibles (el
+      // "tetris"). Las sagas con más juegos que columnas se parten en tramos
+      // (appendSagaGroups): ocupan filas enteras y su último tramo deja sitio
+      // al lado. Al empezar fila van primero las grandes (en orden
+      // alfabético); cada hueco se llena con la saga que mejor encaje (la
+      // más grande que quepa). Ej. con 5 columnas: Zelda (6) llena una fila
+      // y su sexto juego queda con 4 huecos al lado, donde entra una de 4.
       function packSagaRows(sagaEntries) {
         const cols = currentGridColumns();
         const pending = sagaEntries.slice();
         const out = [];
         let free = cols;
         while (pending.length) {
-          let idx = pending.findIndex((e) => Math.min(e.games.length, cols) <= free);
-          if (idx === -1) {
-            free = cols;
-            continue;
+          let idx;
+          if (free === cols) {
+            idx = pending.findIndex((e) => e.games.length >= cols);
+            if (idx === -1) idx = 0;
+          } else {
+            idx = -1;
+            pending.forEach((e, i) => {
+              const n = e.games.length;
+              if (n <= free && (idx === -1 || n > pending[idx].games.length)) idx = i;
+            });
+            if (idx === -1) {
+              free = cols; // no cabe ninguna: fila nueva
+              continue;
+            }
           }
           const [entry] = pending.splice(idx, 1);
           out.push(entry);
-          free -= Math.min(entry.games.length, cols);
-          if (free === 0) free = cols;
+          const n = entry.games.length;
+          if (n >= cols) free = n % cols ? cols - (n % cols) : cols;
+          else free = free - n || cols;
         }
         return out;
       }
