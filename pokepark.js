@@ -2355,7 +2355,19 @@
     paintScenery();
     const ground = root?.querySelector(".pp-ground");
     if (!ground || !scenery.horizonPx) return;
-    ground.style.top = `${Math.round(scenery.horizonPx + 22)}px`;
+    const top = Math.round(scenery.horizonPx + 22);
+    ground.style.top = `${top}px`;
+    // El suelo (por donde andan los Pokémon y salen los objetos) acaba por
+    // encima del dock, con sitio para el nombre que va bajo los pies: así
+    // nada queda tapado por él.
+    const park = root.querySelector(".pp-park");
+    const dock = root.querySelector(".pp-dock");
+    if (park && dock?.offsetHeight) {
+      const p = park.getBoundingClientRect();
+      const dockTop = dock.getBoundingClientRect().top - p.top;
+      const bottom = Math.round(p.height - dockTop + 34);
+      ground.style.bottom = `${Math.min(bottom, p.height - top - 80)}px`;
+    }
   }
   window.addEventListener("resize", () => layoutGround());
   document.addEventListener("fullscreenchange", () => {
