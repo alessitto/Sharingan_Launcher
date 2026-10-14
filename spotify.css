@@ -2266,7 +2266,15 @@ img.sp-btn-cover {
 }
 
 /* ------------------------------------------------------------ CD */
+/* 3.9.1: carátula impresa con foil holográfico en sus detalles y cara de
+   datos con difracción. Todo se pinta una vez: al girar o inclinar solo
+   cambian transform (--cd-lx/--cd-ly/--cd-la las pone spotify-ui.js al
+   arrastrarlo, como si cambiara el ángulo de la luz). */
 .sp-cd {
+  --cd-turn: 3.6s;
+  --cd-lx: 0%;
+  --cd-ly: 0%;
+  --cd-la: 0deg;
   perspective: 1000px;
   cursor: grab;
   touch-action: none;
@@ -2293,12 +2301,13 @@ img.sp-btn-cover {
 .sp-cd-spin {
   inset: 0;
   transform-style: preserve-3d;
-  animation: spDiscSpin 3.6s linear infinite;
+  animation: spDiscSpin var(--cd-turn) linear infinite;
   animation-play-state: paused;
 }
 
 .sp-cover.is-playing .sp-vinyl-disc,
-.sp-cover.is-playing .sp-cd-spin {
+.sp-cover.is-playing .sp-cd-spin,
+.sp-cover.is-playing .sp-cd-foil-spin {
   animation-play-state: running;
 }
 
@@ -2312,67 +2321,287 @@ img.sp-btn-cover {
   mask: radial-gradient(circle closest-side, transparent 12.5%, #000 13%, #000 99.4%, transparent 100%);
 }
 
-/* Cara de arriba: anillo de plástico transparente, aro plateado y la
-   carátula impresa en el resto */
+/* Brillos: capa más grande que el disco que se desplaza con la luz */
+.sp-cd-glare {
+  pointer-events: none;
+}
+
+.sp-cd-sheen {
+  position: absolute;
+  inset: -30%;
+  transform: translate(var(--cd-lx), var(--cd-ly)) rotate(var(--cd-la));
+  will-change: transform;
+}
+
+/* ---------------- Cara de arriba */
+/* Plástico transparente, borde del metalizado, aro plateado con el anillo
+   de apilado en relieve y canto plateado fuera de la impresión */
 .sp-cd-front {
   transform: translateZ(1px);
-  background: radial-gradient(
-    circle closest-side,
-    rgba(255, 255, 255, 0.5) 13%,
-    rgba(220, 228, 236, 0.22) 15%,
-    rgba(220, 228, 236, 0.16) 22%,
-    rgba(255, 255, 255, 0.55) 23%,
-    #d5d9df 24.5%,
-    #9ea4ad 28%,
-    #e3e6ea 31%
-  );
+  background:
+    radial-gradient(circle closest-side, transparent 27.2%, rgba(255, 255, 255, 0.6) 27.8%, rgba(0, 0, 0, 0.26) 28.6%, transparent 29.2%),
+    radial-gradient(
+      circle closest-side,
+      rgba(236, 242, 248, 0.5) 12.5%,
+      rgba(214, 224, 234, 0.16) 14%,
+      rgba(214, 224, 234, 0.12) 18.4%,
+      rgba(255, 255, 255, 0.75) 18.9%,
+      #e2e6ea 19.6%,
+      #b9bfc7 23.5%,
+      #f0f2f5 26.5%,
+      #c6cbd2 31%,
+      #c6cbd2 96.8%,
+      #f4f6f8 98.4%,
+      #9aa1aa 100%
+    );
 }
 
 .sp-cd-print {
   position: absolute;
   inset: 0;
-  -webkit-mask: radial-gradient(circle closest-side, transparent 31%, #000 31.6%);
-  mask: radial-gradient(circle closest-side, transparent 31%, #000 31.6%);
+  -webkit-mask: radial-gradient(circle closest-side, transparent 31%, #000 31.5%, #000 97.3%, transparent 97.8%);
+  mask: radial-gradient(circle closest-side, transparent 31%, #000 31.5%, #000 97.3%, transparent 97.8%);
+}
+
+.sp-cd-print .sp-cover-slot {
+  position: absolute;
+  inset: 0;
 }
 
 .sp-cd-print .is-empty {
   background: var(--ink-700);
 }
 
-/* Cara de abajo: la de los datos, plateada con arcoíris */
+/* Borde del barniz en los dos filos de la impresión */
+.sp-cd-print::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle closest-side, rgba(0, 0, 0, 0.38) 31.5%, transparent 32.8%, transparent 96%, rgba(255, 255, 255, 0.3) 97.3%);
+}
+
+/* Foil: el holograma solo sale en los detalles de la carátula (máscara que
+   saca spotify-ui.js). Gira al revés que el disco, así se queda quieto
+   respecto a la luz y los detalles van pasando por los colores. */
+.sp-cd-foil {
+  position: absolute;
+  inset: 0;
+  mask-size: 100% 100%;
+  mask-repeat: no-repeat;
+  opacity: 0;
+  transition: opacity 0.7s ease;
+}
+
+.sp-cd-foil.is-ready {
+  opacity: 1;
+}
+
+/* Sin poder leer la carátula: por su brillo y más flojo */
+.sp-cd-foil.is-soft {
+  mask-mode: luminance;
+}
+
+.sp-cd-foil.is-soft.is-ready {
+  opacity: 0.45;
+}
+
+.sp-cd-foil-spin {
+  position: absolute;
+  inset: 0;
+  animation: spCdCounter var(--cd-turn) linear infinite;
+  animation-play-state: paused;
+}
+
+@keyframes spCdCounter {
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+.sp-cd-foil-holo {
+  position: absolute;
+  inset: -40%;
+  transform: translate(var(--cd-lx), var(--cd-ly)) rotate(var(--cd-la));
+  will-change: transform;
+  background:
+    /* destello blanco que cruza al inclinarlo */
+    linear-gradient(118deg, transparent 39%, rgba(255, 255, 255, 0.9) 47%, rgba(255, 255, 255, 0) 54%),
+    /* estrías finas del holograma */
+    repeating-linear-gradient(62deg, rgba(255, 255, 255, 0) 0 2px, rgba(255, 255, 255, 0.28) 3px, rgba(255, 255, 255, 0) 4px 7px),
+    repeating-linear-gradient(152deg, rgba(120, 90, 200, 0) 0 5px, rgba(120, 90, 200, 0.12) 6px, rgba(120, 90, 200, 0) 7px 12px),
+    /* arcoíris metálico en pastel (dos vueltas) */
+    conic-gradient(
+      from 20deg,
+      #ff8fd0,
+      #ffc7a1,
+      #fff3a6,
+      #a8ffcf,
+      #8fe6ff,
+      #a9a2ff,
+      #f0a2ff,
+      #ff8fd0,
+      #ffc7a1,
+      #fff3a6,
+      #a8ffcf,
+      #8fe6ff,
+      #a9a2ff,
+      #f0a2ff,
+      #ff8fd0
+    );
+}
+
+/* Barniz de toda la cara: reflejo suave y un poco de iridiscencia */
+.sp-cd-glare-front {
+  transform: translateZ(1.5px);
+}
+
+.sp-cd-glare-front .sp-cd-sheen {
+  background:
+    linear-gradient(128deg, transparent 31%, rgba(255, 255, 255, 0.24) 44%, rgba(255, 255, 255, 0.05) 51%, transparent 60%),
+    conic-gradient(
+      from 210deg,
+      transparent 0deg,
+      rgba(255, 140, 210, 0.1) 22deg,
+      rgba(140, 220, 255, 0.12) 46deg,
+      rgba(160, 255, 190, 0.08) 70deg,
+      transparent 96deg,
+      transparent 180deg,
+      rgba(255, 140, 210, 0.08) 202deg,
+      rgba(140, 220, 255, 0.1) 226deg,
+      transparent 262deg
+    );
+}
+
+/* ---------------- Cara de abajo (datos) */
+/* Pistas finas, anillo de apilado, inicio y final de los datos, y zonas:
+   plástico, aro de espejo, datos (más oscuros, con un toque violeta), zona
+   sin grabar y canto */
 .sp-cd-back {
   transform: rotateY(180deg) translateZ(1px);
   background:
-    repeating-radial-gradient(circle, rgba(255, 255, 255, 0.05) 0 1px, transparent 1px 2px),
-    radial-gradient(circle closest-side, rgba(255, 255, 255, 0.55) 13%, rgba(220, 228, 236, 0.2) 15% 22%, #cfd4da 23%, #aeb4bc 32%, #c9ced5 33%, #dfe3e8 60%, #b7bdc5 99%);
+    repeating-radial-gradient(circle, rgba(255, 255, 255, 0.07) 0 0.6px, rgba(40, 44, 52, 0.06) 0.6px 1.6px),
+    radial-gradient(
+      circle closest-side,
+      transparent 27.2%,
+      rgba(255, 255, 255, 0.65) 27.8%,
+      rgba(0, 0, 0, 0.3) 28.6%,
+      transparent 29.2%,
+      transparent 37.6%,
+      rgba(20, 22, 28, 0.45) 38.1%,
+      transparent 38.7%,
+      transparent 85.3%,
+      rgba(255, 255, 255, 0.55) 85.8%,
+      rgba(30, 32, 40, 0.32) 86.4%,
+      transparent 87%
+    ),
+    radial-gradient(
+      circle closest-side,
+      rgba(236, 242, 248, 0.45) 12.5%,
+      rgba(214, 224, 234, 0.14) 14%,
+      rgba(214, 224, 234, 0.1) 18.4%,
+      rgba(255, 255, 255, 0.8) 18.9%,
+      #eef1f4 19.6%,
+      #d3d8de 25%,
+      #f3f5f7 32%,
+      #d9dde2 37.8%,
+      #a2a8b6 38.4%,
+      #aba7bd 50%,
+      #9ca5b6 68%,
+      #a9a5ba 85.6%,
+      #d6dadf 86.4%,
+      #c5cad1 96.8%,
+      #eff1f4 98.4%,
+      #8d949e 100%
+    );
 }
 
-/* Brillo fijo respecto a la luz (no gira con el disco) */
-.sp-cd-glare {
-  pointer-events: none;
+.sp-cd-hub {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
 
-.sp-cd-glare-front {
-  transform: translateZ(1.5px);
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.3), transparent 38%, transparent 62%, rgba(255, 255, 255, 0.14)),
-    conic-gradient(from 200deg, transparent, rgba(255, 120, 200, 0.12), rgba(120, 200, 255, 0.14), rgba(140, 255, 170, 0.1), transparent 40%);
+/* Los estilos ponen su fuente a todo con !important */
+:root .sp-full .sp-cd-hub text {
+  font-family: "Segoe UI", system-ui, sans-serif !important;
+  letter-spacing: 0.32px;
 }
 
+.sp-cd-hub-out {
+  font-size: 1.9px;
+  fill: rgba(70, 76, 88, 0.55);
+}
+
+.sp-cd-hub-in {
+  font-size: 1.5px;
+  fill: rgba(80, 90, 104, 0.4);
+}
+
+/* Reflejo del entorno en toda la cara */
 .sp-cd-glare-back {
   transform: rotateY(180deg) translateZ(1.5px);
-  background: conic-gradient(
-    from 10deg,
-    rgba(255, 90, 160, 0.4),
-    rgba(255, 210, 80, 0.38),
-    rgba(110, 255, 160, 0.36),
-    rgba(80, 190, 255, 0.4),
-    rgba(170, 110, 255, 0.4),
-    rgba(255, 90, 160, 0.4) 50%,
-    rgba(255, 210, 80, 0.38),
-    rgba(110, 255, 160, 0.36),
-    rgba(80, 190, 255, 0.4),
-    rgba(170, 110, 255, 0.4),
-    rgba(255, 90, 160, 0.4)
-  );
+}
+
+.sp-cd-glare-back .sp-cd-sheen {
+  background:
+    linear-gradient(112deg, transparent 30%, rgba(255, 255, 255, 0.5) 44%, rgba(255, 255, 255, 0.12) 50%, transparent 59%),
+    linear-gradient(112deg, transparent 58%, rgba(255, 255, 255, 0.14) 66%, transparent 74%);
+}
+
+/* Difracción, solo en la zona con datos: dos abanicos de arcoíris
+   enfrentados (orden 1), otros dos más flojos a 90° (orden 2) y color que
+   cambia con la distancia al centro */
+.sp-cd-glare-data {
+  transform: rotateY(180deg) translateZ(1.6px);
+  -webkit-mask: radial-gradient(circle closest-side, transparent 38.3%, #000 39.4%, #000 85%, transparent 86%);
+  mask: radial-gradient(circle closest-side, transparent 38.3%, #000 39.4%, #000 85%, transparent 86%);
+}
+
+.sp-cd-glare-data .sp-cd-sheen {
+  background:
+    conic-gradient(
+      from -30deg,
+      transparent 0deg,
+      rgba(255, 70, 90, 0.6) 8deg,
+      rgba(255, 170, 40, 0.66) 16deg,
+      rgba(250, 245, 70, 0.66) 23deg,
+      rgba(70, 240, 120, 0.64) 31deg,
+      rgba(40, 200, 255, 0.66) 40deg,
+      rgba(110, 90, 255, 0.6) 49deg,
+      transparent 58deg,
+      transparent 180deg,
+      rgba(255, 70, 90, 0.6) 188deg,
+      rgba(255, 170, 40, 0.66) 196deg,
+      rgba(250, 245, 70, 0.66) 203deg,
+      rgba(70, 240, 120, 0.64) 211deg,
+      rgba(40, 200, 255, 0.66) 220deg,
+      rgba(110, 90, 255, 0.6) 229deg,
+      transparent 238deg,
+      transparent 360deg
+    ),
+    conic-gradient(
+      from 62deg,
+      transparent 0deg,
+      rgba(255, 90, 170, 0.26) 10deg,
+      rgba(90, 220, 255, 0.28) 24deg,
+      rgba(150, 255, 140, 0.22) 36deg,
+      transparent 48deg,
+      transparent 180deg,
+      rgba(255, 90, 170, 0.26) 190deg,
+      rgba(90, 220, 255, 0.28) 204deg,
+      rgba(150, 255, 140, 0.22) 216deg,
+      transparent 228deg,
+      transparent 360deg
+    ),
+    repeating-radial-gradient(
+      circle,
+      rgba(255, 80, 160, 0.2) 0 3%,
+      rgba(255, 220, 90, 0.18) 6%,
+      rgba(90, 255, 180, 0.18) 9%,
+      rgba(90, 170, 255, 0.2) 12%,
+      rgba(255, 80, 160, 0.2) 15%
+    );
+  background-blend-mode: screen, screen, normal;
 }

@@ -453,6 +453,7 @@
     const slot = !rebuild && box.dataset.view === coverView && box.querySelector(".sp-cover-slot");
     if (slot) {
       slot.innerHTML = coverImg(url);
+      if (coverView === "cd") applyFoil(url);
       return;
     }
     box.dataset.view = coverView;
@@ -475,13 +476,20 @@
         <div class="sp-cd">
           <div class="sp-cd-tilt">
             <div class="sp-cd-spin">
-              <div class="sp-cd-face sp-cd-front"><div class="sp-cd-print sp-cover-slot">${coverImg(url)}</div></div>
-              <div class="sp-cd-face sp-cd-back"></div>
+              <div class="sp-cd-face sp-cd-front">
+                <div class="sp-cd-print">
+                  <div class="sp-cover-slot">${coverImg(url)}</div>
+                  <div class="sp-cd-foil"><div class="sp-cd-foil-spin"><div class="sp-cd-foil-holo"></div></div></div>
+                </div>
+              </div>
+              <div class="sp-cd-face sp-cd-back">${CD_HUB}</div>
             </div>
-            <div class="sp-cd-glare sp-cd-glare-front"></div>
-            <div class="sp-cd-glare sp-cd-glare-back"></div>
+            <div class="sp-cd-glare sp-cd-glare-front"><div class="sp-cd-sheen"></div></div>
+            <div class="sp-cd-glare sp-cd-glare-back"><div class="sp-cd-sheen"></div></div>
+            <div class="sp-cd-glare sp-cd-glare-data"><div class="sp-cd-sheen"></div></div>
           </div>
         </div>`;
+      applyFoil(url);
     } else {
       box.innerHTML = coverImg(url);
     }
@@ -496,9 +504,117 @@
   }
 
   function applyCd() {
-    const tilt = q(".sp-cd-tilt");
-    if (tilt) tilt.style.transform = `rotateX(${cdRot.x}deg) rotateY(${cdRot.y}deg)`;
-    return !!tilt;
+    const cd = q(".sp-cd");
+    const tilt = cd?.querySelector(".sp-cd-tilt");
+    if (!tilt) return false;
+    tilt.style.transform = `rotateX(${cdRot.x}deg) rotateY(${cdRot.y}deg)`;
+    // La luz no se mueve: al inclinarlo, los brillos, el holograma y el
+    // arcoíris de atrás se desplazan y cambian de color (solo transform).
+    const rx = (cdRot.x * Math.PI) / 180;
+    const ry = (cdRot.y * Math.PI) / 180;
+    cd.style.setProperty("--cd-lx", `${(Math.sin(ry) * 16).toFixed(2)}%`);
+    cd.style.setProperty("--cd-ly", `${(-Math.sin(rx) * 16).toFixed(2)}%`);
+    cd.style.setProperty("--cd-la", `${((cdRot.x + cdRot.y) * 0.35).toFixed(1)}deg`);
+    return true;
+  }
+
+  // Texto grabado alrededor del agujero, en la cara de abajo.
+  const CD_HUB =
+    '<svg class="sp-cd-hub" viewBox="0 0 100 100" aria-hidden="true">' +
+    '<defs><path id="spCdHubOut" d="M50 50m-16.6 0a16.6 16.6 0 1 1 33.2 0a16.6 16.6 0 1 1-33.2 0"/>' +
+    '<path id="spCdHubIn" d="M50 50m-11.2 0a11.2 11.2 0 1 1 22.4 0a11.2 11.2 0 1 1-22.4 0"/></defs>' +
+    '<text class="sp-cd-hub-out"><textPath href="#spCdHubOut">SHARINGAN LAUNCHER · SL-0381-2 · IFPI L907 · MADE IN EU · 1A1 ·</textPath></text>' +
+    '<text class="sp-cd-hub-in"><textPath href="#spCdHubIn">IFPI 94Q7 · 03812 A</textPath></text>' +
+    "</svg>";
+
+  // ------------------------------------------------------------ Foil del CD
+  // Máscara con los detalles de la carátula donde va el holograma: lo más
+  // brillante (relativo a cada imagen) y los contornos marcados (Sobel).
+  // Se calcula una vez por carátula a 256 px y se guarda.
+  const foilCache = new Map(); // url → Promise<dataURL | null>
+  const smooth = (a, b, v) => {
+    const t = Math.min(1, Math.max(0, (v - a) / (b - a)));
+    return t * t * (3 - 2 * t);
+  };
+
+  function buildFoil(img) {
+    const N = 256;
+    const c = document.createElement("canvas");
+    c.width = c.height = N;
+    const g = c.getContext("2d", { willReadFrequently: true });
+    g.drawImage(img, 0, 0, N, N);
+    const d = g.getImageData(0, 0, N, N).data; // falla si la imagen no deja CORS
+    const L = new Float32Array(N * N);
+    const S = new Float32Array(N * N);
+    for (let i = 0, p = 0; i < N * N; i++, p += 4) {
+      const r = d[p] / 255;
+      const gr = d[p + 1] / 255;
+      const b = d[p + 2] / 255;
+      const mx = Math.max(r, gr, b);
+      L[i] = 0.2126 * r + 0.7152 * gr + 0.0722 * b;
+      S[i] = mx ? (mx - Math.min(r, gr, b)) / mx : 0;
+    }
+    const hi = Float32Array.from(L).sort()[Math.floor(N * N * 0.8)];
+    const out = g.createImageData(N, N);
+    const o = out.data;
+    for (let y = 1; y < N - 1; y++) {
+      for (let x = 1; x < N - 1; x++) {
+        const i = y * N + x;
+        const gx = L[i - N + 1] + 2 * L[i + 1] + L[i + N + 1] - L[i - N - 1] - 2 * L[i - 1] - L[i + N - 1];
+        const gy = L[i + N - 1] + 2 * L[i + N] + L[i + N + 1] - L[i - N - 1] - 2 * L[i - N] - L[i - N + 1];
+        const edge = smooth(0.35, 0.9, Math.hypot(gx, gy));
+        const bright = smooth(hi - 0.06, hi + 0.05, L[i]) * (0.7 + 0.3 * S[i]);
+        const p = i * 4;
+        o[p] = o[p + 1] = o[p + 2] = 255;
+        o[p + 3] = Math.round(Math.max(bright * 0.95, edge * 0.85) * 255);
+      }
+    }
+    g.putImageData(out, 0, 0);
+    // Un pelín suave, como el borde de un foil estampado
+    const soft = document.createElement("canvas");
+    soft.width = soft.height = N;
+    const sg = soft.getContext("2d");
+    sg.filter = "blur(0.6px)";
+    sg.drawImage(c, 0, 0);
+    return soft.toDataURL("image/png");
+  }
+
+  function foilMask(url) {
+    if (!foilCache.has(url)) {
+      foilCache.set(
+        url,
+        new Promise((resolve) => {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.onload = () => {
+            try {
+              resolve(buildFoil(img));
+            } catch {
+              resolve(null);
+            }
+          };
+          img.onerror = () => resolve(null);
+          img.src = url;
+        })
+      );
+      if (foilCache.size > 40) foilCache.delete(foilCache.keys().next().value);
+    }
+    return foilCache.get(url);
+  }
+
+  // Pone la máscara al foil. Si no se puede leer la imagen, el holograma va
+  // por el brillo de la propia carátula (más flojo).
+  async function applyFoil(url) {
+    const foil = q(".sp-cd-foil");
+    if (!foil) return;
+    foil.classList.remove("is-ready", "is-soft");
+    foil.dataset.src = url || "";
+    if (!url) return;
+    const mask = await foilMask(url);
+    if (!foil.isConnected || foil.dataset.src !== url) return;
+    foil.style.maskImage = `url("${(mask || url).replace(/"/g, "%22")}")`;
+    foil.classList.toggle("is-soft", !mask);
+    foil.classList.add("is-ready");
   }
 
   // Tras soltarlo sigue con la inercia y, parado un momento, vuelve de frente.
