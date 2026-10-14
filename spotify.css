@@ -2152,14 +2152,15 @@ img.sp-btn-cover {
   border-radius: 50%;
 }
 
-/* Surcos, separación entre pistas y borde; gira a 33⅓ rpm mientras suena */
+/* Surcos, separación entre pistas y borde; gira mientras suena (algo más
+   lento que 33⅓ rpm, que se veía demasiado rápido) */
 .sp-vinyl-disc {
   background:
     radial-gradient(circle closest-side, transparent 58.6%, rgba(0, 0, 0, 0.55) 59.2%, transparent 59.8%, transparent 73.6%, rgba(0, 0, 0, 0.55) 74.2%, transparent 74.8%, transparent 86.6%, rgba(0, 0, 0, 0.55) 87.2%, transparent 87.8%),
     repeating-radial-gradient(circle, rgba(255, 255, 255, 0.045) 0 1px, transparent 1px 3px),
     radial-gradient(circle closest-side, #0b0b0c 0 40%, #161618 42%, #121214 96%, #2b2b2e 98.4%, #0b0b0c 100%);
   box-shadow: 0 22px 46px rgba(0, 0, 0, 0.5), 0 6px 14px rgba(0, 0, 0, 0.35);
-  animation: spDiscSpin 1.8s linear infinite;
+  animation: spDiscSpin 2.6s linear infinite;
   animation-play-state: paused;
 }
 
@@ -2292,7 +2293,7 @@ img.sp-btn-cover {
 .sp-cd-spin {
   inset: 0;
   transform-style: preserve-3d;
-  animation: spDiscSpin 2.6s linear infinite;
+  animation: spDiscSpin 3.6s linear infinite;
   animation-play-state: paused;
 }
 
