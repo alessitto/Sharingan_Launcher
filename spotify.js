@@ -24,7 +24,9 @@ const crypto = require("crypto");
 const PORT = 43821;
 const REDIRECT_URI = `http://127.0.0.1:${PORT}/callback`;
 const CLIENT_ID_RE = /^[0-9a-f]{32}$/;
-const SCOPES = ["user-read-playback-state", "user-modify-playback-state", "user-read-currently-playing", "user-read-private"];
+// user-library-read y user-top-read (3.9.0) son para la radio del buscador
+// (tus "Me gusta" y lo que más escuchas); sin ellos va solo con la búsqueda.
+const SCOPES = ["user-read-playback-state", "user-modify-playback-state", "user-read-currently-playing", "user-read-private", "user-library-read", "user-top-read"];
 const ACCOUNTS = "https://accounts.spotify.com";
 const API = "https://api.spotify.com/v1";
 const LOGIN_TIMEOUT_MS = 5 * 60 * 1000;
@@ -143,6 +145,7 @@ function createSpotify(hooks) {
       // Spotify puede rotar el refresh token: si no manda uno, sigue el de antes.
       refresh: json.refresh_token || prev?.refresh,
       expiresAt: Date.now() + (Number(json.expires_in) || 3600) * 1000,
+      scope: json.scope || prev?.scope || "",
     };
     writeAuth(auth);
     return auth;
@@ -273,6 +276,116 @@ function createSpotify(hooks) {
     if (/not registered|not be registered/i.test(message)) throw new SpotifyError("not_allowed_user", 403);
     if (res.status === 403) throw new SpotifyError("restricted", 403);
     throw new SpotifyError(`http_${res.status}`, res.status);
+  }
+
+  // ------------------------------------------------------------ Radio
+  // Al poner una canción desde el buscador, detrás van otras parecidas (del
+  // mismo artista, de su género, tus "Me gusta" y lo que más escuchas) y la
+  // cola se rellena sola antes de acabarse, como el autoplay del móvil.
+  // Spotify ya no da recomendaciones ni mixes a las apps en modo desarrollo,
+  // así que se arma con la búsqueda y la biblioteca. Cada fuente puede fallar
+  // sin que pase nada.
+  const RADIO_FIRST = 30; // canciones detrás de la elegida
+  const RADIO_MORE = 10; // las que se añaden a la cola al llegar a la última
+  let radio = null; // { uris, played, seen, artists, startedAt, filling, failedAt }
+  const searchHits = new Map(); // uri → canción de la última búsqueda
+  const rnd = (n) => Math.floor(Math.random() * n);
+  const hasScope = (sc) => String(readAuth()?.scope || "").split(" ").includes(sc);
+  const artistsOf = (t) => (t?.artists || []).filter((a) => a?.id && a?.name).map((a) => ({ id: a.id, name: a.name }));
+  // Misma canción aunque sea otra versión ("- Remastered", "(feat. ...)").
+  const trackKey = (t) => `${String(t?.name || "").toLowerCase().replace(/\s*[-([].*$/, "").trim()}|${t?.artists?.[0]?.id || ""}`;
+  const soft = (job) => job.catch(() => []);
+
+  async function searchTracks(q, offset = 0) {
+    const j = await call("GET", "/search", { query: { q, type: "track", limit: 10, offset } });
+    return (j?.tracks?.items || []).filter((t) => t?.uri && t.is_playable !== false);
+  }
+
+  async function likedTracks() {
+    const first = await call("GET", "/me/tracks", { query: { limit: 1 } });
+    const total = Number(first?.total) || 0;
+    if (!total) return [];
+    const j = await call("GET", "/me/tracks", { query: { limit: 20, offset: rnd(Math.max(1, total - 20)) } });
+    return (j?.items || []).map((i) => i?.track);
+  }
+
+  async function genreTracks(artist) {
+    const a = await call("GET", `/artists/${artist.id}`);
+    const genres = (a?.genres || []).slice(0, 2);
+    return (await Promise.all(genres.map((g) => soft(searchTracks(`genre:"${g}"`, rnd(40)))))).flat();
+  }
+
+  async function radioCandidates(artists) {
+    const [main, ...others] = artists;
+    const jobs = [];
+    if (main) {
+      jobs.push(soft(searchTracks(`artist:"${main.name}"`, rnd(10))));
+      jobs.push(soft(searchTracks(`artist:"${main.name}"`, 10 + rnd(30))));
+      jobs.push(soft(genreTracks(main)));
+    }
+    for (const a of others.slice(0, 2)) jobs.push(soft(searchTracks(`artist:"${a.name}"`, rnd(10))));
+    if (hasScope("user-library-read")) jobs.push(soft(likedTracks()));
+    if (hasScope("user-top-read")) jobs.push(soft(call("GET", "/me/top/tracks", { query: { limit: 20, time_range: "short_term" } }).then((j) => j?.items || [])));
+    return (await Promise.all(jobs)).flat().filter((t) => t?.uri && /^spotify:track:/.test(t.uri));
+  }
+
+  // Elige las nuevas sin repetir canción y mezcladas: primero como mucho 4
+  // por artista; si no llega, se completa con lo que haya.
+  function pickNew(r, cands, max) {
+    const pool = cands.slice();
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = rnd(i + 1);
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    const out = [];
+    const per = {};
+    for (const capped of [true, false]) {
+      for (const t of pool) {
+        if (out.length >= max) return out;
+        const k = trackKey(t);
+        const a = t.artists?.[0]?.id || "";
+        if (r.seen.has(k) || r.seen.has(t.uri) || (capped && (per[a] || 0) >= 4)) continue;
+        r.seen.add(k).add(t.uri);
+        per[a] = (per[a] || 0) + 1;
+        out.push(t);
+      }
+    }
+    return out;
+  }
+
+  async function startRadio(uri) {
+    const t = searchHits.get(uri) || (await call("GET", `/tracks/${uri.split(":")[2]}`));
+    const r = { uris: [uri], played: new Set(), seen: new Set([trackKey(t), uri]), artists: artistsOf(t), startedAt: Date.now(), filling: null, failedAt: 0 };
+    r.uris.push(...pickNew(r, await radioCandidates(r.artists), RADIO_FIRST).map((x) => x.uri));
+    return r;
+  }
+
+  // Con cada consulta del estado: si suena la última de la radio, se añaden
+  // más a la cola (sembradas con el artista de la que suena). Si suena algo
+  // que no es de la radio (puesto desde otro sitio), la radio se olvida.
+  function keepRadio(p) {
+    const r = radio;
+    const uri = p?.item?.uri;
+    if (!r || !uri) return;
+    if (!r.uris.includes(uri)) {
+      if (Date.now() - r.startedAt > 10000) radio = null; // al principio puede seguir saliendo la anterior
+      return;
+    }
+    r.played.add(uri);
+    const left = r.uris.filter((u) => !r.played.has(u)).length;
+    if (left > 0 || r.filling || Date.now() - r.failedAt < 60000) return;
+    const seed = artistsOf(p.item).length ? artistsOf(p.item) : r.artists;
+    r.filling = (async () => {
+      const more = pickNew(r, await radioCandidates(seed), RADIO_MORE);
+      if (!more.length) throw new Error("empty");
+      for (const t of more) {
+        if (radio !== r) return;
+        await call("POST", "/me/player/queue", { query: { uri: t.uri } });
+        r.uris.push(t.uri);
+      }
+    })()
+      .catch(() => (r.failedAt = Date.now()))
+      .finally(() => (r.filling = null));
   }
 
   // Solo lo que pinta la ventana.
@@ -429,7 +542,11 @@ function createSpotify(hooks) {
       writeAuth(null);
       return { connected: false };
     },
-    state: async () => ({ state: mapState(await call("GET", "/me/player", { query: { additional_types: "episode" } })) }),
+    state: async () => {
+      const p = await call("GET", "/me/player", { query: { additional_types: "episode" } });
+      keepRadio(p);
+      return { state: mapState(p) };
+    },
     devices: async () => ({ devices: ((await call("GET", "/me/player/devices"))?.devices || []).map(mapDevice) }),
     play: async (deviceId) => {
       try {
@@ -449,7 +566,10 @@ function createSpotify(hooks) {
       const qtext = String(text || "").trim().slice(0, 100);
       if (!qtext) return { tracks: [] };
       const j = await call("GET", "/search", { query: { q: qtext, type: "track", limit: 8 } });
-      const tracks = (j?.tracks?.items || []).filter(Boolean).map((t) => {
+      const items = (j?.tracks?.items || []).filter(Boolean);
+      searchHits.clear();
+      for (const t of items) if (t.uri) searchHits.set(t.uri, t);
+      const tracks = items.map((t) => {
         const imgs = t.album?.images || [];
         return {
           uri: t.uri,
@@ -463,15 +583,19 @@ function createSpotify(hooks) {
     },
     playTrack: async (uri) => {
       if (!/^spotify:track:[A-Za-z0-9]+$/.test(String(uri || ""))) throw new SpotifyError("bad_request", 400);
+      // La elegida y detrás la radio; si no se puede armar, la canción sola.
+      const r = await startRadio(uri).catch(() => null);
+      const uris = r ? r.uris : [uri];
+      radio = r;
       try {
-        await call("PUT", "/me/player/play", { body: { uris: [uri] } });
+        await call("PUT", "/me/player/play", { body: { uris } });
       } catch (err) {
         // Nada activo: se despierta el primer dispositivo disponible.
         if (err.code !== "no_device") throw err;
         const list = (await call("GET", "/me/player/devices"))?.devices || [];
         const target = list.find((d) => d.type === "Computer") || list[0];
         if (!target) throw err;
-        await call("PUT", "/me/player/play", { query: { device_id: target.id }, body: { uris: [uri] } });
+        await call("PUT", "/me/player/play", { query: { device_id: target.id }, body: { uris } });
       }
       return {};
     },
