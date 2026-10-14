@@ -102,12 +102,6 @@
       return "cover";
     }
   })();
-  // Giro del CD con el ratón (grados y velocidad por fotograma)
-  const cdRot = { x: 0, y: 0, vx: 0, vy: 0 };
-  let cdDrag = null;
-  let cdMoved = false;
-  let cdRaf = 0;
-  let cdIdle = 0;
   // Letras
   let lyricsKey = null; // canción de la que son las letras pintadas
   let lyrics = null; // null = cargando
@@ -453,14 +447,10 @@
     const slot = !rebuild && box.dataset.view === coverView && box.querySelector(".sp-cover-slot");
     if (slot) {
       slot.innerHTML = coverImg(url);
-      if (coverView === "cd") applyFoil(url);
       return;
     }
     box.dataset.view = coverView;
     box.classList.toggle("is-disc", coverView !== "cover");
-    cancelAnimationFrame(cdRaf);
-    cdDrag = null;
-    Object.assign(cdRot, { x: 0, y: 0, vx: 0, vy: 0 });
     if (coverView === "vinyl") {
       box.innerHTML = `
         <div class="sp-vinyl is-arm-up">
@@ -476,20 +466,11 @@
         <div class="sp-cd">
           <div class="sp-cd-tilt">
             <div class="sp-cd-spin">
-              <div class="sp-cd-face sp-cd-front">
-                <div class="sp-cd-print">
-                  <div class="sp-cover-slot">${coverImg(url)}</div>
-                  <div class="sp-cd-foil"><div class="sp-cd-foil-spin"><div class="sp-cd-foil-holo"></div></div></div>
-                </div>
-              </div>
-              <div class="sp-cd-face sp-cd-back">${CD_HUB}</div>
+              <div class="sp-cd-face sp-cd-front"><div class="sp-cd-print sp-cover-slot">${coverImg(url)}</div></div>
             </div>
-            <div class="sp-cd-glare sp-cd-glare-front"><div class="sp-cd-sheen"></div></div>
-            <div class="sp-cd-glare sp-cd-glare-back"><div class="sp-cd-sheen"></div></div>
-            <div class="sp-cd-glare sp-cd-glare-data"><div class="sp-cd-sheen"></div></div>
+            <div class="sp-cd-glare sp-cd-glare-front"></div>
           </div>
         </div>`;
-      applyFoil(url);
     } else {
       box.innerHTML = coverImg(url);
     }
@@ -501,144 +482,6 @@
       localStorage.setItem("spCover", coverView);
     } catch {}
     paintCover(state?.item?.cover || null, true);
-  }
-
-  function applyCd() {
-    const cd = q(".sp-cd");
-    const tilt = cd?.querySelector(".sp-cd-tilt");
-    if (!tilt) return false;
-    tilt.style.transform = `rotateX(${cdRot.x}deg) rotateY(${cdRot.y}deg)`;
-    // La luz no se mueve: al inclinarlo, los brillos, el holograma y el
-    // arcoíris de atrás se desplazan y cambian de color (solo transform).
-    const rx = (cdRot.x * Math.PI) / 180;
-    const ry = (cdRot.y * Math.PI) / 180;
-    cd.style.setProperty("--cd-lx", `${(Math.sin(ry) * 16).toFixed(2)}%`);
-    cd.style.setProperty("--cd-ly", `${(-Math.sin(rx) * 16).toFixed(2)}%`);
-    cd.style.setProperty("--cd-la", `${((cdRot.x + cdRot.y) * 0.35).toFixed(1)}deg`);
-    return true;
-  }
-
-  // Texto grabado alrededor del agujero, en la cara de abajo.
-  const CD_HUB =
-    '<svg class="sp-cd-hub" viewBox="0 0 100 100" aria-hidden="true">' +
-    '<defs><path id="spCdHubOut" d="M50 50m-16.6 0a16.6 16.6 0 1 1 33.2 0a16.6 16.6 0 1 1-33.2 0"/>' +
-    '<path id="spCdHubIn" d="M50 50m-11.2 0a11.2 11.2 0 1 1 22.4 0a11.2 11.2 0 1 1-22.4 0"/></defs>' +
-    '<text class="sp-cd-hub-out"><textPath href="#spCdHubOut">SHARINGAN LAUNCHER · SL-0381-2 · IFPI L907 · MADE IN EU · 1A1 ·</textPath></text>' +
-    '<text class="sp-cd-hub-in"><textPath href="#spCdHubIn">IFPI 94Q7 · 03812 A</textPath></text>' +
-    "</svg>";
-
-  // ------------------------------------------------------------ Foil del CD
-  // Máscara con los detalles de la carátula donde va el holograma: lo más
-  // brillante (relativo a cada imagen) y los contornos marcados (Sobel).
-  // Se calcula una vez por carátula a 256 px y se guarda.
-  const foilCache = new Map(); // url → Promise<dataURL | null>
-  const smooth = (a, b, v) => {
-    const t = Math.min(1, Math.max(0, (v - a) / (b - a)));
-    return t * t * (3 - 2 * t);
-  };
-
-  function buildFoil(img) {
-    const N = 256;
-    const c = document.createElement("canvas");
-    c.width = c.height = N;
-    const g = c.getContext("2d", { willReadFrequently: true });
-    g.drawImage(img, 0, 0, N, N);
-    const d = g.getImageData(0, 0, N, N).data; // falla si la imagen no deja CORS
-    const L = new Float32Array(N * N);
-    const S = new Float32Array(N * N);
-    for (let i = 0, p = 0; i < N * N; i++, p += 4) {
-      const r = d[p] / 255;
-      const gr = d[p + 1] / 255;
-      const b = d[p + 2] / 255;
-      const mx = Math.max(r, gr, b);
-      L[i] = 0.2126 * r + 0.7152 * gr + 0.0722 * b;
-      S[i] = mx ? (mx - Math.min(r, gr, b)) / mx : 0;
-    }
-    const hi = Float32Array.from(L).sort()[Math.floor(N * N * 0.8)];
-    const out = g.createImageData(N, N);
-    const o = out.data;
-    for (let y = 1; y < N - 1; y++) {
-      for (let x = 1; x < N - 1; x++) {
-        const i = y * N + x;
-        const gx = L[i - N + 1] + 2 * L[i + 1] + L[i + N + 1] - L[i - N - 1] - 2 * L[i - 1] - L[i + N - 1];
-        const gy = L[i + N - 1] + 2 * L[i + N] + L[i + N + 1] - L[i - N - 1] - 2 * L[i - N] - L[i - N + 1];
-        const edge = smooth(0.35, 0.9, Math.hypot(gx, gy));
-        const bright = smooth(hi - 0.06, hi + 0.05, L[i]) * (0.7 + 0.3 * S[i]);
-        const p = i * 4;
-        o[p] = o[p + 1] = o[p + 2] = 255;
-        o[p + 3] = Math.round(Math.max(bright * 0.95, edge * 0.85) * 255);
-      }
-    }
-    g.putImageData(out, 0, 0);
-    // Un pelín suave, como el borde de un foil estampado
-    const soft = document.createElement("canvas");
-    soft.width = soft.height = N;
-    const sg = soft.getContext("2d");
-    sg.filter = "blur(0.6px)";
-    sg.drawImage(c, 0, 0);
-    return soft.toDataURL("image/png");
-  }
-
-  function foilMask(url) {
-    if (!foilCache.has(url)) {
-      foilCache.set(
-        url,
-        new Promise((resolve) => {
-          const img = new Image();
-          img.crossOrigin = "anonymous";
-          img.onload = () => {
-            try {
-              resolve(buildFoil(img));
-            } catch {
-              resolve(null);
-            }
-          };
-          img.onerror = () => resolve(null);
-          img.src = url;
-        })
-      );
-      if (foilCache.size > 40) foilCache.delete(foilCache.keys().next().value);
-    }
-    return foilCache.get(url);
-  }
-
-  // Pone la máscara al foil. Si no se puede leer la imagen, el holograma va
-  // por el brillo de la propia carátula (más flojo).
-  async function applyFoil(url) {
-    const foil = q(".sp-cd-foil");
-    if (!foil) return;
-    foil.classList.remove("is-ready", "is-soft");
-    foil.dataset.src = url || "";
-    if (!url) return;
-    const mask = await foilMask(url);
-    if (!foil.isConnected || foil.dataset.src !== url) return;
-    foil.style.maskImage = `url("${(mask || url).replace(/"/g, "%22")}")`;
-    foil.classList.toggle("is-soft", !mask);
-    foil.classList.add("is-ready");
-  }
-
-  // Tras soltarlo sigue con la inercia y, parado un momento, vuelve de frente.
-  function cdLoop() {
-    if (!cdDrag) {
-      if (Math.abs(cdRot.vx) + Math.abs(cdRot.vy) > 0.12) {
-        cdRot.x += cdRot.vx;
-        cdRot.y += cdRot.vy;
-        cdRot.vx *= 0.955;
-        cdRot.vy *= 0.955;
-        cdIdle = 0;
-      } else if (++cdIdle > 45) {
-        const tx = Math.round(cdRot.x / 360) * 360;
-        const ty = Math.round(cdRot.y / 360) * 360;
-        cdRot.x += (tx - cdRot.x) * 0.07;
-        cdRot.y += (ty - cdRot.y) * 0.07;
-        if (Math.abs(tx - cdRot.x) + Math.abs(ty - cdRot.y) < 0.2) {
-          Object.assign(cdRot, { x: 0, y: 0, vx: 0, vy: 0 });
-          applyCd();
-          return;
-        }
-      }
-    }
-    if (applyCd()) cdRaf = requestAnimationFrame(cdLoop);
   }
 
   function paintVolume(v, canVol = true) {
@@ -965,51 +808,11 @@
     }
   });
 
-  // Girar el CD arrastrando (en cualquier eje, las vueltas que se quiera).
-  view.addEventListener("pointerdown", (e) => {
-    const cd = e.target.closest(".sp-cd");
-    if (!cd || e.button !== 0) return;
-    cdMoved = false;
-    cdDrag = { sx: e.clientX, sy: e.clientY, x: e.clientX, y: e.clientY, t: performance.now() };
-    try {
-      cd.setPointerCapture(e.pointerId);
-    } catch {}
-    cd.classList.add("is-grabbing");
-    cdRot.vx = cdRot.vy = 0;
-    cancelAnimationFrame(cdRaf);
-  });
-  view.addEventListener("pointermove", (e) => {
-    if (!cdDrag) return;
-    if (!cdMoved && Math.hypot(e.clientX - cdDrag.sx, e.clientY - cdDrag.sy) < 5) return;
-    cdMoved = true;
-    const now = performance.now();
-    const dx = (e.clientX - cdDrag.x) * 0.6;
-    const dy = (e.clientY - cdDrag.y) * 0.6;
-    const k = 16 / Math.max(8, now - cdDrag.t);
-    cdRot.y += dx;
-    cdRot.x -= dy;
-    cdRot.vy = dx * k;
-    cdRot.vx = -dy * k;
-    Object.assign(cdDrag, { x: e.clientX, y: e.clientY, t: now });
-    applyCd();
-  });
-  const cdRelease = () => {
-    if (!cdDrag) return;
-    if (performance.now() - cdDrag.t > 80) cdRot.vx = cdRot.vy = 0; // se paró antes de soltar
-    cdDrag = null;
-    q(".sp-cd")?.classList.remove("is-grabbing");
-    cdIdle = 0;
-    cdRaf = requestAnimationFrame(cdLoop);
-  };
-  view.addEventListener("pointerup", cdRelease);
-  view.addEventListener("pointercancel", cdRelease);
-
   // ------------------------------------------------------------ Acciones
   view.addEventListener("click", async (e) => {
     if (e.target.closest(".sps")) return; // el asistente lleva sus propios botones
     if (e.target.closest(".sp-cover")) {
-      if (!cdMoved) cycleCover(); // arrastrar el CD no cuenta como clic
-      cdMoved = false;
+      cycleCover();
       return;
     }
     const line = e.target.closest(".sp-line[data-t]");
