@@ -2284,7 +2284,7 @@ img.sp-btn-cover {
 
 .sp-cd-spin {
   inset: 0;
-  animation: spDiscSpin 3.6s linear infinite;
+  animation: spDiscSpin 6s linear infinite;
   animation-play-state: paused;
 }
 
@@ -2337,4 +2337,19 @@ img.sp-btn-cover {
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.3), transparent 38%, transparent 62%, rgba(255, 255, 255, 0.14)),
     conic-gradient(from 200deg, transparent, rgba(255, 120, 200, 0.12), rgba(120, 200, 255, 0.14), rgba(140, 255, 170, 0.1), transparent 40%);
+}
+
+/* CD en 3D (cd3d.js): el lienzo ocupa la caja de la carátula */
+.sp-cd3d {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  animation: spDiscIn 0.6s var(--ease-smooth) both;
+}
+
+.sp-cd3d-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 18px 24px rgba(0, 0, 0, 0.42));
 }

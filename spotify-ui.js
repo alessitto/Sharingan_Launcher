@@ -92,6 +92,12 @@
   let btnKey = "";
   let errorTimer = null;
   let lastCover = null;
+  let cd3d = null; // CD en 3D montado (cd3d.js)
+  // Roto con un clic largo; sigue roto (aunque cambie la canción o se cierre
+  // la pantalla) hasta otro clic largo.
+  let cdBroken = false;
+  let pressTimer = 0;
+  let longPressed = false;
   // Carátula, vinilo o CD: se cambia con un clic en la carátula (se recuerda).
   const COVER_VIEWS = ["cover", "vinyl", "cd"];
   let coverView = (() => {
@@ -380,6 +386,7 @@
     }
 
     q(".sp-cover").classList.toggle("is-playing", !!state.isPlaying);
+    cd3d?.setPlaying(!!state.isPlaying);
 
     const progress = q(".sp-progress");
     progress.max = String(it?.durationMs || 1);
@@ -444,6 +451,18 @@
   function paintCover(url, rebuild = false) {
     const box = q(".sp-cover");
     if (!box) return;
+    // CD en 3D ya montado: solo cambia la carátula (si no se puede leer, el
+    // CD de siempre).
+    if (!rebuild && coverView === "cd" && box.dataset.view === "cd" && cd3d?.el.isConnected) {
+      const cd = cd3d;
+      cd.setCover(url).then((ok) => {
+        if (ok || cd3d !== cd) return;
+        cd.destroy();
+        cd3d = null;
+        box.innerHTML = cssCdHtml(state?.item?.cover || null);
+      });
+      return;
+    }
     const slot = !rebuild && box.dataset.view === coverView && box.querySelector(".sp-cover-slot");
     if (slot) {
       slot.innerHTML = coverImg(url);
@@ -451,6 +470,8 @@
     }
     box.dataset.view = coverView;
     box.classList.toggle("is-disc", coverView !== "cover");
+    cd3d?.destroy();
+    cd3d = null;
     if (coverView === "vinyl") {
       box.innerHTML = `
         <div class="sp-vinyl is-arm-up">
@@ -462,7 +483,16 @@
       const vinyl = box.firstElementChild;
       requestAnimationFrame(() => requestAnimationFrame(() => vinyl.classList.remove("is-arm-up")));
     } else if (coverView === "cd") {
-      box.innerHTML = `
+      box.innerHTML = `<div class="sp-cd3d"></div>`;
+      mountCd3d(box, url);
+    } else {
+      box.innerHTML = coverImg(url);
+    }
+  }
+
+  // CD de siempre (CSS): si no hay WebGL o la carátula no deja leerse.
+  function cssCdHtml(url) {
+    return `
         <div class="sp-cd">
           <div class="sp-cd-tilt">
             <div class="sp-cd-spin">
@@ -471,8 +501,30 @@
             <div class="sp-cd-glare sp-cd-glare-front"></div>
           </div>
         </div>`;
-    } else {
-      box.innerHTML = coverImg(url);
+  }
+
+  // CD en 3D (cd3d.js). Mientras carga se ve el hueco vacío; si no se puede,
+  // el CD de siempre.
+  async function mountCd3d(box, url) {
+    const holder = box.querySelector(".sp-cd3d");
+    const fallback = () => {
+      if (holder.isConnected) box.innerHTML = cssCdHtml(state?.item?.cover || url);
+    };
+    let cd = null;
+    try {
+      cd = (await window.CD3D?.create(holder, { active: () => open })) || null;
+    } catch {
+      cd = null;
+    }
+    if (!holder.isConnected) return cd?.destroy();
+    if (!cd) return fallback();
+    cd3d = cd;
+    cd.setPlaying(!!state?.isPlaying);
+    if (cdBroken) cd.setBroken(true, true);
+    if (!(await cd.setCover(state?.item?.cover || url)) && cd3d === cd) {
+      cd.destroy();
+      cd3d = null;
+      fallback();
     }
   }
 
@@ -808,11 +860,36 @@
     }
   });
 
+  // Clic largo en el CD 3D: tiembla mientras se mantiene y se rompe (o se
+  // recompone si ya estaba roto). El clic rápido sigue cambiando de vista.
+  const LONG_PRESS_MS = 550;
+  const cancelPress = () => {
+    clearTimeout(pressTimer);
+    pressTimer = 0;
+    cd3d?.setCharging(false);
+  };
+  view.addEventListener("pointerdown", (e) => {
+    longPressed = false;
+    if (e.button !== 0 || !cd3d || !e.target.closest(".sp-cd3d")) return;
+    cd3d.setCharging(true);
+    pressTimer = setTimeout(() => {
+      pressTimer = 0;
+      longPressed = true;
+      cd3d?.setCharging(false);
+      cdBroken = !cdBroken;
+      cd3d?.setBroken(cdBroken);
+    }, LONG_PRESS_MS);
+  });
+  view.addEventListener("pointerup", cancelPress);
+  view.addEventListener("pointercancel", cancelPress);
+  view.addEventListener("pointerleave", cancelPress);
+
   // ------------------------------------------------------------ Acciones
   view.addEventListener("click", async (e) => {
     if (e.target.closest(".sps")) return; // el asistente lleva sus propios botones
     if (e.target.closest(".sp-cover")) {
-      cycleCover();
+      if (longPressed) longPressed = false; // el clic largo no cambia de vista
+      else cycleCover();
       return;
     }
     const line = e.target.closest(".sp-line[data-t]");
