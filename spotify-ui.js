@@ -92,6 +92,22 @@
   let btnKey = "";
   let errorTimer = null;
   let lastCover = null;
+  // Carátula, vinilo o CD: se cambia con un clic en la carátula (se recuerda).
+  const COVER_VIEWS = ["cover", "vinyl", "cd"];
+  let coverView = (() => {
+    try {
+      const v = localStorage.getItem("spCover");
+      return COVER_VIEWS.includes(v) ? v : "cover";
+    } catch {
+      return "cover";
+    }
+  })();
+  // Giro del CD con el ratón (grados y velocidad por fotograma)
+  const cdRot = { x: 0, y: 0, vx: 0, vy: 0 };
+  let cdDrag = null;
+  let cdMoved = false;
+  let cdRaf = 0;
+  let cdIdle = 0;
   // Letras
   let lyricsKey = null; // canción de la que son las letras pintadas
   let lyrics = null; // null = cargando
@@ -312,7 +328,7 @@
     } else {
       body.innerHTML = `
         <section class="sp-player">
-          <div class="sp-cover"></div>
+          <div class="sp-cover" aria-label="Cambiar vista de la carátula"></div>
           <div class="sp-meta">
             <p class="sp-title"><span class="sp-title-text"></span></p>
             <p class="sp-artist"></p>
@@ -353,7 +369,7 @@
       const coverKey = it.cover || "none";
       if (coverKey !== lastCover) {
         lastCover = coverKey;
-        q(".sp-cover").innerHTML = it.cover ? `<img src="${esc(it.cover)}" alt="">` : `<span class="is-empty">${ic("music")}</span>`;
+        paintCover(it.cover);
         bg.style.backgroundImage = it.cover ? `url("${it.cover.replace(/"/g, "%22")}")` : "";
       }
       q(".sp-title-text").textContent = it.name;
@@ -361,13 +377,15 @@
       q(".sp-artist").textContent = [it.artists, it.album].filter(Boolean).join(" · ");
       q(".sp-open").hidden = !it.url;
     } else {
-      q(".sp-cover").innerHTML = `<span class="is-empty">${ic("music")}</span>`;
+      paintCover(null);
       lastCover = null;
       bg.style.backgroundImage = "";
       q(".sp-title-text").textContent = "Sin datos";
       q(".sp-artist").textContent = "";
       q(".sp-open").hidden = true;
     }
+
+    q(".sp-cover").classList.toggle("is-playing", !!state.isPlaying);
 
     const progress = q(".sp-progress");
     progress.max = String(it?.durationMs || 1);
@@ -410,6 +428,101 @@
     if (devicesOpen) pop.innerHTML = devicesList();
 
     loadLyrics();
+  }
+
+  // ------------------------------------------------------------ Carátula, vinilo y CD
+  const TONEARM =
+    '<svg class="sp-tonearm" viewBox="0 0 100 100" aria-hidden="true">' +
+    '<defs><linearGradient id="spArmMetal" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f4f6f8"/><stop offset=".5" stop-color="#aab0b8"/><stop offset="1" stop-color="#6b717a"/></linearGradient></defs>' +
+    '<circle class="sp-arm-rest" cx="97.6" cy="35.8" r="2"/>' +
+    '<circle class="sp-arm-base" cx="90" cy="12" r="7"/>' +
+    '<g class="sp-arm">' +
+    '<path class="sp-arm-weight" d="M90.7 8.4 91.6 2.8"/>' +
+    '<path class="sp-arm-tube" d="M90 12 84 48 73.4 61.6"/>' +
+    '<g transform="translate(72.2 63.2) rotate(37.9)"><rect class="sp-arm-head" x="-2.6" y="-1.8" width="5.2" height="6.4" rx="1"/><rect class="sp-arm-needle" x="-0.8" y="3" width="1.6" height="1.8" rx=".4"/></g>' +
+    '<circle class="sp-arm-cap" cx="90" cy="12" r="3.2"/>' +
+    "</g></svg>";
+
+  const coverImg = (url) => (url ? `<img src="${esc(url)}" alt="">` : `<span class="is-empty">${ic("music")}</span>`);
+
+  // Pinta la vista elegida. Si solo cambia la canción, cambia la imagen y
+  // el disco sigue girando donde estaba.
+  function paintCover(url, rebuild = false) {
+    const box = q(".sp-cover");
+    if (!box) return;
+    const slot = !rebuild && box.dataset.view === coverView && box.querySelector(".sp-cover-slot");
+    if (slot) {
+      slot.innerHTML = coverImg(url);
+      return;
+    }
+    box.dataset.view = coverView;
+    box.classList.toggle("is-disc", coverView !== "cover");
+    cancelAnimationFrame(cdRaf);
+    cdDrag = null;
+    Object.assign(cdRot, { x: 0, y: 0, vx: 0, vy: 0 });
+    if (coverView === "vinyl") {
+      box.innerHTML = `
+        <div class="sp-vinyl is-arm-up">
+          <div class="sp-vinyl-disc"><div class="sp-vinyl-label sp-cover-slot">${coverImg(url)}</div></div>
+          <div class="sp-vinyl-shine"></div>
+          ${TONEARM}
+        </div>`;
+      // La aguja baja hasta el disco al abrir la vista (si está sonando).
+      const vinyl = box.firstElementChild;
+      requestAnimationFrame(() => requestAnimationFrame(() => vinyl.classList.remove("is-arm-up")));
+    } else if (coverView === "cd") {
+      box.innerHTML = `
+        <div class="sp-cd">
+          <div class="sp-cd-tilt">
+            <div class="sp-cd-spin">
+              <div class="sp-cd-face sp-cd-front"><div class="sp-cd-print sp-cover-slot">${coverImg(url)}</div></div>
+              <div class="sp-cd-face sp-cd-back"></div>
+            </div>
+            <div class="sp-cd-glare sp-cd-glare-front"></div>
+            <div class="sp-cd-glare sp-cd-glare-back"></div>
+          </div>
+        </div>`;
+    } else {
+      box.innerHTML = coverImg(url);
+    }
+  }
+
+  function cycleCover() {
+    coverView = COVER_VIEWS[(COVER_VIEWS.indexOf(coverView) + 1) % COVER_VIEWS.length];
+    try {
+      localStorage.setItem("spCover", coverView);
+    } catch {}
+    paintCover(state?.item?.cover || null, true);
+  }
+
+  function applyCd() {
+    const tilt = q(".sp-cd-tilt");
+    if (tilt) tilt.style.transform = `rotateX(${cdRot.x}deg) rotateY(${cdRot.y}deg)`;
+    return !!tilt;
+  }
+
+  // Tras soltarlo sigue con la inercia y, parado un momento, vuelve de frente.
+  function cdLoop() {
+    if (!cdDrag) {
+      if (Math.abs(cdRot.vx) + Math.abs(cdRot.vy) > 0.12) {
+        cdRot.x += cdRot.vx;
+        cdRot.y += cdRot.vy;
+        cdRot.vx *= 0.955;
+        cdRot.vy *= 0.955;
+        cdIdle = 0;
+      } else if (++cdIdle > 45) {
+        const tx = Math.round(cdRot.x / 360) * 360;
+        const ty = Math.round(cdRot.y / 360) * 360;
+        cdRot.x += (tx - cdRot.x) * 0.07;
+        cdRot.y += (ty - cdRot.y) * 0.07;
+        if (Math.abs(tx - cdRot.x) + Math.abs(ty - cdRot.y) < 0.2) {
+          Object.assign(cdRot, { x: 0, y: 0, vx: 0, vy: 0 });
+          applyCd();
+          return;
+        }
+      }
+    }
+    if (applyCd()) cdRaf = requestAnimationFrame(cdLoop);
   }
 
   function paintVolume(v, canVol = true) {
@@ -736,9 +849,53 @@
     }
   });
 
+  // Girar el CD arrastrando (en cualquier eje, las vueltas que se quiera).
+  view.addEventListener("pointerdown", (e) => {
+    const cd = e.target.closest(".sp-cd");
+    if (!cd || e.button !== 0) return;
+    cdMoved = false;
+    cdDrag = { sx: e.clientX, sy: e.clientY, x: e.clientX, y: e.clientY, t: performance.now() };
+    try {
+      cd.setPointerCapture(e.pointerId);
+    } catch {}
+    cd.classList.add("is-grabbing");
+    cdRot.vx = cdRot.vy = 0;
+    cancelAnimationFrame(cdRaf);
+  });
+  view.addEventListener("pointermove", (e) => {
+    if (!cdDrag) return;
+    if (!cdMoved && Math.hypot(e.clientX - cdDrag.sx, e.clientY - cdDrag.sy) < 5) return;
+    cdMoved = true;
+    const now = performance.now();
+    const dx = (e.clientX - cdDrag.x) * 0.6;
+    const dy = (e.clientY - cdDrag.y) * 0.6;
+    const k = 16 / Math.max(8, now - cdDrag.t);
+    cdRot.y += dx;
+    cdRot.x -= dy;
+    cdRot.vy = dx * k;
+    cdRot.vx = -dy * k;
+    Object.assign(cdDrag, { x: e.clientX, y: e.clientY, t: now });
+    applyCd();
+  });
+  const cdRelease = () => {
+    if (!cdDrag) return;
+    if (performance.now() - cdDrag.t > 80) cdRot.vx = cdRot.vy = 0; // se paró antes de soltar
+    cdDrag = null;
+    q(".sp-cd")?.classList.remove("is-grabbing");
+    cdIdle = 0;
+    cdRaf = requestAnimationFrame(cdLoop);
+  };
+  view.addEventListener("pointerup", cdRelease);
+  view.addEventListener("pointercancel", cdRelease);
+
   // ------------------------------------------------------------ Acciones
   view.addEventListener("click", async (e) => {
     if (e.target.closest(".sps")) return; // el asistente lleva sus propios botones
+    if (e.target.closest(".sp-cover")) {
+      if (!cdMoved) cycleCover(); // arrastrar el CD no cuenta como clic
+      cdMoved = false;
+      return;
+    }
     const line = e.target.closest(".sp-line[data-t]");
     if (line && state?.item) {
       const ms = Math.max(0, Number(line.dataset.t) - 100);

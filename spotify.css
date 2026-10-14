@@ -2097,3 +2097,281 @@ img.sp-btn-cover {
     padding-inline: 0 48px;
   }
 }
+
+/* =====================================================================
+   3.8.8: clic en la carátula = carátula → vinilo → CD → carátula
+   ===================================================================== */
+.sp-cover {
+  cursor: pointer;
+}
+
+/* Los discos llevan su propia sombra: fuera la caja, el marco y el giro
+   que pone cada estilo a la carátula (papel, retro, cyber, terminal...). */
+:root .sp-full .sp-cover.is-disc {
+  aspect-ratio: 1;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  clip-path: none;
+  filter: none;
+  transform: none;
+  overflow: visible;
+}
+
+.sp-vinyl,
+.sp-cd {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  animation: spDiscIn 0.6s var(--ease-smooth) both;
+}
+
+@keyframes spDiscIn {
+  from {
+    opacity: 0;
+    transform: scale(0.92) rotate(-12deg);
+  }
+}
+
+@keyframes spDiscSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ------------------------------------------------------------ Vinilo */
+.sp-vinyl-disc,
+.sp-vinyl-shine {
+  position: absolute;
+  left: 4%;
+  top: 8%;
+  width: 84%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+}
+
+/* Surcos, separación entre pistas y borde; gira a 33⅓ rpm mientras suena */
+.sp-vinyl-disc {
+  background:
+    radial-gradient(circle closest-side, transparent 58.6%, rgba(0, 0, 0, 0.55) 59.2%, transparent 59.8%, transparent 73.6%, rgba(0, 0, 0, 0.55) 74.2%, transparent 74.8%, transparent 86.6%, rgba(0, 0, 0, 0.55) 87.2%, transparent 87.8%),
+    repeating-radial-gradient(circle, rgba(255, 255, 255, 0.045) 0 1px, transparent 1px 3px),
+    radial-gradient(circle closest-side, #0b0b0c 0 40%, #161618 42%, #121214 96%, #2b2b2e 98.4%, #0b0b0c 100%);
+  box-shadow: 0 22px 46px rgba(0, 0, 0, 0.5), 0 6px 14px rgba(0, 0, 0, 0.35);
+  animation: spDiscSpin 1.8s linear infinite;
+  animation-play-state: paused;
+}
+
+/* Reflejos de la luz: no giran con el disco */
+.sp-vinyl-shine {
+  pointer-events: none;
+  background: conic-gradient(from 25deg, transparent 0deg, rgba(255, 255, 255, 0.13) 28deg, transparent 58deg, transparent 180deg, rgba(255, 255, 255, 0.09) 208deg, transparent 238deg);
+  -webkit-mask: radial-gradient(circle closest-side, transparent 39%, #000 41%, #000 97%, transparent 100%);
+  mask: radial-gradient(circle closest-side, transparent 39%, #000 41%, #000 97%, transparent 100%);
+}
+
+/* Galleta central con la carátula */
+.sp-vinyl-label {
+  position: absolute;
+  inset: 31%;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--ink-700);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.6), 0 0 0 4px rgba(255, 255, 255, 0.04);
+}
+
+.sp-vinyl-label .is-empty .sp-i {
+  width: 28%;
+  height: 28%;
+}
+
+/* Eje del plato */
+.sp-vinyl-label::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 9%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle at 35% 35%, #f2f4f6, #9aa0a8 55%, #4a4e54);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+/* Brazo con la aguja: baja al disco mientras suena y sube al pausar */
+.sp-tonearm {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  filter: drop-shadow(0 4px 5px rgba(0, 0, 0, 0.45));
+}
+
+.sp-arm {
+  transform-box: view-box;
+  transform-origin: 90px 12px;
+  transform: rotate(-22deg);
+  transition: transform 1.1s var(--ease-smooth);
+}
+
+.sp-cover.is-playing .sp-vinyl:not(.is-arm-up) .sp-arm {
+  transform: rotate(0deg);
+}
+
+.sp-arm-base {
+  fill: #1c1e22;
+  stroke: rgba(255, 255, 255, 0.12);
+  stroke-width: 0.6;
+}
+
+.sp-arm-rest {
+  fill: #2a2d32;
+  stroke: rgba(255, 255, 255, 0.15);
+  stroke-width: 0.5;
+}
+
+.sp-arm-weight {
+  fill: none;
+  stroke: #3a3e44;
+  stroke-width: 4.6;
+}
+
+.sp-arm-tube {
+  fill: none;
+  stroke: url(#spArmMetal);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sp-arm-head {
+  fill: #2b2e33;
+  stroke: #9aa0a8;
+  stroke-width: 0.4;
+}
+
+.sp-arm-needle {
+  fill: #d9b45a;
+}
+
+.sp-arm-cap {
+  fill: url(#spArmMetal);
+  stroke: rgba(0, 0, 0, 0.35);
+  stroke-width: 0.4;
+}
+
+/* ------------------------------------------------------------ CD */
+.sp-cd {
+  perspective: 1000px;
+  cursor: grab;
+  touch-action: none;
+  filter: drop-shadow(0 20px 26px rgba(0, 0, 0, 0.42));
+}
+
+.sp-cd.is-grabbing {
+  cursor: grabbing;
+}
+
+.sp-cd-tilt,
+.sp-cd-spin,
+.sp-cd-face,
+.sp-cd-glare {
+  position: absolute;
+  border-radius: 50%;
+}
+
+.sp-cd-tilt {
+  inset: 4%;
+  transform-style: preserve-3d;
+}
+
+.sp-cd-spin {
+  inset: 0;
+  transform-style: preserve-3d;
+  animation: spDiscSpin 2.6s linear infinite;
+  animation-play-state: paused;
+}
+
+.sp-cover.is-playing .sp-vinyl-disc,
+.sp-cover.is-playing .sp-cd-spin {
+  animation-play-state: running;
+}
+
+/* Agujero de 15 mm en un disco de 120 mm */
+.sp-cd-face,
+.sp-cd-glare {
+  inset: 0;
+  overflow: hidden;
+  backface-visibility: hidden;
+  -webkit-mask: radial-gradient(circle closest-side, transparent 12.5%, #000 13%, #000 99.4%, transparent 100%);
+  mask: radial-gradient(circle closest-side, transparent 12.5%, #000 13%, #000 99.4%, transparent 100%);
+}
+
+/* Cara de arriba: anillo de plástico transparente, aro plateado y la
+   carátula impresa en el resto */
+.sp-cd-front {
+  transform: translateZ(1px);
+  background: radial-gradient(
+    circle closest-side,
+    rgba(255, 255, 255, 0.5) 13%,
+    rgba(220, 228, 236, 0.22) 15%,
+    rgba(220, 228, 236, 0.16) 22%,
+    rgba(255, 255, 255, 0.55) 23%,
+    #d5d9df 24.5%,
+    #9ea4ad 28%,
+    #e3e6ea 31%
+  );
+}
+
+.sp-cd-print {
+  position: absolute;
+  inset: 0;
+  -webkit-mask: radial-gradient(circle closest-side, transparent 31%, #000 31.6%);
+  mask: radial-gradient(circle closest-side, transparent 31%, #000 31.6%);
+}
+
+.sp-cd-print .is-empty {
+  background: var(--ink-700);
+}
+
+/* Cara de abajo: la de los datos, plateada con arcoíris */
+.sp-cd-back {
+  transform: rotateY(180deg) translateZ(1px);
+  background:
+    repeating-radial-gradient(circle, rgba(255, 255, 255, 0.05) 0 1px, transparent 1px 2px),
+    radial-gradient(circle closest-side, rgba(255, 255, 255, 0.55) 13%, rgba(220, 228, 236, 0.2) 15% 22%, #cfd4da 23%, #aeb4bc 32%, #c9ced5 33%, #dfe3e8 60%, #b7bdc5 99%);
+}
+
+/* Brillo fijo respecto a la luz (no gira con el disco) */
+.sp-cd-glare {
+  pointer-events: none;
+}
+
+.sp-cd-glare-front {
+  transform: translateZ(1.5px);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.3), transparent 38%, transparent 62%, rgba(255, 255, 255, 0.14)),
+    conic-gradient(from 200deg, transparent, rgba(255, 120, 200, 0.12), rgba(120, 200, 255, 0.14), rgba(140, 255, 170, 0.1), transparent 40%);
+}
+
+.sp-cd-glare-back {
+  transform: rotateY(180deg) translateZ(1.5px);
+  background: conic-gradient(
+    from 10deg,
+    rgba(255, 90, 160, 0.4),
+    rgba(255, 210, 80, 0.38),
+    rgba(110, 255, 160, 0.36),
+    rgba(80, 190, 255, 0.4),
+    rgba(170, 110, 255, 0.4),
+    rgba(255, 90, 160, 0.4) 50%,
+    rgba(255, 210, 80, 0.38),
+    rgba(110, 255, 160, 0.36),
+    rgba(80, 190, 255, 0.4),
+    rgba(170, 110, 255, 0.4),
+    rgba(255, 90, 160, 0.4)
+  );
+}
