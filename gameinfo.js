@@ -21,7 +21,7 @@ const NEXUS_GQL = "https://api.nexusmods.com/v2/graphql";
 const STEAM_API = "https://api.steampowered.com";
 const DAY = 864e5;
 
-function createGameInfo({ fetch, igdbQuery, steamKey, steamAppList, Fuse, steamId, cacheFile, notify }) {
+function createGameInfo({ fetch, igdbQuery, steamKey, steamAppList, Fuse, steamId, cacheFile, notify, onAllUnlocked }) {
   // ------------------------------------------------------------ Caché en disco
   let cache = null;
   let saveTimer = null;
@@ -408,6 +408,8 @@ function createGameInfo({ fetch, igdbQuery, steamKey, steamAppList, Fuse, steamI
           const a = schema.find((s) => s.name.toLowerCase() === k);
           notify({ gameId: g.id, gameName: g.name, name: k, title: a?.title || k, desc: a?.desc || "", icon: a?.icon || "" });
         }
+        // Con el último, platino
+        if (schema.length && schema.every((s) => w.known.has(s.name.toLowerCase()))) onAllUnlocked?.(g);
       }, 5000);
     }
   }

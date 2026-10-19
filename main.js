@@ -1283,6 +1283,11 @@ ipcMain.handle("games:return", (_e, id) => {
   const idx = completedGames.findIndex((x) => x.id === gameId);
   if (idx >= 0) {
     const g = completedGames.splice(idx, 1)[0];
+    // Sin pasar no hay platino; y el automático no lo vuelve a poner.
+    if (g.isPlatinum) {
+      g.isPlatinum = false;
+      g.platinumOff = true;
+    }
     games.push(g);
     saveData();
   }
@@ -1533,6 +1538,13 @@ const gameInfo = createGameInfo({
   steamAppList: () => getSteamAppListCached(),
   steamId: () => stores?.steamId() || null,
   cacheFile: path.join(app.getPath("userData"), "gameinfo-cache.json"),
+  // Jugando, se completa la lista de logros: platino automático
+  onAllUnlocked: (game) => {
+    const g = setPlatinum(game.id, "auto");
+    if (!g) return;
+    if (win && !win.isDestroyed()) win.webContents.send("games:platinum", { id: g.id, name: g.name });
+    if (Notification.isSupported()) new Notification({ title: "¡Platino!", body: `Tienes todos los logros de ${g.name}.` }).show();
+  },
   // Logro desbloqueado mientras juegas (archivos del emulador)
   notify: (a) => {
     if (win && !win.isDestroyed()) win.webContents.send("achievements:unlocked", a);
@@ -2383,22 +2395,19 @@ async function runImport(config = {}) {
     }
   }
 
-  // Lo que hay en las cuentas vinculadas y no está instalado. Solo en la
-  // búsqueda automática, no al indicar una carpeta a mano.
+  // Lo que hay en las cuentas vinculadas y no está instalado: ya no se
+  // añade solo (desde la 4.0.1). Se cuenta cuántos hay y el usuario elige
+  // cuáles quiere (stores:available / stores:addOwned) o le salen al buscar
+  // en Descubrir. Solo en la búsqueda automática, no con una carpeta a mano.
   if (!config.localOnly && !config.steamRoot && !config.epicManifestsDir && !config.gogRoot) {
     await Promise.all(
       ["steam", "epic", "gog"]
         .filter((p) => want.has(p) && stores?.isLinked(p) && cloud?.loggedIn())
         .map(async (p) => {
           const r = report[p] || (report[p] = newImportReport());
-          const acc = (r.account = { status: "ok", added: [], error: null });
+          const acc = (r.account = { status: "ok", added: [], available: 0, error: null });
           try {
-            for (const o of await stores.owned(p)) {
-              const obj = ownedToGame(p, o);
-              if (!obj) continue;
-              const { status, game } = upsertOwnedGame(obj);
-              if (status === "new") acc.added.push(game.name);
-            }
+            acc.available = (await ownedAvailable([p], true)).length;
           } catch (err) {
             acc.status = "error";
             acc.error = String(err?.message || err);
@@ -2410,6 +2419,67 @@ async function runImport(config = {}) {
   saveData();
   return { ok: true, report };
 }
+
+// Juegos de las cuentas vinculadas que no están en la biblioteca. Lo que
+// devuelve cada tienda se guarda 10 min (la ventana lo pide al buscar).
+const ownedCache = new Map(); // tienda -> { at, list }
+async function ownedOf(platform, fresh = false) {
+  const c = ownedCache.get(platform);
+  if (!fresh && c && Date.now() - c.at < 10 * 60 * 1000) return c.list;
+  const list = await stores.owned(platform);
+  ownedCache.set(platform, { at: Date.now(), list });
+  return list;
+}
+
+async function ownedAvailable(platforms = ["steam", "epic", "gog"], fresh = false) {
+  if (!stores || !cloud?.loggedIn()) return [];
+  const out = [];
+  for (const p of platforms.filter((x) => stores.isLinked(x))) {
+    for (const o of await ownedOf(p, fresh)) {
+      const obj = ownedToGame(p, o);
+      if (!obj) continue;
+      const have =
+        games.some((x) => x.id === obj.id) || completedGames.some((x) => x.id === obj.id) || findGameByExternalId(obj) || findGameByName(obj);
+      if (have) continue;
+      out.push({ key: ownedKey(obj), platform: p, name: obj.name, coverUrl: obj.coverUrl || null });
+    }
+  }
+  return out.sort((a, b) => a.name.localeCompare(b.name, "es", { sensitivity: "base", numeric: true }));
+}
+
+// { query?, platforms? } -> [{ key, platform, name, coverUrl }]
+ipcMain.handle("stores:available", async (_e, opts = {}) => {
+  try {
+    const q = normalizeGameName(String(opts.query || ""));
+    const list = await ownedAvailable(Array.isArray(opts.platforms) ? opts.platforms : undefined, !!opts.fresh);
+    return { ok: true, list: q ? list.filter((g) => normalizeGameName(g.name).includes(q)) : list };
+  } catch (err) {
+    return { ok: false, error: String(err?.message || err), list: [] };
+  }
+});
+
+// Añade los que ha marcado el usuario (por su clave: "steam:1234"...).
+ipcMain.handle("stores:addOwned", async (_e, keys = []) => {
+  const want = new Set((Array.isArray(keys) ? keys : []).map(String));
+  const added = [];
+  // Los que quitaste de la biblioteca se marcaron para no volver solos; si
+  // los eliges tú, vuelven.
+  if (appSettings.storeHidden?.some((k) => want.has(k))) {
+    appSettings.storeHidden = appSettings.storeHidden.filter((k) => !want.has(k));
+    saveSettings();
+  }
+  for (const p of ["steam", "epic", "gog"]) {
+    if (![...want].some((k) => k.startsWith(`${p}:`)) || !stores?.isLinked(p)) continue;
+    for (const o of await ownedOf(p).catch(() => [])) {
+      const obj = ownedToGame(p, o);
+      if (!obj || !want.has(ownedKey(obj))) continue;
+      const { status, game } = upsertOwnedGame(obj);
+      if (status === "new") added.push(game.name);
+    }
+  }
+  if (added.length) saveData();
+  return { ok: true, added };
+});
 
 function ownedToGame(platform, o) {
   if (platform === "steam") {
@@ -2608,10 +2678,41 @@ ipcMain.handle("games:togglePlatinum", (_e, id) => {
 
   if (g) {
     g.isPlatinum = !g.isPlatinum;
+    // Si lo quitas tú, el platino automático ya no lo vuelve a poner.
+    if (g.isPlatinum) {
+      delete g.platinumOff;
+      g.platinumBy = "manual";
+      g.platinumAt = Date.now();
+    } else g.platinumOff = true;
     saveData();
   }
   return { games, completedGames };
 });
+
+// Platino al tener todos los logros (by "auto") o marcado a mano desde la
+// página del juego cuando los logros no se registran (by "manual"). Si el
+// juego estaba en la biblioteca pasa a pasados.
+function setPlatinum(id, by) {
+  const gameId = Number(id);
+  let g = completedGames.find((x) => x.id === gameId);
+  if (by === "auto" && g?.platinumOff) return null;
+  if (g?.isPlatinum) return null;
+  if (!g) {
+    const idx = games.findIndex((x) => x.id === gameId);
+    if (idx < 0) return null;
+    if (by === "auto" && games[idx].platinumOff) return null;
+    g = games.splice(idx, 1)[0];
+    g.completedAt = Date.now();
+    completedGames.push(g);
+  }
+  g.isPlatinum = true;
+  g.platinumBy = by;
+  g.platinumAt = Date.now();
+  delete g.platinumOff;
+  saveData();
+  return g;
+}
+ipcMain.handle("games:setPlatinum", (_e, id, by) => !!setPlatinum(id, by === "auto" ? "auto" : "manual"));
 
 // -------------------- IA (Claude) --------------------
 // La clave es del propio usuario y se guarda cifrada con el almacén seguro

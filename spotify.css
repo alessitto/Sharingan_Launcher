@@ -2353,3 +2353,30 @@ img.sp-btn-cover {
   height: 100%;
   filter: drop-shadow(0 18px 24px rgba(0, 0, 0, 0.42));
 }
+
+/* =====================================================================
+   4.0.1: el disco es un disco en todos los estilos
+   ===================================================================== */
+/* Retro, Cyberpunk y Terminal cuadran todo (border-radius: 0 !important) y
+   algunos estilos paraban el giro de la carátula: el vinilo, el CD y la
+   carátula del botón de Spotify siguen siendo redondos y girando. */
+:root[data-effect] .sp-btn-cover,
+:root[data-effect] :is(.sp-vinyl-disc, .sp-vinyl-shine, .sp-vinyl-label, .sp-cd-tilt, .sp-cd-spin, .sp-cd-face, .sp-cd-glare),
+:root[data-effect] .sp-vinyl-label::after {
+  border-radius: 50% !important;
+}
+
+:root[data-effect] .sp-btn-cover {
+  clip-path: none !important;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-effect] img.sp-btn-cover {
+    animation: spFade 0.45s ease both, spSpin 9s linear infinite !important;
+    animation-play-state: running, paused !important;
+  }
+
+  :root[data-effect] .sp-btn.is-playing img.sp-btn-cover {
+    animation-play-state: running, running !important;
+  }
+}

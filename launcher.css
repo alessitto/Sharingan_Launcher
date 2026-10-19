@@ -197,10 +197,6 @@
   padding: 0 8px;
 }
 
-.topnav.sidebar .sp-btn-cover {
-  border-radius: 4px;
-}
-
 .topnav.sidebar .sp-btn-text {
   flex: 1;
   max-width: none;
@@ -3037,4 +3033,308 @@ button.gp-stat:hover b {
 .theme-picker .tp-fx-default .tp-fx-text {
   font-family: "Inter", "Segoe UI", system-ui, sans-serif !important;
   letter-spacing: -0.02em;
+}
+
+/* Logros ocultos: tapados hasta que haces clic (como en Steam) */
+.gp-ach.is-secret {
+  cursor: pointer;
+}
+
+.gp-ach.is-secret:hover {
+  background: var(--ink-800);
+}
+
+.gp-ach.is-secret:not(.is-revealed) .gp-ach-text b {
+  color: var(--ink-200);
+}
+
+.gp-ach-mystery {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 6px;
+  background: repeating-linear-gradient(135deg, var(--ink-800) 0 6px, var(--ink-900) 6px 12px);
+  color: var(--ink-400);
+}
+
+.gp-ach-mystery .i {
+  width: 20px;
+  height: 20px;
+}
+
+.gp-ach-spoiler {
+  margin-right: 6px;
+  padding: 0 5px;
+  border-radius: 3px;
+  font-style: normal;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--ink-200);
+  background: var(--ink-800);
+}
+
+.gp-ach-reveal .i {
+  width: 14px;
+  height: 14px;
+}
+
+/* Ajustes › Tiendas: la fila a la que te manda la página del juego */
+.st-store.is-attention {
+  border-radius: 10px;
+  animation: stAttention 1.3s ease 2;
+}
+
+@keyframes stAttention {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(var(--red-500-rgb), 0);
+  }
+  40% {
+    box-shadow: 0 0 0 3px rgba(var(--red-500-rgb), 0.55);
+  }
+}
+
+.st-store-note {
+  margin: 14px 0 0;
+}
+
+/* Elegir juegos de tus cuentas */
+.own-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.own-tools .search-field {
+  flex: 1;
+}
+
+.own-tools input[type="text"] {
+  height: 36px;
+}
+
+.own-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: min(420px, calc(100vh - 330px));
+  margin: 0 -6px 10px;
+  overflow-y: auto;
+}
+
+.own-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px;
+  border-radius: 8px;
+  color: var(--washi-100);
+  cursor: pointer;
+}
+
+.own-row[hidden] {
+  display: none;
+}
+
+.own-row:hover {
+  background: var(--ink-800);
+}
+
+.own-row input {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  accent-color: var(--red-500);
+}
+
+.own-row img {
+  width: 30px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 3px;
+  object-fit: cover;
+  background: var(--ink-800);
+}
+
+.own-row span {
+  flex: 1;
+  min-width: 0;
+  font-size: 13.5px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.own-row i {
+  color: var(--ink-300);
+}
+
+.own-row .st-store-logo {
+  width: 15px;
+  height: 15px;
+}
+
+.imp-owned {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 6px;
+  padding: 0;
+  background: none;
+  font-size: 12.5px;
+  color: var(--washi-200);
+  text-align: left;
+}
+
+.imp-owned:hover {
+  background: none;
+  transform: none;
+}
+
+.imp-owned b {
+  color: var(--accent-text);
+}
+
+.imp-owned .i {
+  width: 14px;
+  height: 14px;
+  color: var(--accent-text);
+}
+
+/* Descubrir: lo de tus cuentas que coincide con la búsqueda */
+.own-matches {
+  margin: 0 0 22px;
+}
+
+.own-matches[hidden] {
+  display: none;
+}
+
+.own-strip-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--washi-50);
+}
+
+.own-strip-title .i {
+  width: 15px;
+  height: 15px;
+  color: var(--accent-text);
+}
+
+.own-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 8px;
+}
+
+.own-chip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px 8px 8px;
+  border-radius: 10px;
+  background: var(--ink-900);
+  border: 1px solid var(--ink-800);
+}
+
+.own-chip img {
+  width: 36px;
+  height: 48px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  object-fit: cover;
+  background: var(--ink-800);
+}
+
+.own-chip span {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.own-chip b {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--washi-50);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.own-chip small {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  color: var(--ink-300);
+}
+
+.own-chip .st-store-logo {
+  width: 12px;
+  height: 12px;
+}
+
+/* Platino: aviso con todos los logros y opción manual escondida al final */
+.gp-ach-plat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gold-400);
+}
+
+.gp-ach-plat .i {
+  width: 16px;
+  height: 16px;
+}
+
+.gp-ach-manual {
+  margin-top: 22px;
+  font-size: 12px;
+  color: var(--ink-400);
+}
+
+.gp-ach-manual summary {
+  display: inline;
+  cursor: pointer;
+  list-style: none;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.gp-ach-manual summary::-webkit-details-marker {
+  display: none;
+}
+
+.gp-ach-manual summary:hover {
+  color: var(--ink-200);
+}
+
+.gp-ach-manual > div {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: 720px;
+  margin-top: 10px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px dashed var(--ink-700);
+}
+
+.gp-ach-manual p {
+  flex: 1;
+  margin: 0;
+  line-height: 1.5;
+  color: var(--ink-300);
 }

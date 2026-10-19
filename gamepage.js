@@ -36,6 +36,7 @@
     youtube: '<path d="M2.5 17a24.12 24.12 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49.56 49.56 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24.12 24.12 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49.55 49.55 0 0 1-16.2 0A2 2 0 0 1 2.5 17"/><path d="m10 15 5-3-5-3z"/>',
     lock: '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
     eyeOff: '<path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/>',
+    eye: '<path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/>',
     thumb: '<path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/>',
   };
   const ic = (name, cls = "") =>
@@ -75,6 +76,8 @@
       from = { section: getActiveSectionId(), nav: document.querySelector(".topnav-item.active"), scroll: main?.scrollTop || 0 };
     }
     closeMenus();
+    achView.revealed.clear();
+    achView.showHidden = false;
     st = {
       id: String(found.game.id),
       ...found,
@@ -124,6 +127,7 @@
     paintBar();
     if (st.tab === "overview") paintAsidePlay();
     if (st.tab === "reviews") paintReviews();
+    if (st.tab === "achievements") paintTab();
   }
 
   function refreshPlay() {
@@ -179,7 +183,26 @@
     paintBar();
     paintTabs();
     if (st.tab === "achievements") paintTab();
+    autoPlatinum();
   }
+
+  // Todos los logros conseguidos: platino (y a pasados) sin tener que
+  // marcarlo. Si lo quitaste tú a mano, no se vuelve a poner.
+  async function autoPlatinum() {
+    const a = st?.ach;
+    const g = st?.game;
+    if (!a?.ok || !a.total || a.unlocked < a.total || !st.owned || g.isPlatinum || g.platinumOff) return;
+    const done = await window.electronAPI.setPlatinum(g.id, "auto").catch(() => false);
+    if (!done) return;
+    showNotification(`¡Platino! Tienes los ${a.total} logros de ${g.name}.`);
+    await loadLibrary();
+  }
+
+  // Platino que llega del proceso principal (lo completaste jugando)
+  window.electronAPI.onPlatinum?.(async (g) => {
+    showNotification(`¡Platino! Tienes todos los logros de ${g.name}.`);
+    await loadLibrary();
+  });
 
   // ------------------------------------------------------------ Pintar: esqueleto
   const TABS = [
@@ -364,7 +387,7 @@
   function paintTab() {
     const body = root.querySelector(".gp-body");
     if (!body || !st) return;
-    body.dataset.tab = st.tab;
+    body.dataset.view = st.tab;
     if (st.tab === "overview") paintOverview(body);
     else if (st.tab === "achievements") paintAchievements(body);
     else if (st.tab === "reviews") paintReviews();
@@ -537,7 +560,8 @@
   }
 
   // ------------------------------------------------------------ Logros
-  const achView = { filter: "all", sort: "default" };
+  // revealed: logros ocultos destapados con un clic (como en Steam)
+  const achView = { filter: "all", sort: "default", revealed: new Set(), showHidden: false };
 
   function paintAchievements(body) {
     const a = st.ach;
@@ -574,6 +598,7 @@
     if (achView.sort === "rare") list.sort((x, y) => (x.percent ?? 101) - (y.percent ?? 101));
     if (achView.sort === "recent") list.sort((x, y) => (y.unlockedAt || 0) - (x.unlockedAt || 0));
 
+    const secretLeft = a.list.filter((x) => x.hidden && !x.unlocked).length;
     const rarity = (p) => (p == null ? "" : p < 1 ? `<span class="gp-rarity is-ultra">Ultra raro</span>` : p < 5 ? `<span class="gp-rarity">Raro</span>` : "");
     body.innerHTML = `
       <div class="gp-ach-head">
@@ -586,6 +611,13 @@
           <div class="gp-seg" data-group="ach-filter">
             ${[["all", "Todos"], ["got", "Conseguidos"], ["todo", "Pendientes"]].map(([k, l]) => `<button type="button" class="${achView.filter === k ? "is-active" : ""}" data-ach-filter="${k}">${l}</button>`).join("")}
           </div>
+          ${
+            secretLeft
+              ? `<button type="button" class="sl-btn sl-btn-ghost sl-btn-sm gp-ach-reveal" data-act="ach-hidden">${ic(achView.showHidden ? "eyeOff" : "eye")}${
+                  achView.showHidden ? "Ocultar" : "Mostrar"
+                } ${secretLeft} ${secretLeft === 1 ? "oculto" : "ocultos"}</button>`
+              : ""
+          }
           <select class="gp-select" data-ach-sort aria-label="Ordenar logros">
             <option value="default"${achView.sort === "default" ? " selected" : ""}>Orden del juego</option>
             <option value="rare"${achView.sort === "rare" ? " selected" : ""}>Más raros primero</option>
@@ -598,13 +630,16 @@
           list.length
             ? list
                 .map((x) => {
-                  const secret = x.hidden && !x.unlocked;
+                  const hid = x.hidden && !x.unlocked;
+                  const shown = !hid || achView.showHidden || achView.revealed.has(x.name);
                   return `
-            <div class="gp-ach${x.unlocked ? " is-on" : ""}${secret ? " is-secret" : ""}">
-              <img src="${esc(x.unlocked ? x.icon : x.iconGray)}" alt="" loading="lazy">
+            <div class="gp-ach${x.unlocked ? " is-on" : ""}${hid ? (shown ? " is-secret is-revealed" : " is-secret") : ""}"${
+                    hid ? ` data-reveal="${esc(x.name)}" role="button" tabindex="0" title="${shown ? "Clic para volver a ocultarlo" : "Clic para ver el logro oculto"}"` : ""
+                  }>
+              ${shown ? `<img src="${esc(x.unlocked ? x.icon : x.iconGray)}" alt="" loading="lazy">` : `<span class="gp-ach-mystery">${ic("eyeOff")}</span>`}
               <div class="gp-ach-text">
-                <b>${esc(x.title)}${rarity(x.percent)}</b>
-                <p>${secret ? `${ic("eyeOff")}Logro oculto: se desvela al conseguirlo` : esc(x.desc || "")}</p>
+                <b>${shown ? esc(x.title) : "Logro oculto"}${shown ? rarity(x.percent) : ""}</b>
+                <p>${shown ? `${hid ? `<em class="gp-ach-spoiler">Oculto</em>` : ""}${esc(x.desc || "")}` : "Sus detalles se revelan al conseguirlo. Haz clic para verlo ya."}</p>
               </div>
               <div class="gp-ach-meta">
                 ${x.unlocked ? `<span class="gp-ach-date">${icon("check")}${x.unlockedAt ? new Date(x.unlockedAt).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" }) : "Conseguido"}</span>` : `<span class="gp-ach-lock">${ic("lock")}</span>`}
@@ -616,7 +651,27 @@
             : `<p class="gp-muted gp-pad">${achView.filter === "got" ? "Todavía no tienes ninguno." : "¡Los tienes todos!"}</p>`
         }
       </div>
+      ${manualPlatinumHtml(a, known)}
       <p class="gp-source">Lista y porcentajes: Steam</p>`;
+  }
+
+  // Platino a mano, plegado y al final: para copias que no guardan los
+  // logros donde el launcher los busca. Escondido a propósito, para que
+  // primero se intente de verdad.
+  function manualPlatinumHtml(a, known) {
+    const g = st.game;
+    if (!st.owned) return "";
+    if (g.isPlatinum)
+      return `<p class="gp-ach-plat">${icon("crown")}${g.platinumBy === "manual" ? "Platino marcado a mano." : a.unlocked >= a.total ? "¡Platino! Los tienes todos." : "Platinado."}</p>`;
+    if (known && a.unlocked >= a.total) return "";
+    return `
+      <details class="gp-ach-manual">
+        <summary>¿Ya los tienes todos y no se registran?</summary>
+        <div>
+          <p>Si tu copia del juego no guarda los logros donde el launcher sabe leerlos, puedes marcar el platino tú. Solo si de verdad los has conseguido todos.</p>
+          <button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-act="plat-manual">${icon("crown")}Marcar como platino</button>
+        </div>
+      </details>`;
   }
 
   // Aviso al desbloquear (archivos del emulador, mientras juegas)
@@ -1050,11 +1105,30 @@
       </div>`;
   }
 
+  // Ajustes › Tiendas con Steam resaltado (sin cuenta del launcher no hay
+  // tiendas: primero entrar).
+  async function linkSteam() {
+    if (!window.Community?.user?.()) return window.Community?.openAuth("login", "Para vincular tu cuenta de Steam primero entra en tu cuenta del launcher.");
+    openSettingsModal("stores");
+    for (let i = 0; i < 60; i++) {
+      const btn = document.querySelector('.st-modal [data-store="steam"]');
+      if (btn) {
+        const row = btn.closest(".st-store");
+        row?.classList.add("is-attention");
+        row?.scrollIntoView({ block: "center" });
+        btn.focus({ preventScroll: true });
+        setTimeout(() => row?.classList.remove("is-attention"), 2600);
+        return;
+      }
+      await new Promise((r) => setTimeout(r, 50));
+    }
+  }
+
   // ------------------------------------------------------------ Eventos
   root.addEventListener("click", async (e) => {
     if (!st) return;
     const t = e.target;
-    const tab = t.closest("[data-tab]");
+    const tab = t.closest("button[data-tab]");
     if (tab) return switchTab(tab.dataset.tab);
     const open2 = t.closest("[data-open]");
     if (open2 && open2.dataset.open !== st.id) return open(open2.dataset.open);
@@ -1079,6 +1153,13 @@
       const save = root.querySelector('[data-act="rev-save"]');
       if (save) save.disabled = false;
       return;
+    }
+    const rev = t.closest("[data-reveal]");
+    if (rev) {
+      const n = rev.dataset.reveal;
+      if (achView.revealed.has(n)) achView.revealed.delete(n);
+      else achView.revealed.add(n);
+      return paintTab();
     }
     const f = t.closest("[data-ach-filter]");
     if (f) {
@@ -1137,12 +1218,31 @@
         return openSortKeyEditor(id);
       case "remove":
         return removeFromLibrary(id);
+      case "plat-manual": {
+        const ok = await confirmDialog({
+          title: "¿Marcar como platino?",
+          text: `Pasa a Juegos pasados con la corona. Hazlo solo si de verdad tienes los ${st.ach?.total || ""} logros.`,
+          confirmText: "Marcar platino",
+          iconName: "crown",
+        });
+        if (!ok) return;
+        if (await window.electronAPI.setPlatinum(st.game.id, "manual").catch(() => false)) {
+          showNotification(`${st.game.name}: platino marcado.`);
+          await loadLibrary();
+          paintTab();
+        }
+        return;
+      }
+      case "ach-hidden":
+        achView.showHidden = !achView.showHidden;
+        if (!achView.showHidden) achView.revealed.clear();
+        return paintTab();
       case "ach-retry":
         st.ach = null;
         paintTab();
         return loadAchievements(seq, true);
       case "link-steam":
-        return openSettingsModal("stores");
+        return linkSteam();
       case "login":
         return window.Community?.openAuth("login", "Entra para reseñar juegos.");
       case "rev-save":
@@ -1197,6 +1297,12 @@
   });
 
   root.addEventListener("keydown", (e) => {
+    const rev = e.target.closest?.("[data-reveal]");
+    if (rev && (e.key === "Enter" || e.key === " ")) {
+      e.preventDefault();
+      rev.click();
+      return;
+    }
     const mod = e.target.closest?.(".gp-mod[data-ext]");
     if (mod && (e.key === "Enter" || e.key === " ")) {
       e.preventDefault();

@@ -23,6 +23,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   returnToLibrary: (id) => ipcRenderer.invoke('games:return', id),
   removeGame: (id) => ipcRenderer.invoke('games:remove', id),
   togglePlatinum: (id) => ipcRenderer.invoke('games:togglePlatinum', id),
+  // Platino por tener todos los logros ("auto") o a mano ("manual")
+  setPlatinum: (id, by) => ipcRenderer.invoke('games:setPlatinum', id, by),
+  onPlatinum: (cb) => ipcRenderer.on('games:platinum', (_e, g) => cb(g)),
   updateSortKey: (id, sortKey) => ipcRenderer.invoke('games:updateSortKey', { id, sortKey }),
 
   // Importar + carátulas

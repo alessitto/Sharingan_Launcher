@@ -125,6 +125,7 @@
             </div>
           </div>
           <div id="discoverIndexBar" class="index-bar"></div>
+          <div id="ownedMatches" class="own-matches" hidden></div>
           <div id="jarvisBar" class="jarvis-bar" hidden>
             <div class="jarvis-bar-text">
               <b>Recomendado por Jarvis</b>
@@ -670,7 +671,10 @@
           dartacanPlayed = false;
         }
         clearTimeout(lastSearchTimeout);
-        lastSearchTimeout = setTimeout(loadDiscoverGames, 350);
+        lastSearchTimeout = setTimeout(() => {
+          loadDiscoverGames();
+          renderOwnedMatches(document.getElementById("searchInput").value);
+        }, 350);
       }
 
       // Carga la lista de géneros de IGDB una vez, para el desplegable.
@@ -3346,7 +3350,15 @@
               })
               .join("")}
           </div>
-          ${anyLinked ? `<div class="st-actions"><button type="button" class="sl-btn sl-btn-ghost" data-act="import">${icon("download")}Importar juegos</button></div>` : ""}
+          ${
+            anyLinked
+              ? `<p class="settings-update-text st-store-note">Vincular una cuenta no añade nada a tu biblioteca: elige tú qué juegos quieres o búscalos en Descubrir.</p>
+                 <div class="st-actions">
+                   <button type="button" class="sl-btn sl-btn-primary" data-act="owned">${icon("plus")}Elegir juegos de mis cuentas</button>
+                   <button type="button" class="sl-btn sl-btn-ghost" data-act="import">${icon("download")}Importar instalados</button>
+                 </div>`
+              : ""
+          }
           <p class="settings-ai-msg">${escapeHtml(msg)}</p>`;
         box.onclick = async (e) => {
           const b = e.target.closest("button[data-act]");
@@ -3357,13 +3369,18 @@
             setTimeout(() => openImportModal(), 120);
             return;
           }
+          if (act === "owned") {
+            Swal.close();
+            setTimeout(() => openOwnedPicker(), 120);
+            return;
+          }
           box.classList.add("is-busy");
           b.disabled = true;
           try {
             if (act === "link") {
               b.lastChild.textContent = "Esperando…";
               const res = await window.electronAPI.stores("link", store);
-              if (res?.ok) showNotification(`${STORE_NAMES[store]} vinculada.`);
+              if (res?.ok) showNotification(`${STORE_NAMES[store]} vinculada. No se ha añadido ningún juego: elige tú cuáles.`);
               await renderStoresSettings(box, res?.ok || res?.cancelled ? "" : res?.error || "No se ha podido vincular.");
             } else {
               await window.electronAPI.stores("unlink", store);
@@ -3809,6 +3826,132 @@
         };
       }
 
+      // Juegos de tus cuentas vinculadas que no tienes en la biblioteca: se
+      // marcan los que quieras y se añaden (con el botón Descargar). Nada se
+      // añade solo al vincular ni al importar.
+      async function openOwnedPicker(platform = null) {
+        loadingModal("Buscando en tus cuentas", platform ? STORE_NAMES[platform] : "Steam, Epic Games y GOG");
+        const res = await window.electronAPI.stores("available", { platforms: platform ? [platform] : undefined }).catch(() => null);
+        if (!Swal.isVisible() || !document.querySelector(".sl-loading")) return;
+        const list = res?.list || [];
+        if (!res?.ok || !list.length) {
+          Swal.close();
+          showNotification(res?.ok ? "Ya tienes en la biblioteca todos los juegos de tus cuentas." : res?.error || "No se ha podido leer tu cuenta.", res?.ok ? "success" : "error");
+          return;
+        }
+        const chosen = new Set();
+        const r = await openModal({
+          eyebrow: platform ? STORE_NAMES[platform] : "Tus cuentas",
+          title: "Elige qué juegos añadir",
+          width: 620,
+          html: `
+            <div class="own-pick">
+              <div class="own-tools">
+                <label class="search-field">${icon("search")}<input type="text" class="own-q" placeholder="Buscar en tus ${list.length} juegos…" aria-label="Buscar"></label>
+                <button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-all>Marcar todos</button>
+              </div>
+              <div class="own-list">${list
+                .map(
+                  (g) => `
+                <label class="own-row" data-name="${escapeHtml(g.name.toLowerCase())}">
+                  <input type="checkbox" value="${escapeHtml(g.key)}">
+                  <img src="${escapeHtml(g.coverUrl || noCoverSvg(g.name))}" alt="" loading="lazy" onerror="this.onerror=null;this.src=noCoverSvg('')">
+                  <span>${escapeHtml(g.name)}</span>
+                  ${platform ? "" : `<i title="${STORE_NAMES[g.platform]}">${storeLogo(g.platform)}</i>`}
+                </label>`
+                )
+                .join("")}</div>
+              <p class="sl-hint">Se añaden sin instalar, con el botón <b>Descargar</b>. También te saldrán al buscarlos en Descubrir.</p>
+            </div>`,
+          showCancelButton: true,
+          cancelButtonText: "Cancelar",
+          confirmButtonText: "Añadir",
+          didOpen: (popup) => {
+            const ok = Swal.getConfirmButton();
+            const sync = () => {
+              ok.disabled = !chosen.size;
+              ok.textContent = chosen.size ? `Añadir ${chosen.size}` : "Añadir";
+            };
+            sync();
+            popup.querySelector(".own-list").addEventListener("change", (e) => {
+              if (e.target.checked) chosen.add(e.target.value);
+              else chosen.delete(e.target.value);
+              sync();
+            });
+            const q = popup.querySelector(".own-q");
+            q.addEventListener("input", () => {
+              const t = q.value.trim().toLowerCase();
+              popup.querySelectorAll(".own-row").forEach((row) => (row.hidden = !!t && !row.dataset.name.includes(t)));
+            });
+            popup.querySelector("[data-all]").addEventListener("click", (e) => {
+              const rows = [...popup.querySelectorAll(".own-row:not([hidden]) input")];
+              const all = rows.every((i) => i.checked);
+              rows.forEach((i) => {
+                i.checked = !all;
+                if (!all) chosen.add(i.value);
+                else chosen.delete(i.value);
+              });
+              e.currentTarget.textContent = all ? "Marcar todos" : "Desmarcar";
+              sync();
+            });
+          },
+        });
+        if (!r.isConfirmed || !chosen.size) return;
+        const out = await window.electronAPI.stores("addOwned", [...chosen]).catch(() => null);
+        await loadLibrary();
+        refreshSearchUI();
+        const n = out?.added?.length || 0;
+        showNotification(n ? `${n} ${n === 1 ? "juego añadido" : "juegos añadidos"} a tu biblioteca.` : "No se ha añadido ninguno.", n ? "success" : "error");
+      }
+
+      // Descubrir con texto: arriba, los juegos de tus cuentas que coinciden
+      // y aún no tienes en la biblioteca.
+      let ownedSeq = 0;
+      async function renderOwnedMatches(query) {
+        const box = document.getElementById("ownedMatches");
+        if (!box) return;
+        const my = ++ownedSeq;
+        const q = String(query || "").trim();
+        if (q.length < 2 || isGuest()) {
+          box.hidden = true;
+          box.innerHTML = "";
+          return;
+        }
+        const res = await window.electronAPI.stores("available", { query: q }).catch(() => null);
+        if (my !== ownedSeq) return;
+        const list = (res?.list || []).slice(0, 12);
+        box.hidden = !list.length;
+        box.innerHTML = list.length
+          ? `<p class="own-strip-title">${icon("link")}En tus cuentas y sin añadir</p>
+             <div class="own-strip">${list
+               .map(
+                 (g) => `
+               <div class="own-chip">
+                 <img src="${escapeHtml(g.coverUrl || noCoverSvg(g.name))}" alt="" onerror="this.onerror=null;this.src=noCoverSvg('')">
+                 <span><b>${escapeHtml(g.name)}</b><small>${storeLogo(g.platform)}${STORE_NAMES[g.platform]}</small></span>
+                 <button type="button" class="sl-btn sl-btn-primary sl-btn-sm" data-own-add="${escapeHtml(g.key)}">${icon("plus")}Añadir</button>
+               </div>`
+               )
+               .join("")}</div>`
+          : "";
+      }
+
+      document.getElementById("ownedMatches")?.addEventListener("click", async (e) => {
+        const b = e.target.closest("[data-own-add]");
+        if (!b) return;
+        b.disabled = true;
+        const out = await window.electronAPI.stores("addOwned", [b.dataset.ownAdd]).catch(() => null);
+        if (out?.added?.length) {
+          showNotification(`"${out.added[0]}" añadido a tu biblioteca.`);
+          b.closest(".own-chip")?.remove();
+          if (!document.querySelector("#ownedMatches .own-chip")) renderOwnedMatches("");
+          await loadLibrary();
+        } else {
+          b.disabled = false;
+          showNotification("No se ha podido añadir.", "error");
+        }
+      });
+
       function showImportResults(report) {
         const linked = new Set();
         let root = null;
@@ -3841,17 +3984,14 @@
             text = p.notFound;
           }
 
-          // Lo de la cuenta vinculada (sin instalar).
+          // Lo de la cuenta vinculada (sin instalar): no se añade solo, se
+          // dice cuántos hay y se eligen con "Elegir".
           const acc = r.account;
-          if (acc?.status === "ok") {
-            const m = acc.added.length;
-            if (state === "ok" && r.added.length + r.existing) {
-              if (m) text += ` · ${m} por descargar`;
-            } else {
-              state = "ok";
-              iconName = "checkCircle";
-              text = m ? `${m} por descargar` : "Sin juegos nuevos en tu cuenta";
-            }
+          const avail = acc?.status === "ok" ? acc.available || 0 : 0;
+          if (acc?.status === "ok" && state !== "ok") {
+            state = "ok";
+            iconName = "checkCircle";
+            text = avail ? "Sin juegos instalados" : "Sin juegos nuevos en tu cuenta";
           } else if (acc?.status === "error") {
             if (state === "ok") state = "warn";
             text += ` · ${acc.error}`;
@@ -3869,6 +4009,11 @@
                 ${
                   addedNames.length
                     ? `<details class="imp-added"><summary>Ver juegos nuevos</summary><p>${addedNames.map(escapeHtml).join(", ")}</p></details>`
+                    : ""
+                }
+                ${
+                  avail
+                    ? `<button type="button" class="imp-owned" data-owned="${key}">${icon("download")}<span>${avail} ${avail === 1 ? "juego" : "juegos"} de tu cuenta sin añadir · <b>Elegir cuáles</b></span></button>`
                     : ""
                 }
               </div>
@@ -3978,6 +4123,12 @@
               if (e.target.closest("[data-stores]")) {
                 Swal.close();
                 setTimeout(() => openSettingsModal("stores"), 120);
+                return;
+              }
+              const own = e.target.closest("[data-owned]");
+              if (own) {
+                Swal.close();
+                setTimeout(() => openOwnedPicker(own.dataset.owned), 120);
                 return;
               }
               const b = e.target.closest("[data-pick], [data-link]");
