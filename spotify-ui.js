@@ -259,7 +259,7 @@
     btn.innerHTML = it
       ? `${it.thumb ? `<img class="sp-btn-cover" src="${esc(it.thumb)}" alt="">` : `<span class="sp-btn-cover is-empty">${ic("music")}</span>`}
          <span class="sp-btn-text"><b>${esc(it.name)}</b><small>${esc(it.artists)}</small></span>`
-      : SPOTIFY_LOGO;
+      : `${SPOTIFY_LOGO}<span class="sp-btn-text"><b>Spotify</b><small>${connected ? "No suena nada" : "Conectar"}</small></span>`;
     btn.setAttribute("aria-label", it ? `Spotify: ${it.name} · ${it.artists}` : "Spotify");
   }
 

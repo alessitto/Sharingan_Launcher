@@ -53,6 +53,8 @@ const MESSAGES = {
   invalid_channel: "Ese canal no existe.",
   invalid_type: "Elige si es un bug, una sugerencia o una duda.",
   invalid_rating: "La nota tiene que ser de 1 a 5 estrellas.",
+  invalid_comment: "El comentario es demasiado largo (máximo 2000 caracteres).",
+  invalid_image: "Esa imagen no vale. Prueba con un PNG, JPG o WebP.",
   invalid_status: "Ese estado no vale para este reporte.",
   too_large_library: "Tu biblioteca es demasiado grande para guardarla en la cuenta.",
   too_large_pokepark: "Los datos del PokéPark son demasiado grandes para guardarlos en la cuenta.",
@@ -118,6 +120,8 @@ function createCloud(hooks) {
       lastSync: settings.cloudLastSync || null,
       pending: dirty.size > 0,
       syncing: pushing,
+      // Para pedir las fotos de perfil (?r=avatar&u=<id>&v=<versión>)
+      apiUrl: API_URL,
     };
   }
 
@@ -461,6 +465,23 @@ function createCloud(hooks) {
     rate: async (gameId, score) => {
       if (dirty.has("library")) await push();
       return api("ratings/set", { body: { gameId, score } });
+    },
+    // Reseña: nota y comentario (opcional) desde la página del juego.
+    review: async (gameId, score, comment) => {
+      if (dirty.has("library")) await push();
+      return api("ratings/set", { body: { gameId, score, comment: String(comment || "").slice(0, 2000) } });
+    },
+    reviews: async (gameId, offset) => api("reviews/list", { query: { gameId, offset: offset || 0 } }),
+    moderateReview: async (gameId, userId) => api("reviews/moderate", { body: { gameId, userId } }),
+    // Foto de perfil (data URL ya recortada en la ventana) o null para quitarla.
+    setAvatar: async (image) => {
+      const res = await api("users/avatar", { body: image ? { image } : { remove: true } });
+      if (settings.cloudUser) {
+        settings.cloudUser = { ...settings.cloudUser, avatarV: res.avatarV ?? null };
+        saveSettings();
+        notify("cloud:status", status());
+      }
+      return { avatarV: res.avatarV ?? null };
     },
     reports: async (filters) => api("reports/list", { query: filters || {}, auth: false }),
     report: async (id) => api("reports/get", { query: { id }, auth: false }),

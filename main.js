@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, safeStorage, session, Menu, globalShortcut, nativeTheme } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, shell, safeStorage, session, Menu, globalShortcut, nativeTheme, Notification } = require("electron");
 const Fuse = require("fuse.js");
 const path = require("path");
 const { execFile, spawn } = require("child_process");
@@ -11,6 +11,7 @@ const { createMinigames } = require("./minigames");
 const { createPlaytime } = require("./playtime");
 const { createHltb } = require("./hltb");
 const { createFreeGames } = require("./freegames");
+const { createGameInfo } = require("./gameinfo");
 const themes = require("./themes");
 let cloud = null; // se crea al arrancar (setupCloud)
 let stores = null; // cuentas de Steam/Epic/GOG (setupStores)
@@ -1509,8 +1510,9 @@ function setupPlaytime() {
     onChange: ({ save, sync, running }) => {
       if (save) writeLibraryFile();
       if (sync) cloud?.markDirty("library");
-      if (!win || win.isDestroyed()) return;
       const ids = new Set(running);
+      gameInfo.watch([...games, ...completedGames].filter((g) => ids.has(String(g.id)))).catch(() => {});
+      if (!win || win.isDestroyed()) return;
       const changed = [...games, ...completedGames]
         .filter((g) => ids.has(String(g.id)) || g.lastPlayed > Date.now() - 2 * 60 * 1000)
         .map((g) => Object.fromEntries([["id", g.id], ...PLAY_FIELDS.map((k) => [k, g[k]])]));
@@ -1520,6 +1522,41 @@ function setupPlaytime() {
   playtime.start();
 }
 ipcMain.handle("playtime:running", () => playtime?.running() || []);
+
+// -------------------- Página del juego (gameinfo.js) --------------------
+// Capturas (IGDB), logros (Steam + emuladores) y mods (Nexus / Workshop).
+const gameInfo = createGameInfo({
+  fetch,
+  Fuse,
+  igdbQuery: (body, endpoint) => igdbGamesQuery(body, endpoint),
+  steamKey: config.steamWebApiKey || "",
+  steamAppList: () => getSteamAppListCached(),
+  steamId: () => stores?.steamId() || null,
+  cacheFile: path.join(app.getPath("userData"), "gameinfo-cache.json"),
+  // Logro desbloqueado mientras juegas (archivos del emulador)
+  notify: (a) => {
+    if (win && !win.isDestroyed()) win.webContents.send("achievements:unlocked", a);
+    if (Notification.isSupported()) {
+      new Notification({ title: `Logro desbloqueado · ${a.gameName}`, body: a.desc ? `${a.title}\n${a.desc}` : a.title, silent: false }).show();
+    }
+  },
+});
+// Juego de la biblioteca o, si es de Descubrir, lo que manda la ventana.
+const gameFor = (g) => (g && findAnyGame(Number(g.id))) || { id: g?.id, name: String(g?.name || ""), igdbId: Number(g?.igdbId) || null, steamAppId: null };
+ipcMain.handle("game:media", (_e, q) => gameInfo.media({ igdbId: Number(q?.igdbId) || null }).catch(() => null));
+ipcMain.handle("game:achievements", (_e, g) => gameInfo.achievements(gameFor(g)).catch(() => ({ ok: false, reason: "network" })));
+ipcMain.handle("game:mods", (_e, g, opts = {}) =>
+  gameInfo
+    .mods(gameFor(g), {
+      source: opts.source,
+      sort: String(opts.sort || "popular"),
+      query: String(opts.query || "").slice(0, 80),
+      page: Math.max(0, Math.min(200, Number(opts.page) || 0)),
+      nexusOverride: opts.nexusOverride && /^[a-z0-9]+$/.test(opts.nexusOverride.domain) ? opts.nexusOverride : null,
+    })
+    .catch(() => null)
+);
+ipcMain.handle("game:nexusSearch", (_e, term) => gameInfo.nexusSearch(term).catch(() => []));
 
 // -------------------- Duración (hltb.js) --------------------
 const hltb = createHltb({
@@ -2713,7 +2750,10 @@ ipcMain.handle("ai:recommend", (_e, opts = {}) =>
 
 // Enlaces externos desde la ventana: solo https.
 ipcMain.handle("app:openExternal", (_e, url) => {
-  if (String(url).startsWith("https://")) shell.openExternal(String(url));
+  const u = String(url);
+  // Además de webs, la página de un objeto del Workshop en el cliente de Steam
+  // (desde ahí se suscribe y Steam lo descarga e instala).
+  if (u.startsWith("https://") || /^steam:\/\/url\/CommunityFilePage\/\d+$/.test(u)) shell.openExternal(u);
 });
 
 // -------------------- System Specs IPC --------------------
@@ -2794,7 +2834,7 @@ ipcMain.handle("changelog:get", async () => {
 // generado), no el de IGDB: esos se buscan por nombre. Devuelve la ficha
 // (o null) y el id de IGDB, que hace falta para los requisitos.
 const DETAILS_FIELDS =
-  "fields name,summary,genres.name,involved_companies.developer,involved_companies.company.name,first_release_date,cover.image_id,platforms.abbreviation,total_rating,total_rating_count;";
+  "fields name,summary,genres.name,involved_companies.developer,involved_companies.publisher,involved_companies.company.name,game_modes.name,first_release_date,cover.image_id,platforms.abbreviation,total_rating,total_rating_count;";
 
 // Entre varios juegos con el mismo nombre (hay tres "Hades"), el conocido:
 // el que más valoraciones tiene. Si ninguno coincide exacto, el primero.

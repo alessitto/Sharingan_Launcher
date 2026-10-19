@@ -125,5 +125,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   systemTransparency: () => ipcRenderer.invoke('system:transparency'),
   onSystemTransparency: (cb) => ipcRenderer.on('system:transparency', (_e, d) => cb(d)),
 
+  // Página del juego: capturas, logros (Steam y emuladores) y mods
+  gameMedia: (q) => ipcRenderer.invoke('game:media', q),
+  gameAchievements: (g) => ipcRenderer.invoke('game:achievements', g),
+  gameMods: (g, opts) => ipcRenderer.invoke('game:mods', g, opts),
+  nexusSearch: (term) => ipcRenderer.invoke('game:nexusSearch', term),
+  onAchievementUnlocked: (cb) => ipcRenderer.on('achievements:unlocked', (_e, a) => cb(a)),
+
   openExternal: (url) => ipcRenderer.invoke('app:openExternal', url),
 });

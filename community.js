@@ -4,8 +4,9 @@
 // - Botón de cuenta (arriba a la derecha): entrar / crear cuenta / perfil.
 // - Sección Comunidad: chat por canales, reportes (bugs, sugerencias y
 //   dudas) y logros.
-// - Puntuaciones: la media de la gente sale solo en Descubrir; en Juegos
-//   pasados puntúas tú (y solo ves tu nota).
+// - Puntuaciones: se ponen en la página del juego (Reseñas, con comentario
+//   opcional); en Juegos pasados se ve tu nota en la portada.
+// - Foto de perfil: se encuadra aquí y se sube recortada.
 // Todo pasa por main.js (cloud.js), que habla con la API.
 //
 // Usa de index.html: openModal, confirmDialog, icon, escapeHtml,
@@ -42,8 +43,15 @@
     return h;
   }
 
-  function avatar(name, cls = "") {
-    return `<span class="cm-avatar ${cls}" style="--h:${hue(name)}">${esc(String(name).charAt(0).toUpperCase())}</span>`;
+  // Foto de perfil (si la persona tiene) o su inicial sobre un color propio.
+  // user: { id, avatarV }. La inicial queda debajo por si la foto no carga.
+  let apiUrl = null;
+  const avatarUrl = (u) => (apiUrl && u?.id && u?.avatarV ? `${apiUrl}?r=avatar&u=${encodeURIComponent(u.id)}&v=${encodeURIComponent(u.avatarV)}` : null);
+  function avatar(name, cls = "", user = null) {
+    const url = avatarUrl(user);
+    return `<span class="cm-avatar ${cls}${url ? " has-img" : ""}" style="--h:${hue(name)}"><i>${esc(String(name).charAt(0).toUpperCase())}</i>${
+      url ? `<img src="${esc(url)}" alt="" loading="lazy" onerror="this.parentNode.classList.remove('has-img');this.remove()">` : ""
+    }</span>`;
   }
 
   const adminBadge = () => `<span class="cm-admin" title="Administrador">${icon("crown")}Admin</span>`;
@@ -89,8 +97,10 @@
     if (!btn) return;
     btn.classList.toggle("is-in", !!me);
     btn.innerHTML = me
-      ? `${avatar(me.username, "is-sm")}<span>${esc(me.username)}</span>${cloudStatus.pending ? `<i class="cm-sync-dot" title="Cambios pendientes de subir"></i>` : ""}`
-      : `${icon("user")}<span>Entrar</span>`;
+      ? `${avatar(me.username, "is-md", me)}<span class="side-account-text"><b>${esc(me.username)}</b><small>${
+          cloudStatus.pending ? `<i class="cm-sync-dot"></i>Cambios sin subir` : `<i class="cm-online-dot"></i>Conectado`
+        }</small></span>`
+      : `<span class="cm-avatar is-md is-guest">${icon("user")}</span><span class="side-account-text"><b>Entrar</b><small>Inicia sesión o crea una cuenta</small></span>`;
     btn.title = me ? "Tu cuenta" : "Inicia sesión o crea una cuenta";
   }
 
@@ -176,10 +186,17 @@
     return `
         <div class="cm-profile">
           <div class="cm-profile-top">
-            ${avatar(me.username, "is-lg")}
+            <button type="button" class="cm-avatar-edit" data-p="photo" title="Cambiar foto de perfil">
+              ${avatar(me.username, "is-lg", me)}
+              <span class="cm-avatar-cam">${icon("pencil")}</span>
+            </button>
             <div>
               <p class="cm-profile-name">${esc(me.username)} ${me.admin ? adminBadge() : ""}</p>
               <p class="cm-profile-meta">Miembro desde ${me.createdAt ? new Date(me.createdAt).toLocaleDateString("es-ES", { month: "long", year: "numeric" }) : "hoy"}</p>
+              <p class="cm-profile-photo">
+                <button type="button" class="cm-link" data-p="photo">${me.avatarV ? "Cambiar foto" : "Poner foto de perfil"}</button>
+                ${me.avatarV ? `<span aria-hidden="true">·</span><button type="button" class="cm-link" data-p="photo-off">Quitar</button>` : ""}
+              </p>
             </div>
           </div>
           <div class="cm-profile-row">
@@ -203,6 +220,13 @@
     box.addEventListener("click", async (e) => {
       const b = e.target.closest("[data-p]");
       if (!b) return;
+      if (b.dataset.p === "photo" || b.dataset.p === "photo-off") {
+        const changed = b.dataset.p === "photo" ? await pickAvatar() : await removeAvatar();
+        if (changed && box.isConnected) {
+          box.innerHTML = profileHtml();
+        }
+        return;
+      }
       if (b.dataset.p === "sync") {
         b.disabled = true;
         const res = await api("syncNow");
@@ -224,6 +248,148 @@
         back?.();
       }
     });
+  }
+
+  // ------------------------------------------------------------ Foto de perfil
+  // Se elige una imagen, se encuadra en un círculo (arrastrar y zoom) y se
+  // sube ya recortada a 256 px. Así pesa poco y sale igual en todas partes.
+  const AVATAR_PX = 256;
+
+  function pickFile() {
+    return new Promise((resolve) => {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "image/png,image/jpeg,image/webp,image/gif,image/avif";
+      input.onchange = () => resolve(input.files?.[0] || null);
+      input.click();
+    });
+  }
+
+  function avatarError(res) {
+    if (res.code === "not_found" || res.code === "http_404") return "El servidor todavía no admite fotos de perfil. Hay que actualizar la API.";
+    return res.error;
+  }
+
+  async function pickAvatar() {
+    if (!me) return false;
+    const file = await pickFile();
+    if (!file) return false;
+    if (file.size > 25 * 1024 * 1024) {
+      showNotification("Esa imagen es demasiado grande (máximo 25 MB).", "error");
+      return false;
+    }
+    let bmp;
+    try {
+      bmp = await createImageBitmap(file);
+    } catch {
+      showNotification("No se ha podido abrir esa imagen.", "error");
+      return false;
+    }
+    const data = await cropAvatar(bmp);
+    bmp.close?.();
+    if (!data) return false;
+    const res = await api("setAvatar", data);
+    if (!res.ok) {
+      showNotification(avatarError(res), "error");
+      return false;
+    }
+    me = { ...me, avatarV: res.avatarV };
+    renderAccountBtn();
+    showNotification("Foto de perfil actualizada.");
+    return true;
+  }
+
+  async function removeAvatar() {
+    const ok = await confirmDialog({ title: "¿Quitar tu foto de perfil?", text: "Volverá a salir tu inicial.", confirmText: "Quitar", iconName: "user" });
+    if (!ok) return false;
+    const res = await api("setAvatar", null);
+    if (!res.ok) {
+      showNotification(avatarError(res), "error");
+      return false;
+    }
+    me = { ...me, avatarV: null };
+    renderAccountBtn();
+    return true;
+  }
+
+  // Encuadre: la imagen cubre el círculo como mínimo; se arrastra y se
+  // acerca con la rueda o la barra. Devuelve la data URL o null.
+  function cropAvatar(bmp) {
+    const VIEW = 260;
+    const base = Math.max(VIEW / bmp.width, VIEW / bmp.height);
+    const st = { zoom: 1, x: 0, y: 0 };
+    let canvas;
+    const clamp = () => {
+      const s = base * st.zoom;
+      const maxX = Math.max(0, (bmp.width * s - VIEW) / 2);
+      const maxY = Math.max(0, (bmp.height * s - VIEW) / 2);
+      st.x = Math.max(-maxX, Math.min(maxX, st.x));
+      st.y = Math.max(-maxY, Math.min(maxY, st.y));
+    };
+    const draw = (ctx, size) => {
+      const k = size / VIEW;
+      const s = base * st.zoom * k;
+      ctx.clearRect(0, 0, size, size);
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(bmp, size / 2 - (bmp.width * s) / 2 + st.x * k, size / 2 - (bmp.height * s) / 2 + st.y * k, bmp.width * s, bmp.height * s);
+    };
+    const paint = () => {
+      clamp();
+      draw(canvas.getContext("2d"), canvas.width);
+    };
+    return openModal({
+      eyebrow: "Tu cuenta",
+      title: "Foto de perfil",
+      width: 420,
+      html: `
+        <div class="cm-crop">
+          <div class="cm-crop-stage"><canvas width="${VIEW * 2}" height="${VIEW * 2}"></canvas></div>
+          <label class="cm-crop-zoom">${icon("search")}<input type="range" min="1" max="4" step="0.01" value="1" aria-label="Zoom"></label>
+          <p class="cm-crop-hint">Arrastra para encuadrar · rueda para acercar</p>
+        </div>`,
+      showCancelButton: true,
+      confirmButtonText: "Guardar foto",
+      cancelButtonText: "Cancelar",
+      didOpen: (popup) => {
+        canvas = popup.querySelector("canvas");
+        const range = popup.querySelector("input[type=range]");
+        paint();
+        let drag = null;
+        canvas.addEventListener("pointerdown", (e) => {
+          drag = { x: e.clientX, y: e.clientY, sx: st.x, sy: st.y };
+          canvas.setPointerCapture(e.pointerId);
+        });
+        canvas.addEventListener("pointermove", (e) => {
+          if (!drag) return;
+          st.x = drag.sx + (e.clientX - drag.x);
+          st.y = drag.sy + (e.clientY - drag.y);
+          paint();
+        });
+        canvas.addEventListener("pointerup", () => (drag = null));
+        canvas.addEventListener(
+          "wheel",
+          (e) => {
+            e.preventDefault();
+            st.zoom = Math.max(1, Math.min(4, st.zoom * (e.deltaY < 0 ? 1.08 : 1 / 1.08)));
+            range.value = String(st.zoom);
+            paint();
+          },
+          { passive: false }
+        );
+        range.addEventListener("input", () => {
+          st.zoom = Number(range.value);
+          paint();
+        });
+      },
+      preConfirm: () => {
+        const out = document.createElement("canvas");
+        out.width = out.height = AVATAR_PX;
+        draw(out.getContext("2d"), AVATAR_PX);
+        let url = out.toDataURL("image/webp", 0.88);
+        if (!url.startsWith("data:image/webp")) url = out.toDataURL("image/jpeg", 0.9);
+        return url;
+      },
+    }).then((r) => (r.isConfirmed ? r.value : null));
   }
 
   async function openProfile() {
@@ -412,7 +578,7 @@
         const canDelete = me && (me.username === m.author || me.admin);
         return `
           <div class="cm-msg ${grouped ? "is-grouped" : ""} ${m.admin ? "is-admin" : ""}">
-            ${grouped ? `<span class="cm-msg-time-side">${when(m.createdAt).slice(-5)}</span>` : avatar(m.author)}
+            ${grouped ? `<span class="cm-msg-time-side">${when(m.createdAt).slice(-5)}</span>` : avatar(m.author, "", { id: m.authorId, avatarV: m.avatarV })}
             <div class="cm-msg-main">
               ${grouped ? "" : `<p class="cm-msg-head"><b>${esc(m.author)}</b>${m.admin ? adminBadge() : ""}<time>${when(m.createdAt)}</time></p>`}
               <p class="cm-msg-body">${linkify(m.body)}</p>
@@ -731,50 +897,27 @@
   }
   const myRatingOf = (localId) => myRatings.get(ratingKey(localId)) || 0;
 
+  // Juegos pasados: tu nota en una esquina de la portada (se pone y se
+  // cambia en la página del juego, en Reseñas).
   function decorateCompleted() {
     const grid = document.getElementById("completedList");
     if (!grid) return;
     for (const card of grid.querySelectorAll(".game-card[data-game-id]")) {
-      if (card.querySelector(".cm-myrate")) continue;
-      const id = Number(card.dataset.gameId);
-      const row = document.createElement("div");
-      row.className = "cm-myrate";
-      row.dataset.id = id;
-      paintStars(row, myRatingOf(id));
-      card.querySelector(".card-actions")?.before(row);
+      const score = myRatingOf(Number(card.dataset.gameId));
+      let badge = card.querySelector(".card-rating");
+      if (!score) {
+        badge?.remove();
+        continue;
+      }
+      if (!badge) {
+        badge = document.createElement("span");
+        badge.className = "card-rating";
+        badge.title = "Tu nota";
+        card.querySelector(".card-cover")?.appendChild(badge);
+      }
+      const html = `${icon("star")}${score}`;
+      if (badge.innerHTML !== html) badge.innerHTML = html;
     }
-  }
-
-  function paintStars(row, score) {
-    row.innerHTML =
-      `<span class="cm-myrate-label">${score ? "Tu nota" : "Puntúalo"}</span>` +
-      [1, 2, 3, 4, 5].map((n) => `<button type="button" class="cm-star ${n <= score ? "is-on" : ""}" data-score="${n}" aria-label="${n} de 5">${icon("star")}</button>`).join("");
-  }
-
-  async function rate(row, score) {
-    if (!needLogin("Para puntuar juegos necesitas una cuenta.")) return;
-    const localId = Number(row.dataset.id);
-    const prev = myRatingOf(localId);
-    const next = prev === score ? 0 : score; // repetir la misma nota la quita
-    paintStars(row, next);
-    const id = await window.electronAPI.ratingId(localId).catch(() => null);
-    // La ventana guarda una copia de la biblioteca: que sepa ya su igdbId.
-    const cached = (typeof completedGamesCache !== "undefined" ? completedGamesCache : []).find((x) => Number(x.id) === localId);
-    if (cached && id && cached.igdbId !== id && (cached.igdbId || isImported(cached))) cached.igdbId = id;
-    if (!id) {
-      paintStars(row, prev);
-      return showNotification("No se ha encontrado este juego en el catálogo, así que no se puede puntuar.", "error");
-    }
-    const res = await api("rate", id, next);
-    if (!res.ok) {
-      paintStars(row, prev);
-      return showNotification(res.error, "error");
-    }
-    if (next) myRatings.set(id, next);
-    else myRatings.delete(id);
-    avgCache.delete(id);
-    window.Achievements?.trackMax("ratings", myRatings.size);
-    if (next) showNotification(`Has puntuado este juego con ${next} ${next === 1 ? "estrella" : "estrellas"}.`);
   }
 
   async function loadMyRatings() {
@@ -783,12 +926,23 @@
       const res = await api("ratingsMine");
       if (res.ok) myRatings = new Map(Object.entries(res.ratings).map(([k, v]) => [Number(k), v]));
     }
-    document.querySelectorAll("#completedList .cm-myrate").forEach((row) => paintStars(row, myRatingOf(Number(row.dataset.id))));
+    decorateCompleted();
+  }
+
+  // La página del juego guarda una nota nueva: que se vea ya en la tarjeta.
+  function noteRated(igdbId, score) {
+    if (!(igdbId > 0)) return;
+    if (score) myRatings.set(igdbId, score);
+    else myRatings.delete(igdbId);
+    avgCache.delete(igdbId);
+    window.Achievements?.trackMax("ratings", myRatings.size);
+    decorateCompleted();
   }
 
   // ------------------------------------------------------------ Init
   function applyStatus(s) {
     cloudStatus = s || {};
+    if (cloudStatus.apiUrl) apiUrl = cloudStatus.apiUrl;
     const prev = me?.id;
     me = cloudStatus.user || null;
     renderAccountBtn();
@@ -832,12 +986,6 @@
       fn();
     };
     watch("completedList", decorateCompleted);
-    document.getElementById("completedList")?.addEventListener("click", (e) => {
-      const star = e.target.closest(".cm-star");
-      if (!star) return;
-      e.stopPropagation();
-      rate(star.closest(".cm-myrate"), Number(star.dataset.score));
-    });
   }
 
   window.Community = {
@@ -850,6 +998,11 @@
     openProfile,
     renderAccount,
     avgOf,
+    avatar,
+    noteRated,
+    myRating: (igdbId) => myRatings.get(Number(igdbId)) || 0,
+    user: () => me,
+    needLogin,
   };
 
   init();

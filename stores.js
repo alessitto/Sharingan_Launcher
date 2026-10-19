@@ -484,6 +484,8 @@ function createStores({ safeStorage, settings, saveSettings, BrowserWindow, sess
     StoreError,
     status,
     isLinked,
+    // SteamID de la cuenta vinculada (para tus logros en la página del juego)
+    steamId: () => readAuth().steam?.steamId || null,
     owned: (platform) => OWNED[platform](),
     installGog,
     ipc: { status, link, unlink },

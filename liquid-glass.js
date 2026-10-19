@@ -350,6 +350,8 @@
     lastBox = "";
     setBox(to);
     if (reduce) return;
+    // Barra lateral (desde la 4.0): la gota se estira en vertical.
+    if (Math.abs(to.y - from.y) > Math.abs(to.x - from.x)) return dropletY(from, to);
     const dir = to.x + to.w / 2 >= from.x + from.w / 2 ? 1 : -1;
     const L0 = from.x;
     const R0 = from.x + from.w;
@@ -383,6 +385,38 @@
       placeIndicator(false);
     };
     anim.onfinish = done;
+    anim.oncancel = () => indicator?.classList.remove("is-lifted");
+  }
+
+  // La misma gota, de arriba abajo: el borde de delante sale primero, el de
+  // detrás le sigue, adelgaza mientras está estirada y rebota al llegar.
+  function dropletY(from, to) {
+    const dir = to.y + to.h / 2 >= from.y + from.h / 2 ? 1 : -1;
+    const lead = (t) => spring(t, 300, 24);
+    const trail = (t) => spring(t - 0.055, 170, 21);
+    const pT = dir > 0 ? trail : lead;
+    const pB = dir > 0 ? lead : trail;
+    const DUR = 0.72;
+    const frames = [];
+    const N = 48;
+    for (let i = 0; i <= N; i++) {
+      const t = (i / N) * DUR;
+      const T = from.y + (to.y - from.y) * pT(t);
+      const B = from.y + from.h + (to.y + to.h - (from.y + from.h)) * pB(t);
+      const h = Math.max(8, B - T);
+      const stretch = h / Math.max(1, to.h) - 1;
+      const sx = 1 - Math.max(-0.04, Math.min(0.14, stretch * 0.12));
+      const w = from.w + (to.w - from.w) * Math.min(1, t / 0.3);
+      const x = from.x + (to.x - from.x) * Math.min(1, t / 0.3);
+      frames.push({ width: `${w}px`, height: `${h}px`, transform: `translate(${x}px, ${T}px) scaleX(${sx.toFixed(4)})` });
+    }
+    indicator.classList.add("is-lifted");
+    anim = indicator.animate(frames, { duration: DUR * 1000, easing: "linear" });
+    anim.onfinish = () => {
+      indicator?.classList.remove("is-lifted");
+      anim = null;
+      placeIndicator(false);
+    };
     anim.oncancel = () => indicator?.classList.remove("is-lifted");
   }
 
@@ -443,6 +477,12 @@
     const main = document.querySelector(".main-content");
     const nav = document.querySelector(".topnav");
     if (!appEl || !main || !nav) return;
+    // Con la barra a un lado no hay nada que pase por debajo de ella.
+    if (nav.classList.contains("sidebar")) {
+      edge?.remove();
+      edge = null;
+      return;
+    }
     if (!edge || !edge.isConnected) {
       edge = document.createElement("div");
       edge.className = "lg-scroll-edge";

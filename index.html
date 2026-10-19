@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="community.css" />
     <link rel="stylesheet" href="spotify.css" />
     <link rel="stylesheet" href="spotify-setup.css" />
+    <link rel="stylesheet" href="launcher.css" />
   </head>
   <body class="is-guest">
     <div class="theme-bg" aria-hidden="true"></div>
@@ -32,21 +33,22 @@
     <div id="updateToast" class="update-toast" role="status" aria-live="polite"></div>
 
     <div class="app">
-      <!-- Navegación superior -->
-      <nav class="topnav">
-        <span class="topnav-title"><img class="topnav-logo" src="assets/icon.png" alt="" />Sharingan Launcher</span>
-        <!-- Solo iconos: el nombre se despliega al pasar el ratón -->
+      <!-- Barra lateral: secciones, jugado recientemente y la cuenta -->
+      <nav class="topnav sidebar" aria-label="Secciones">
+        <span class="topnav-title"><img class="topnav-logo" src="assets/icon.png" alt="" /><span>Sharingan<small>Launcher</small></span></span>
         <div class="topnav-item active" role="button" tabindex="0" aria-label="Descubrir" onclick="showSection('popular', this)">
-          <svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16.24 7.76-2.12 6.36-6.36 2.12 2.12-6.36 6.36-2.12z"/></svg>
           <span class="topnav-label">Descubrir</span>
         </div>
         <div class="topnav-item" role="button" tabindex="0" aria-label="Mi biblioteca" onclick="showSection('library', this)">
           <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-          <span class="topnav-label">Mi biblioteca</span>
+          <span class="topnav-label">Biblioteca</span>
+          <span class="nav-count" id="navLibraryCount"></span>
         </div>
         <div class="topnav-item" role="button" tabindex="0" aria-label="Juegos pasados" onclick="showSection('completed', this)">
           <svg viewBox="0 0 24 24"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0V4Z"/><path d="M7 6H4a2 2 0 0 0 0 4h1"/><path d="M17 6h3a2 2 0 0 1 0 4h-1"/></svg>
-          <span class="topnav-label">Juegos pasados</span>
+          <span class="topnav-label">Pasados</span>
+          <span class="nav-count" id="navCompletedCount"></span>
         </div>
         <div class="topnav-item needs-account" role="button" tabindex="0" aria-label="PokéPark" onclick="showSection('pokepark', this)">
           <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h6"/><path d="M15 12h6"/><circle cx="12" cy="12" r="3"/></svg>
@@ -57,13 +59,22 @@
           <span class="topnav-label">Comunidad</span>
         </div>
 
+        <!-- Lo último que has jugado (renderRecent) -->
+        <div class="side-recent" id="sideRecent" hidden>
+          <p class="side-label">Jugado recientemente</p>
+          <div class="side-recent-list" id="sideRecentList"></div>
+        </div>
+
         <span class="topnav-spacer"></span>
         <!-- Spotify (spotify-ui.js); se puede ocultar en Ajustes › Spotify -->
         <button type="button" id="spotifyBtn" class="sp-btn needs-account" hidden aria-haspopup="dialog" aria-expanded="false"></button>
-        <!-- La cuenta y la versión están dentro de Ajustes -->
-        <button class="icon-btn settings-btn" onclick="openSettingsModal()" title="Ajustes" aria-label="Ajustes">
-          <svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
-        </button>
+        <!-- Cuenta (community.js pinta la foto y el nombre) y ajustes -->
+        <div class="side-user">
+          <button type="button" id="accountBtn" class="side-account" title="Tu cuenta"></button>
+          <button class="icon-btn settings-btn" onclick="openSettingsModal()" title="Ajustes" aria-label="Ajustes">
+            <svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
+          </button>
+        </div>
       </nav>
 
       <!-- Contenido principal -->
@@ -190,6 +201,11 @@
           <div class="cm-root" id="cmRoot"></div>
         </section>
 
+        <!-- Página de un juego (gamepage.js): la misma para todos, cambian los datos -->
+        <section id="game" class="section">
+          <div class="gp-root" id="gpRoot"></div>
+        </section>
+
       </main>
 
       <button
@@ -214,6 +230,7 @@
     <script src="spotify-setup.js" defer></script>
     <script src="cd3d.js" defer></script>
     <script src="spotify-ui.js" defer></script>
+    <script src="gamepage.js" defer></script>
 
     <script>
       // ===============================
@@ -509,12 +526,10 @@
         });
       }
 
-      // Botón "Información" reutilizable — en Juegos populares deja ver los
-      // requisitos antes de decidir si merece la pena añadirlo.
-      function infoButtonHtml(gameId) {
-        return `<button class="icon-btn" onclick="openInfoModal('${gameId}')" title="Información" aria-label="Información">
-          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="8" r="0.5" fill="currentColor" stroke-width="1.5"/></svg>
-        </button>`;
+      // La ficha de un juego es su página (gamepage.js): se abre al hacer
+      // clic en la tarjeta. openInfoModal se queda por los atajos de teclado.
+      function openInfoModal(id) {
+        window.GamePage?.open(id);
       }
 
       // ===============================
@@ -530,6 +545,7 @@
       });
 
       function showSection(id, el) {
+        if (id !== "game") window.GamePage?.onLeave();
         document
           .querySelectorAll(".section")
           .forEach((s) => s.classList.remove("active"));
@@ -707,8 +723,7 @@
         grid.innerHTML = Array.from({ length: cols * 2 }, () => `
           <div class="game-card is-skeleton" aria-hidden="true">
             <div class="card-cover"><span class="sk-cover"></span></div>
-            <span class="sk-line"></span><span class="sk-line is-short"></span>
-            <span class="sk-btn"></span>
+            <div class="card-info"><span class="sk-line"></span><span class="sk-line is-short"></span></div>
           </div>`).join("");
         updateLoadMoreButton(false);
       }
@@ -1034,8 +1049,55 @@
         window.Achievements?.refresh();
         applyLibraryFilter();
         renderCompletedList();
+        renderSideNav();
+        window.GamePage?.refresh();
         updateGamepadFocus(true);
       }
+
+      // Barra lateral: cuántos juegos hay en cada sitio y lo último jugado.
+      function renderSideNav() {
+        const count = (id, n) => {
+          const el = document.getElementById(id);
+          if (el) el.textContent = n ? String(n) : "";
+        };
+        count("navLibraryCount", libraryGamesCache.length);
+        count("navCompletedCount", completedGamesCache.length);
+        renderRecent();
+      }
+
+      function renderRecent() {
+        const box = document.getElementById("sideRecent");
+        const list = document.getElementById("sideRecentList");
+        if (!box || !list) return;
+        const live = (g) => (playingNow.has(String(g.id)) ? 1 : 0);
+        const recent = [...libraryGamesCache, ...completedGamesCache]
+          .filter((g) => g.lastPlayed || live(g))
+          .sort((a, b) => live(b) - live(a) || (b.lastPlayed || 0) - (a.lastPlayed || 0))
+          .slice(0, 5);
+        box.hidden = !recent.length;
+        list.innerHTML = recent
+          .map((g) => {
+            const when = live(g) ? "Jugando ahora" : playAgo(g.lastPlayed);
+            return `<button type="button" class="side-game${live(g) ? " is-live" : ""}" data-id="${escapeHtml(String(g.id))}" title="${escapeHtml(g.name)}">
+              <img src="${coverOf(g)}" alt="" loading="lazy" onerror="this.onerror=null;this.src=noCoverSvg('')">
+              <span><b>${escapeHtml(g.name)}</b><small>${escapeHtml(when.charAt(0).toUpperCase() + when.slice(1))}</small></span>
+            </button>`;
+          })
+          .join("");
+      }
+
+      document.getElementById("sideRecentList")?.addEventListener("click", (e) => {
+        const b = e.target.closest(".side-game");
+        if (b) window.GamePage?.open(b.dataset.id);
+      });
+
+      // Clic en una tarjeta (fuera de sus botones y menús): la página del juego.
+      document.addEventListener("click", (e) => {
+        const card = e.target.closest(".cards-grid .game-card");
+        if (!card || card.classList.contains("is-skeleton") || !card.dataset.gameId) return;
+        if (e.target.closest("button, a, input, .action-menu, .dropdown-content")) return;
+        window.GamePage?.open(card.dataset.gameId);
+      });
 
       // Busca la saga (si hay) a la que pertenece un juego.
       function sagaForGame(gameId) {
@@ -1313,13 +1375,11 @@
         const items =
           mode === "completed"
             ? `
-              <div class="dropdown-item" onclick="openInfoModal('${id}')">${icon("info")}Información</div>
               <div class="dropdown-item" onclick="togglePlatinum('${id}')">${icon("crown")}${game.isPlatinum ? "Quitar platino" : "Marcar platino"}</div>
               ${sagaItem}
               <div class="dropdown-item" onclick="returnToLibrary('${id}')">${icon("arrowUp")}Volver a biblioteca</div>
               <div class="dropdown-item is-danger" onclick="removeFromLibrary('${id}')">${icon("trash")}Quitar de pasados</div>`
             : `
-              <div class="dropdown-item" onclick="openInfoModal('${id}')">${icon("info")}Información</div>
               <div class="dropdown-item" onclick="markCompleted('${id}')">${icon("check")}Marcar como pasado</div>
               ${sagaItem}
               ${exeItem}
@@ -1602,7 +1662,13 @@
         });
 
         const el = document.getElementById(`dropdown-${id}`);
-        if (el) el.classList.toggle("show");
+        if (!el) return;
+        // Se abre hacia la izquierda; si ahí no cabe (primera columna), hacia
+        // la derecha, para que no lo corte el borde del contenido.
+        el.classList.remove("is-right");
+        el.classList.toggle("show");
+        const box = document.querySelector(".main-content")?.getBoundingClientRect();
+        if (box && el.getBoundingClientRect().left < box.left + 8) el.classList.add("is-right");
       }
 
       async function togglePlatinum(id) {
@@ -1612,191 +1678,6 @@
         } catch (err) {
           console.error(err);
         }
-      }
-
-      // ===============================
-      // Modal de Información y Requisitos (BEAUTIFIED)
-      // ===============================
-      async function openInfoModal(id) {
-        // 1. El juego: de la biblioteca, de pasados o del resultado de
-        //    Descubrir (todavía no es tuyo).
-        const all = [...libraryGamesCache, ...completedGamesCache];
-        const game =
-          all.find((g) => String(g.id) === String(id)) ||
-          currentSearchGames.find((g) => String(g.id) === String(id));
-        if (!game) return showNotification("Juego no encontrado", "error");
-        const owned = all.some((g) => String(g.id) === String(id));
-
-        // Aviso de carga: la primera vez puede tardar (Steam descarga su
-        // lista completa de juegos para buscar por nombre).
-        loadingModal("Cargando información", game.name);
-
-        // 2. Ficha de IGDB (los importados se buscan por nombre) y, en
-        //    paralelo, los datos del equipo. Los requisitos van después
-        //    porque necesitan el id de IGDB de la ficha.
-        const specsPromise = window.electronAPI.getSystemSpecs().catch(() => null);
-        const details = await window.electronAPI.getGameDetails({ id: game.id, name: game.name }).catch(() => null);
-        const [reqsResult, mySpecs, slRating] = await Promise.all([
-          window.electronAPI
-            .getRealRequirements({ igdbId: details?.id || null, steamAppId: game.steamAppId, gameName: game.name })
-            .catch(() => null),
-          specsPromise,
-          window.Community?.avgOf?.(details?.id || game.igdbId).catch(() => null) ?? null,
-        ]);
-        if (!Swal.isVisible() || !document.querySelector(".sl-loading")) return; // cerrado mientras cargaba
-        const reqs = reqsResult || { min: "", rec: "" };
-
-        // Semáforo (hardware/compare.js en main): cada componente se compara
-        // por puntuación con el mínimo y el recomendado; el global es el peor.
-        const hwCheck = reqsResult ? await window.electronAPI.hardwareCheck({ min: reqs.min, rec: reqs.rec }).catch(() => null) : null;
-        if (!Swal.isVisible() || !document.querySelector(".sl-loading")) return;
-        const REQ_CLS = { green: "req-pass", yellow: "req-warn", red: "req-fail", unknown: "req-unknown" };
-        const REQ_ICON = { green: "check", yellow: "alert", red: "x", unknown: "help" };
-        const COMP_NAME = { cpu: "Procesador", gpu: "Gráfica", ram: "RAM", vram: "VRAM", storage: "Disco", os: "Windows", dx: "DirectX" };
-        const lineStatus = (line, level) => {
-          const cat = hwCheck?.cats?.[line];
-          const comp = cat && hwCheck?.[level]?.components?.[cat];
-          return comp && REQ_CLS[comp.status] ? comp : null;
-        };
-
-        const formatSteamReqs = (text, level) => {
-          if (!text || /no especificado|no disponible/i.test(text)) return `<p class="req-empty">Steam no indica requisitos.</p>`;
-          const rows = text
-            .split("\n")
-            .map((l) => l.replace(/•/g, "").trim())
-            .filter((l) => l && !/^(mínimos?|recomendados?|minimum|recommended):?$/i.test(l));
-          return `<div class="req-list">${rows
-            .map((line) => {
-              const at = line.indexOf(":");
-              if (at > -1 && at < 24) {
-                const key = line.slice(0, at).replace(/\*/g, "").trim();
-                const val = line.slice(at + 1).trim();
-                const c = lineStatus(line, level);
-                return `<div class="req-line ${c ? REQ_CLS[c.status] : ""}"${c?.why ? ` title="${escapeHtml(c.why)}"` : ""}><span class="req-key">${escapeHtml(key)}${
-                  c ? `<i class="req-mark">${icon(REQ_ICON[c.status])}</i>` : ""
-                }</span><span class="req-val">${escapeHtml(val)}</span></div>`;
-              }
-              return `<div class="req-line is-note"><span class="req-val">${escapeHtml(line)}</span></div>`;
-            })
-            .join("")}</div>`;
-        };
-
-        // Resumen arriba: el color global, qué lo causa y un chip por componente
-        const verdictHtml = () => {
-          const r = hwCheck?.min;
-          if (!r) return "";
-          const head = {
-            green: Object.values(r.components).every((c) => c.status !== "green" || c.meetsRec !== false) && hwCheck.rec?.global === "green" ? "Cumple los recomendados" : "Tu equipo lo mueve",
-            yellow: "Justo: al límite del mínimo",
-            red: `No llega al mínimo: ${r.culprits.map((k) => COMP_NAME[k].toLowerCase()).join(", ")}`,
-            unknown: "No hay datos suficientes para compararlo",
-          }[r.global];
-          const chips = Object.entries(r.components)
-            .filter(([, c]) => REQ_CLS[c.status])
-            .map(([k, c]) => `<span class="req-chip is-${c.status}" title="${escapeHtml(c.why || "")}">${icon(REQ_ICON[c.status])}${COMP_NAME[k]}</span>`)
-            .join("");
-          const whyRows = ["cpu", "gpu"]
-            .map((k) => r.components[k])
-            .filter((c) => c?.why && c.status !== "na")
-            .map((c) => `<li>${escapeHtml(c.why)}</li>`)
-            .join("");
-          const unknown = r.unknown.length ? `<p class="req-verdict-note">Sin verificar: ${r.unknown.map((k) => COMP_NAME[k].toLowerCase()).join(", ")}.</p>` : "";
-          // Integrada con la RAM en un solo canal: un segundo módulo la acelera
-          const h = hwCheck.hw;
-          const channelTip =
-            h?.gpu?.integrated && h.channels === "single" && ["yellow", "red"].includes(r.components.gpu?.status)
-              ? `<p class="req-verdict-note">Tu RAM va en un solo canal: con un segundo módulo igual, la gráfica integrada rendiría alrededor de un ${Math.round((Math.pow(2, hwCheck.k2 ?? 0.2) - 1) * 100)} % más.</p>`
-              : "";
-          return `
-            <div class="req-verdict is-${r.global}">
-              <p class="req-verdict-title"><i class="req-dot"></i>${escapeHtml(head)}</p>
-              <div class="req-chips">${chips}</div>
-              ${whyRows ? `<ul class="req-verdict-why">${whyRows}</ul>` : ""}
-              ${unknown}
-              ${channelTip}
-            </div>`;
-        };
-
-        // Tu equipo, como lo ve el semáforo (con la integrada real, el canal
-        // de la RAM y si es portátil)
-        const hw = hwCheck?.hw || mySpecs?.hw;
-        const sameGameName = (x, y) => String(x).toLowerCase().replace(/[^a-z0-9]+/g, "") === String(y).toLowerCase().replace(/[^a-z0-9]+/g, "");
-        const specsLine = hw
-          ? [
-              hw.cpu.label,
-              `${hw.ram} GB RAM${hw.channels === "single" ? " (un solo canal)" : ""}`,
-              `${hw.gpu.label}${hw.gpu.notes?.length ? ` (${hw.gpu.notes.join(", ")})` : ""}`,
-              hw.freeStorage != null ? `${hw.freeStorage} GB libres` : null,
-              hw.laptop ? "portátil" : null,
-            ]
-              .filter(Boolean)
-              .join(" · ")
-          : null;
-
-        const coverUrl = details?.cover?.image_id
-          ? `https://images.igdb.com/igdb/image/upload/t_cover_big/${details.cover.image_id}.jpg`
-          : coverOf(game);
-        const year = details?.first_release_date ? new Date(details.first_release_date * 1000).getFullYear() : releaseYear(game);
-        const devs = [...new Set((details?.involved_companies || []).filter((c) => c.developer).map((c) => c.company?.name).filter(Boolean))];
-        const platforms = (details?.platforms || []).map((p) => p.abbreviation).filter(Boolean).slice(0, 6);
-        const score = details?.total_rating_count >= 5 ? Math.round(details.total_rating) : null;
-        const facts = [
-          year ? ["Lanzamiento", year] : null,
-          devs.length ? [devs.length > 1 ? "Estudios" : "Estudio", devs.slice(0, 3).join(", ")] : null,
-          platforms.length ? ["Plataformas", platforms.join(" · ")] : null,
-        ].filter(Boolean);
-        const genres = (details?.genres || []).map((g) => g.name);
-        const isDone = completedGamesCache.some((g) => String(g.id) === String(id));
-        const status = isDone ? (game.isPlatinum ? "Platinado" : "Pasado") : owned ? "En tu biblioteca" : null;
-
-        const html = `
-          <div class="info-modal">
-            <div class="info-side">
-              <img src="${coverUrl}" class="info-cover" alt="">
-              ${
-                score != null
-                  ? `<div class="info-score" title="Nota media en IGDB (${details.total_rating_count} valoraciones)"><b>${score}</b><span>Nota en IGDB</span></div>`
-                  : ""
-              }
-              ${owned ? infoPlayHtml(game) : ""}
-              ${
-                slRating
-                  ? `<div class="info-score is-sl" title="Media de ${slRating.count} ${slRating.count === 1 ? "valoración" : "valoraciones"} en Sharingan Launcher"><b>${String(Math.round(slRating.avg * 10) / 10).replace(".", ",")}${icon("star")}</b><span>Nota en Sharingan Launcher</span></div>`
-                  : ""
-              }
-            </div>
-            <div class="info-details">
-              ${status ? `<span class="info-status">${escapeHtml(status)}</span>` : ""}
-              <h3 class="info-title">${escapeHtml(game.name)}</h3>
-              ${genres.length ? `<div class="info-genres">${genres.map((g) => `<span>${escapeHtml(g)}</span>`).join("")}</div>` : ""}
-              ${facts.length ? `<dl class="info-facts">${facts.map(([k, v]) => `<div><dt>${k}</dt><dd>${escapeHtml(String(v))}</dd></div>`).join("")}</dl>` : ""}
-              ${details?.summary ? `<p class="info-summary">${escapeHtml(details.summary)}</p>` : ""}
-              <h4 class="info-subtitle">Duración</h4>
-              <div class="info-hltb" data-hltb>${hltbHtml(null, owned ? game.playSecs : 0)}</div>
-              <h4 class="info-subtitle">Requisitos en PC</h4>
-              ${reqsResult?.matchedName && sameGameName(reqsResult.matchedName, game.name) === false ? `<p class="req-matched">${icon("info")}<span>Requisitos de «${escapeHtml(reqsResult.matchedName)}» en Steam (encontrado por el nombre).</span></p>` : ""}
-              ${verdictHtml()}
-              <div class="req-real-container">
-                <div class="req-box"><h5 class="req-title">Mínimos</h5>${formatSteamReqs(reqs.min, "min")}</div>
-                <div class="req-box"><h5 class="req-title">Recomendados</h5>${formatSteamReqs(reqs.rec, "rec")}</div>
-              </div>
-              ${
-                specsLine
-                  ? `<p class="my-specs">${icon("info")}<span>Tu equipo: ${escapeHtml(specsLine)}. Verde: de sobra · amarillo: justo · rojo: no llega · gris: sin datos para comparar.</span></p>`
-                  : ""
-              }
-              <p class="info-source">Ficha: IGDB · Requisitos: Steam · Rendimiento: Blender Open Data y Wikipedia</p>
-            </div>
-          </div>`;
-
-        openModal({
-          html,
-          width: 980,
-          showConfirmButton: false,
-          showCloseButton: true,
-          customClass: { popup: "info-popup" },
-        });
-        fillHltb({ name: details?.name || game.name, year, igdbId: details?.id || game.igdbId || null, played: owned ? game.playSecs : 0 });
       }
 
       // Tu tiempo con el juego (en la columna de la portada).
@@ -1842,20 +1723,6 @@
           <p class="info-hltb-src">${src}</p>`;
       }
 
-      // Duración según HowLongToBeat (o IGDB si no responde). Llega después
-      // de abrir la ficha para no hacerla esperar.
-      async function fillHltb({ name, year, igdbId, played }) {
-        const box = () => document.querySelector(".info-popup [data-hltb]");
-        const d = await window.electronAPI.hltb({ name, year, igdbId }).catch(() => null);
-        const el = box();
-        if (!el) return;
-        el.innerHTML = hltbHtml(d || false, played);
-        el.querySelector("[data-ext]")?.addEventListener("click", (e) => {
-          e.preventDefault();
-          window.electronAPI.openExternal(e.currentTarget.dataset.ext);
-        });
-      }
-
       // ===============================
       // Pintar cards reutilizable
       // ===============================
@@ -1873,12 +1740,18 @@
           ? `<span class="platinum-crown" title="Platino">${icon("crown")}</span>`
           : "";
 
+        // La portada es la tarjeta: las acciones salen encima al pasar el
+        // ratón (o con el foco del mando) y el clic abre la página del juego.
         div.innerHTML = `
           ${crownHtml}
-          <div class="card-cover"><img src="${coverOf(game)}" alt="${escapeHtml(name)}" loading="lazy" onerror="this.onerror=null;this.src=noCoverSvg(this.alt)"></div>
-          <h3>${escapeHtml(name)}</h3>
-          ${mode === "library" || mode === "completed" ? `<p class="card-play" data-play="${game.id}">${playLineHtml(game)}</p>` : ""}
-          <div class="card-actions">${cardActionsHtml(game, mode)}</div>
+          <div class="card-cover">
+            <div class="card-art"><img src="${coverOf(game)}" alt="${escapeHtml(name)}" loading="lazy" onerror="this.onerror=null;this.src=noCoverSvg(this.alt)"></div>
+            <div class="card-actions">${cardActionsHtml(game, mode)}</div>
+          </div>
+          <div class="card-info">
+            <h3 title="${escapeHtml(name)}">${escapeHtml(name)}</h3>
+            ${mode === "library" || mode === "completed" ? `<p class="card-play" data-play="${game.id}">${playLineHtml(game)}</p>` : ""}
+          </div>
         `;
 
         return div;
@@ -1958,10 +1831,13 @@
           if (!touched.has(String(g.id))) continue;
           document.querySelectorAll(`.card-play[data-play="${CSS.escape(String(g.id))}"]`).forEach((el) => (el.innerHTML = playLineHtml(g)));
         }
+        renderRecent();
+        window.GamePage?.refreshPlay();
       });
       window.electronAPI.playtimeRunning?.().then((ids) => {
         playingNow = new Set((ids || []).map(String));
         refreshPlayLines();
+        renderRecent();
       });
       // A medianoche cambian "hoy/ayer" y las rachas.
       setInterval(refreshPlayLines, 10 * 60 * 1000);
@@ -1987,13 +1863,21 @@
         gamesTemp.push(game);
 
         const buttonsHtml = libraryIds.has(game.id)
-          ? `<span class="badge-owned">En tu biblioteca</span>${infoButtonHtml(game.id)}`
-          : `<button class="primary add-btn" data-index='${index}' title="Agregar a biblioteca">${icon("plus")}<span class="add-long">Agregar a biblioteca</span><span class="add-short">Agregar</span></button>${infoButtonHtml(game.id)}`;
+          ? `<span class="badge-owned">${icon("check")}En tu biblioteca</span>`
+          : `<button class="primary add-btn" data-index='${index}' title="Agregar a biblioteca">${icon("plus")}<span class="add-long">Agregar a biblioteca</span><span class="add-short">Agregar</span></button>`;
+        const year = releaseYear(game);
+        const genre = game.genres?.[0]?.name;
+        const meta = [year, genre].filter(Boolean).map((x) => escapeHtml(String(x))).join(" · ");
 
         div.innerHTML = `
-          <div class="card-cover"><img src="${coverUrl}" alt="${safeAttrName}" loading="lazy" decoding="async"></div>
-          <h3>${escapeHtml(name)}</h3>
-          <div class="card-actions">${buttonsHtml}</div>
+          <div class="card-cover">
+            <div class="card-art"><img src="${coverUrl}" alt="${safeAttrName}" loading="lazy" decoding="async"></div>
+            <div class="card-actions">${buttonsHtml}</div>
+          </div>
+          <div class="card-info">
+            <h3 title="${safeAttrName}">${escapeHtml(name)}</h3>
+            <p class="card-meta">${meta || "&nbsp;"}</p>
+          </div>
         `;
 
         return div;
@@ -4156,6 +4040,7 @@
 
       function getCardsInActiveGrid() {
         const secId = getActiveSectionId();
+        if (secId === "game") return [];
         if (secId === "popular")
           return Array.from(document.querySelectorAll("#gamesList .game-card"));
         if (secId === "library")
@@ -4252,6 +4137,7 @@
           Swal.close();
           return;
         }
+        if (getActiveSectionId() === "game") return window.GamePage?.back();
 
         // Volver a biblioteca como acción "atrás" sencilla
         showSection(
@@ -4307,7 +4193,10 @@
 
           for (const dir of ["up", "down", "left", "right"]) if (fired[dir]) moveGamepadFocus(dir);
 
-          if (pressA) clickPrimaryActionOnFocused();
+          if (pressA) {
+            if (getActiveSectionId() === "game") document.querySelector("#game .gp-primary")?.click();
+            else clickPrimaryActionOnFocused();
+          }
           if (pressB) backAction();
 
           if (pressLb) switchSection(-1);
@@ -4318,8 +4207,13 @@
           }
 
           if (pressY) {
-            if (getActiveSectionId() === "popular") {
+            const sec = getActiveSectionId();
+            if (sec === "popular") {
               document.getElementById("searchInput")?.focus();
+            } else if (sec === "library" || sec === "completed") {
+              // Y: la página del juego enfocado
+              const card = getCardsInActiveGrid()[focusedIndex];
+              if (card?.dataset.gameId) window.GamePage?.open(card.dataset.gameId);
             }
           }
         }
