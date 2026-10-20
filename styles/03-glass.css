@@ -1,0 +1,418 @@
+/* Estilo Liquid Glass. */
+
+/* =====================================================================
+   Estilo Liquid Glass (iOS 26/27)
+   =====================================================================
+   Va encima de cualquier color: themes.js hace translúcidas las
+   superficies (dejan ver el fondo) y pinta el fondo de pantalla con el
+   acento del tema. Barra superior flotante en cápsula y cristal con
+   doble borde de luz. La refracción real del borde la pone liquid-glass.js
+   (filtro SVG como backdrop-filter); aquí queda el desenfoque de respaldo.
+   Siguiendo a Apple, el cristal "de verdad" es para la capa de navegación
+   (barra, menús, avisos, modales); el contenido va en placas tintadas. */
+:root[data-effect="glass"] {
+  --ease-smooth: cubic-bezier(0.32, 0.72, 0, 1);
+  --lg-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --lg-font: "SF Pro Display", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI Variable Display", system-ui, sans-serif;
+  --lg-fill: rgba(var(--fg-rgb), 0.06);
+  --lg-fill-hover: rgba(var(--fg-rgb), 0.1);
+  /* Doble borde de luz: brillante arriba, tenue abajo y en los lados */
+  --lg-rim: inset 0 1px 0.5px rgba(255, 255, 255, 0.55), inset 0 -1px 0.5px rgba(255, 255, 255, 0.14),
+    inset 1px 0 0.5px rgba(255, 255, 255, 0.18), inset -1px 0 0.5px rgba(255, 255, 255, 0.1);
+  --lg-shadow: 0 12px 40px rgba(0, 0, 0, 0.26), 0 2px 8px rgba(0, 0, 0, 0.1);
+  --lg-chrome: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.03)), rgba(var(--bg-rgb), 0.14);
+  --lg-sheet: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04)), rgba(var(--bg-rgb), 0.55);
+  --lg-text-shadow: 0 1px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* Sobre fondo claro el cristal es escarcha blanca con un filo oscuro */
+:root[data-effect="glass"][data-tone="light"] {
+  --lg-fill: rgba(255, 255, 255, 0.38);
+  --lg-fill-hover: rgba(255, 255, 255, 0.55);
+  --lg-rim: inset 0 1px 0.5px rgba(255, 255, 255, 0.95), inset 0 -1px 0.5px rgba(255, 255, 255, 0.4),
+    0 0 0 0.5px rgba(0, 0, 0, 0.08);
+  --lg-shadow: 0 12px 36px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
+  --lg-chrome: linear-gradient(180deg, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.3)), rgba(var(--bg-rgb), 0.12);
+  --lg-sheet: linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.45)), rgba(var(--bg-rgb), 0.3);
+  --lg-text-shadow: none;
+}
+
+/* Fondo de pantalla: degradado vivo con el acento, al estilo de iOS 26 */
+:root[data-effect="glass"] .theme-bg {
+  background: var(--lg-wall, var(--ink-950));
+}
+
+:root[data-effect="glass"] .theme-bg::after {
+  /* Un velo suave para que el texto se lea sobre cualquier zona */
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(var(--bg-rgb), 0.2);
+}
+
+/* Tipografía tipo SF Pro */
+:root[data-effect="glass"] body,
+:root[data-effect="glass"] body *,
+:root[data-effect="glass"] .swal2-popup.sl-modal,
+:root[data-effect="glass"] .sl-modal .sl-modal-title {
+  font-family: var(--lg-font) !important;
+}
+
+:root[data-effect="glass"] h1,
+:root[data-effect="glass"] h2,
+:root[data-effect="glass"] h3 {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+:root[data-effect="glass"] .section-title {
+  font-size: 34px;
+  letter-spacing: -0.025em;
+}
+
+:root[data-effect="glass"] .section-eyebrow {
+  color: var(--ink-300);
+  letter-spacing: 0.04em;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* ---------- Barra superior flotante (tab bar de iOS 26) ---------- */
+:root[data-effect="glass"] .app {
+  position: relative;
+}
+
+:root[data-effect="glass"] .topnav {
+  position: absolute;
+  top: 12px;
+  left: 16px;
+  right: 16px;
+  z-index: 30;
+  padding: 6px 6px 6px 22px;
+  border: none;
+  border-radius: 999px;
+  background: var(--lg-chrome);
+  box-shadow: var(--lg-rim), var(--lg-shadow);
+  backdrop-filter: blur(14px) saturate(180%);
+}
+
+:root[data-effect="glass"] .topnav-title {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-right: 10px;
+  border-right-color: rgba(var(--fg-rgb), 0.14);
+}
+
+:root[data-effect="glass"] .topnav-item {
+  text-shadow: var(--lg-text-shadow);
+  position: relative;
+  z-index: 1;
+  border: none;
+  padding: 9px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--washi-200);
+  transition: color 0.3s var(--ease-smooth), transform 0.45s var(--lg-spring);
+}
+
+:root[data-effect="glass"] .topnav-item:hover {
+  background: transparent;
+  color: var(--washi-50);
+}
+
+:root[data-effect="glass"] .topnav-item:active {
+  transform: scale(1.06);
+}
+
+:root[data-effect="glass"] .topnav-item.active {
+  color: var(--washi-50);
+  font-weight: 700;
+  text-shadow: var(--lg-text-shadow);
+  background: rgba(var(--red-500-rgb), 0.3);
+}
+
+/* Con la cápsula deslizante de liquid-glass.js el fondo lo pone ella */
+:root[data-effect="glass"] .topnav.lg-has-indicator .topnav-item.active {
+  background: transparent;
+}
+
+.lg-tab-indicator {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 0;
+  border-radius: 999px;
+  pointer-events: none;
+  /* Cápsula tintada con el acento del tema */
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.04)), rgba(var(--red-500-rgb), 0.32);
+  box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.5), inset 0 -1px 0.5px rgba(255, 255, 255, 0.12), 0 2px 10px rgba(0, 0, 0, 0.18);
+  transition: transform 0.6s var(--lg-spring), width 0.6s var(--lg-spring), height 0.3s, opacity 0.2s;
+}
+
+.lg-tab-indicator.is-moving {
+  animation: lgStretch 0.6s ease-out;
+}
+
+@keyframes lgStretch {
+  35% {
+    scale: 1.14 0.84;
+  }
+  70% {
+    scale: 0.97 1.04;
+  }
+}
+
+:root[data-effect="glass"] .main-content {
+  padding-top: 84px;
+}
+
+:root[data-effect="glass"] .index-bar {
+  top: 72px;
+}
+
+:root[data-effect="glass"] #notification-container {
+  top: 80px;
+}
+
+/* ---------- Controles ---------- */
+:where(:root[data-effect="glass"]) button {
+  background: var(--lg-fill-hover);
+  box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.3), inset 0 -1px 0.5px rgba(255, 255, 255, 0.06);
+  transition: background 0.25s var(--ease-smooth), transform 0.45s var(--lg-spring), box-shadow 0.25s var(--ease-smooth);
+}
+
+:where(:root[data-effect="glass"]) button:hover {
+  background: rgba(var(--fg-rgb), 0.16);
+  transform: none;
+}
+
+:root[data-effect="glass"] button:active,
+:root[data-effect="glass"] .sl-btn:active {
+  transform: scale(1.05);
+}
+
+:root[data-effect="glass"] button.primary,
+:root[data-effect="glass"] .sl-btn-primary,
+:root[data-effect="glass"] .scroll-top-btn,
+:root[data-effect="glass"] .pp-bag-btn {
+  /* Cristal tintado con el acento (deja pasar un poco el fondo) */
+  color: var(--on-accent);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0) 60%), rgba(var(--red-500-rgb), 0.84);
+  box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.6), inset 0 -1px 0.5px rgba(0, 0, 0, 0.15), 0 8px 24px rgba(var(--red-500-rgb), 0.32);
+}
+
+:root[data-effect="glass"] button.primary:hover,
+:root[data-effect="glass"] .sl-btn-primary:hover {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.36), rgba(255, 255, 255, 0.04) 60%), rgba(var(--red-500-rgb), 0.92);
+  box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.7), inset 0 -1px 0.5px rgba(0, 0, 0, 0.15), 0 10px 28px rgba(var(--red-500-rgb), 0.42);
+}
+
+:root[data-effect="glass"] .sl-btn-ghost,
+:root[data-effect="glass"] .icon-btn,
+:root[data-effect="glass"] .filter-btn {
+  border-color: transparent;
+  background: var(--lg-fill-hover);
+  box-shadow: var(--lg-rim);
+}
+
+:root[data-effect="glass"] .sl-btn-ghost:hover,
+:root[data-effect="glass"] .icon-btn:hover,
+:root[data-effect="glass"] .filter-btn:hover {
+  border-color: transparent;
+  background: rgba(var(--fg-rgb), 0.16);
+}
+
+:root[data-effect="glass"] .sl-btn.sl-btn-danger {
+  background: linear-gradient(180deg, rgba(255, 99, 88, 0.95), rgba(255, 59, 48, 0.9));
+  box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.5), 0 8px 22px rgba(255, 59, 48, 0.3);
+}
+
+/* Luz que sigue al ratón (la pone liquid-glass.js en --lg-x / --lg-y) */
+:root[data-effect="glass"] .sl-btn:hover,
+:root[data-effect="glass"] button:hover,
+:root[data-effect="glass"] .game-card:hover,
+:root[data-effect="glass"] .theme-swatch:hover {
+  background-image: radial-gradient(circle 90px at var(--lg-x, 50%) var(--lg-y, 50%), rgba(255, 255, 255, 0.2), transparent 70%);
+}
+
+:root[data-effect="glass"] input[type="text"],
+:root[data-effect="glass"] .discover-toolbar select,
+:root[data-effect="glass"] .swal2-input.sl-input {
+  border: none;
+  background: rgba(118, 118, 128, 0.26) !important;
+  box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.12), inset 0 -1px 0.5px rgba(255, 255, 255, 0.04);
+  color: var(--washi-50);
+}
+
+:root[data-effect="glass"] input[type="text"]:focus,
+:root[data-effect="glass"] .discover-toolbar select:focus,
+:root[data-effect="glass"] .swal2-input.sl-input:focus {
+  box-shadow: 0 0 0 3px rgba(var(--red-500-rgb), 0.5);
+}
+
+:root[data-effect="glass"] select option {
+  background: rgb(var(--ink-900-rgb));
+  color: var(--washi-50);
+}
+
+/* ---------- Contenido: placas tintadas con borde de luz ---------- */
+:root[data-effect="glass"] .game-card {
+  border: none;
+  border-radius: 24px;
+  background-color: var(--lg-fill);
+  box-shadow: var(--lg-rim), 0 8px 26px rgba(0, 0, 0, 0.16);
+}
+
+:root[data-effect="glass"] .game-card:hover {
+  border-color: transparent;
+  background-color: var(--lg-fill-hover);
+  box-shadow: var(--lg-rim), 0 18px 44px rgba(0, 0, 0, 0.3);
+}
+
+:root[data-effect="glass"] .game-card .card-cover,
+:root[data-effect="glass"] .game-card img {
+  border-radius: 16px;
+}
+
+:root[data-effect="glass"] .empty-state,
+:root[data-effect="glass"] .theme-swatch {
+  border-color: transparent;
+  background-color: var(--lg-fill);
+  box-shadow: var(--lg-rim);
+}
+
+/* ---------- Capa de navegación: cristal ---------- */
+:root[data-effect="glass"] .index-bar {
+  border: none;
+  border-radius: 999px;
+  background: var(--lg-chrome);
+  box-shadow: var(--lg-rim), var(--lg-shadow);
+  backdrop-filter: blur(14px) saturate(180%);
+}
+
+:root[data-effect="glass"] .index-btn {
+  background: transparent;
+  box-shadow: none;
+}
+
+:root[data-effect="glass"] .index-btn:hover {
+  background: rgba(var(--fg-rgb), 0.14);
+}
+
+:root[data-effect="glass"] .notification {
+  border: none;
+  border-radius: 999px;
+  background: var(--lg-sheet);
+  box-shadow: var(--lg-rim), var(--lg-shadow);
+  backdrop-filter: blur(24px) saturate(180%);
+}
+
+:root[data-effect="glass"] .update-toast {
+  border: none;
+  border-radius: 26px;
+  background: var(--lg-sheet);
+  box-shadow: var(--lg-rim), var(--lg-shadow);
+  backdrop-filter: blur(22px) saturate(170%);
+}
+
+:root[data-effect="glass"] .dropdown-content {
+  border: none;
+  border-radius: 18px;
+  background: var(--lg-sheet) !important;
+  box-shadow: var(--lg-rim), 0 20px 50px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(22px) saturate(170%);
+}
+
+:root[data-effect="glass"] .dropdown-item:hover {
+  background-color: rgba(var(--fg-rgb), 0.1);
+}
+
+/* Modales: hoja de cristal grande. El fondo de detrás no se desenfoca
+   (si no, el modal no tendría nada que refractar: un backdrop-filter en un
+   padre corta el del hijo). */
+:root[data-effect="glass"] .swal2-container.swal2-backdrop-show {
+  background: rgba(0, 0, 0, 0.26) !important;
+  backdrop-filter: none;
+}
+
+:root[data-effect="glass"] .swal2-popup.sl-modal {
+  border: none;
+  border-radius: 34px;
+  background: var(--lg-sheet) !important;
+  box-shadow: var(--lg-rim), 0 30px 90px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(22px) saturate(170%);
+}
+
+:root[data-effect="glass"] .swal2-popup.sl-modal::before {
+  display: none;
+}
+
+:root[data-effect="glass"] .sl-modal .sl-modal-title {
+  font-size: 26px !important;
+  letter-spacing: -0.02em;
+}
+
+:root[data-effect="glass"] .sl-modal .sl-modal-close {
+  border-radius: 50%;
+  background: var(--lg-fill-hover) !important;
+  box-shadow: var(--lg-rim);
+}
+
+/* Paneles internos que usaban el color de fondo opaco */
+:root[data-effect="glass"] .sg-side,
+:root[data-effect="glass"] .sg-search,
+:root[data-effect="glass"] .imp-row,
+:root[data-effect="glass"] .sg-root input.sg-name:focus {
+  background: var(--lg-fill);
+}
+
+:root[data-effect="glass"] .settings-slider {
+  background: rgba(var(--fg-rgb), 0.18);
+}
+
+/* ---------- PokéPark ---------- */
+/* El paisaje (pokepark.js) usa --pp-scene-base/--pp-scene-card, que pone
+   themes.js, en vez del fondo translúcido. */
+:root[data-effect="glass"] .pp-team,
+:root[data-effect="glass"] .pp-detail {
+  border: none;
+  border-radius: 28px;
+  background: var(--lg-fill);
+  box-shadow: var(--lg-rim), 0 10px 30px rgba(0, 0, 0, 0.18);
+}
+
+:root[data-effect="glass"] .pp-park {
+  border: none;
+  border-radius: 30px;
+  box-shadow: var(--lg-rim), 0 14px 40px rgba(0, 0, 0, 0.3);
+}
+
+:root[data-effect="glass"] .pp-chip,
+:root[data-effect="glass"] .pp-tool-btn {
+  border: none;
+  background: var(--lg-chrome);
+  box-shadow: var(--lg-rim), 0 4px 14px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(8px) saturate(160%);
+}
+
+:root[data-effect="glass"] .pp-slot,
+:root[data-effect="glass"] .pp-ov-row {
+  border-color: transparent;
+  background-color: var(--lg-fill);
+  box-shadow: var(--lg-rim);
+}
+
+:root[data-effect="glass"] .pp-slot.is-active,
+:root[data-effect="glass"] .pp-ov-row:hover {
+  background-color: rgba(var(--red-500-rgb), 0.22);
+  box-shadow: inset 0 0 0 1.5px rgba(var(--red-500-rgb), 0.9), inset 0 1px 0.5px rgba(255, 255, 255, 0.35);
+}
+
+:root[data-effect="glass"] .pp-feed-menu {
+  border: none;
+  border-radius: 22px;
+  background: var(--lg-sheet);
+  box-shadow: var(--lg-rim), 0 20px 50px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(22px) saturate(170%);
+}

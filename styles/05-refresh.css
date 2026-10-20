@@ -1,0 +1,252 @@
+/* Lavado de cara 2.4.0 (modales altos, temas, esqueletos). */
+
+/* ===============================
+   2.4.0: lavado de cara
+   =============================== */
+
+/* Modales altos: el contenido hace scroll dentro y la cabecera (con la ×)
+   y los botones se quedan siempre a la vista. */
+.sl-modal .sl-modal-body {
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  /* sitio para los anillos de foco y sombras de los bordes */
+  padding: 3px !important;
+  margin: -3px !important;
+}
+
+/* Rejilla de temas más compacta: 3 x 3, muestra y nombre en línea */
+.theme-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.theme-swatch {
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 8px 10px;
+}
+
+.theme-swatch-preview {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+}
+
+.theme-swatch-name {
+  font-size: 12px;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.theme-swatch.is-selected .theme-swatch-name {
+  opacity: 1;
+  font-weight: 700;
+  color: var(--washi-50);
+}
+
+/* Hueco de la carátula mientras carga la imagen */
+.game-card .card-cover {
+  background: var(--ink-800);
+}
+
+/* Tarjetas fantasma mientras carga Descubrir */
+.game-card.is-skeleton {
+  pointer-events: none;
+}
+
+.game-card.is-skeleton .sk-cover,
+.game-card.is-skeleton .sk-line,
+.game-card.is-skeleton .sk-btn {
+  display: block;
+  border-radius: 10px;
+  background: linear-gradient(100deg, var(--ink-800) 30%, var(--ink-700) 50%, var(--ink-800) 70%) 0 0 / 300% 100%;
+  animation: skShimmer 1.4s ease-in-out infinite;
+}
+
+.game-card.is-skeleton .sk-cover {
+  aspect-ratio: 3 / 4;
+}
+
+.game-card.is-skeleton .sk-line {
+  height: 12px;
+  margin-top: 6px;
+  width: 80%;
+}
+
+.game-card.is-skeleton .sk-line.is-short {
+  width: 45%;
+  margin-top: 0;
+}
+
+.game-card.is-skeleton .sk-btn {
+  height: 28px;
+  margin-top: 8px;
+  border-radius: 999px;
+}
+
+@keyframes skShimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0 0;
+  }
+}
+
+/* Estados vacíos con icono y acciones */
+.empty-state {
+  padding: 48px 24px;
+  border-radius: var(--radius-lg);
+}
+
+.empty-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 54px;
+  height: 54px;
+  margin-bottom: 14px;
+  border-radius: 16px;
+  background: rgba(var(--red-500-rgb), 0.12);
+  color: var(--accent-text);
+}
+
+.empty-icon .i {
+  width: 24px;
+  height: 24px;
+}
+
+.empty-actions {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.empty-state button {
+  height: var(--control-h);
+  padding: 0 18px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* Chip junto a un título (platinos en Juegos pasados) */
+.section-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.title-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  background: var(--gold-soft);
+  border: 1px solid color-mix(in srgb, var(--gold-400) 45%, transparent);
+  color: var(--gold-400);
+  font-family: "Zen Kaku Gothic New", system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.title-chip .i {
+  width: 14px;
+  height: 14px;
+}
+
+/* El índice A-Z fijo se pega al borde de arriba del todo: con top:0 se
+   quedaba a la altura del padding y las carátulas asomaban por encima. */
+:root:not([data-effect="glass"]) .index-bar {
+  top: calc(-1 * var(--page-pad-y));
+  background: rgba(var(--ink-900-rgb), 0.95);
+  backdrop-filter: blur(16px);
+}
+
+/* Letra activa del índice de Descubrir */
+.index-btn.is-active {
+  background: var(--red-500);
+  color: var(--on-accent);
+}
+
+/* "Cargar más" mientras carga */
+#loadMoreBtn.is-loading {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+#loadMoreBtn.is-loading::after {
+  content: "";
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  margin-left: 8px;
+  vertical-align: -1px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  animation: spin 0.8s linear infinite;
+}
+
+/* Foco del mando: solo mientras se usa el mando */
+body.pad-in-use .game-card.gp-focused {
+  border-color: var(--red-500);
+  box-shadow: 0 0 0 3px rgba(var(--red-500-rgb), 0.45), 0 16px 36px rgba(0, 0, 0, 0.4);
+  transform: translateY(-4px) scale(1.02);
+  z-index: 2;
+}
+
+body.pad-in-use {
+  cursor: none;
+}
+
+/* Historial de versiones: sublistas, negrita y código */
+.cl-list ul {
+  margin: 2px 0 4px;
+  padding-left: 18px;
+  list-style: circle;
+}
+
+.cl-list b {
+  color: var(--washi-50);
+}
+
+.cl-list code {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--ink-800);
+  font-size: 12px;
+}
+
+.cl-release.is-current .cl-name {
+  color: var(--accent-text);
+}
+
+/* Notificaciones: no tapan nada al pasar el ratón y se leen mejor */
+#notification-container {
+  pointer-events: none;
+  max-width: min(560px, calc(100vw - 32px));
+}
+
+.notification {
+  line-height: 1.4;
+  text-align: center;
+}
+
+/* Versión de la barra superior: discreta pero legible */
+
+/* Accesibilidad: sin animaciones si el sistema lo pide */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

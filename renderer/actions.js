@@ -1,0 +1,324 @@
+// Acciones de los juegos: añadir, descargar, vincular, lanzar, pasar, quitar y platino.
+// (Antes en el <script> de index.html; los scripts de la ventana comparten
+// el ámbito global, así que el orden de carga importa: ver index.html.)
+
+// ===============================
+// Acciones
+// ===============================
+// Cambia solo el botón de la tarjeta ya en pantalla, sin repintar toda
+// la rejilla (repintarla reseteaba el scroll a arriba del todo).
+// Al añadirlo desaparece de Descubrir (sale con una transición corta).
+function markGameOwnedInGrid(gameId) {
+  const card = document.querySelector(`#gamesList [data-game-id="${gameId}"]`);
+  currentSearchGames = currentSearchGames.filter((g) => g.id !== gameId);
+  if (discoverSearchPool) {
+    discoverSearchPool = discoverSearchPool.filter((g) => g.id !== gameId);
+    discoverSearchShown = Math.max(0, discoverSearchShown - 1);
+  }
+  if (!card) return;
+  card.classList.add("is-leaving");
+  setTimeout(() => {
+    card.remove();
+    updateGamepadFocus(true);
+  }, 280);
+}
+
+async function addFromJson(game) {
+  try {
+    await window.electronAPI.addGame(game);
+    if (jarvisMode) window.Achievements?.track("jarvisAdds");
+    await loadLibrary();
+    markGameOwnedInGrid(game.id);
+    showNotification(
+      `"${game.name}" agregado a la biblioteca correctamente.`
+    );
+  } catch (error) {
+    console.error(error);
+    showNotification(`Error al agregar "${game.name}".`, "error");
+  }
+}
+
+// Un solo paso: elegir el .exe y listo. La plataforma (Steam/Epic/GOG)
+// se detecta sola por la ruta del ejecutable, solo para mostrarla; no
+// hace falta preguntarla porque un juego vinculado a mano siempre se
+// lanza directamente, no cambia nada en el arranque.
+// Descargar un juego de la cuenta: Steam y Epic abren su launcher con
+// la instalación pedida; GOG descarga el instalador aquí (con el % en
+// el botón) y lo abre.
+const STORE_NAMES = { steam: "Steam", epic: "Epic Games", gog: "GOG" };
+// Logos de las tiendas (simple-icons), en un solo color como el resto de iconos.
+const STORE_LOGOS = {
+  steam: "M11.979 0C5.678 0 .511 4.86.022 11.037l6.432 2.658c.545-.371 1.203-.59 1.912-.59.063 0 .125.004.188.006l2.861-4.142V8.91c0-2.495 2.028-4.524 4.524-4.524 2.494 0 4.524 2.031 4.524 4.527s-2.03 4.525-4.524 4.525h-.105l-4.076 2.911c0 .052.004.105.004.159 0 1.875-1.515 3.396-3.39 3.396-1.635 0-3.016-1.173-3.331-2.727L.436 15.27C1.862 20.307 6.486 24 11.979 24c6.627 0 11.999-5.373 11.999-12S18.605 0 11.979 0zM7.54 18.21l-1.473-.61c.262.543.714.999 1.314 1.25 1.297.539 2.793-.076 3.332-1.375.263-.63.264-1.319.005-1.949s-.75-1.121-1.377-1.383c-.624-.26-1.29-.249-1.878-.03l1.523.63c.956.4 1.409 1.5 1.009 2.455-.397.957-1.497 1.41-2.454 1.012H7.54zm11.415-9.303c0-1.662-1.353-3.015-3.015-3.015-1.665 0-3.015 1.353-3.015 3.015 0 1.665 1.35 3.015 3.015 3.015 1.663 0 3.015-1.35 3.015-3.015zm-5.273-.005c0-1.252 1.013-2.266 2.265-2.266 1.249 0 2.266 1.014 2.266 2.266 0 1.251-1.017 2.265-2.266 2.265-1.253 0-2.265-1.014-2.265-2.265z",
+  epic: "M3.537 0C2.165 0 1.66.506 1.66 1.879V18.44a4.262 4.262 0 00.02.433c.031.3.037.59.316.92.027.033.311.245.311.245.153.075.258.13.43.2l8.335 3.491c.433.199.614.276.928.27h.002c.314.006.495-.071.928-.27l8.335-3.492c.172-.07.277-.124.43-.2 0 0 .284-.211.311-.243.28-.33.285-.621.316-.92a4.261 4.261 0 00.02-.434V1.879c0-1.373-.506-1.88-1.878-1.88zm13.366 3.11h.68c1.138 0 1.688.553 1.688 1.696v1.88h-1.374v-1.8c0-.369-.17-.54-.523-.54h-.235c-.367 0-.537.17-.537.539v5.81c0 .369.17.54.537.54h.262c.353 0 .523-.171.523-.54V8.619h1.373v2.143c0 1.144-.562 1.71-1.7 1.71h-.694c-1.138 0-1.7-.566-1.7-1.71V4.82c0-1.144.562-1.709 1.7-1.709zm-12.186.08h3.114v1.274H6.117v2.603h1.648v1.275H6.117v2.774h1.74v1.275h-3.14zm3.816 0h2.198c1.138 0 1.7.564 1.7 1.708v2.445c0 1.144-.562 1.71-1.7 1.71h-.799v3.338h-1.4zm4.53 0h1.4v9.201h-1.4zm-3.13 1.235v3.392h.575c.354 0 .523-.171.523-.54V4.965c0-.368-.17-.54-.523-.54zm-3.74 10.147a1.708 1.708 0 01.591.108 1.745 1.745 0 01.49.299l-.452.546a1.247 1.247 0 00-.308-.195.91.91 0 00-.363-.068.658.658 0 00-.28.06.703.703 0 00-.224.163.783.783 0 00-.151.243.799.799 0 00-.056.299v.008a.852.852 0 00.056.31.7.7 0 00.157.245.736.736 0 00.238.16.774.774 0 00.303.058.79.79 0 00.445-.116v-.339h-.548v-.565H7.37v1.255a2.019 2.019 0 01-.524.307 1.789 1.789 0 01-.683.123 1.642 1.642 0 01-.602-.107 1.46 1.46 0 01-.478-.3 1.371 1.371 0 01-.318-.455 1.438 1.438 0 01-.115-.58v-.008a1.426 1.426 0 01.113-.57 1.449 1.449 0 01.312-.46 1.418 1.418 0 01.474-.309 1.58 1.58 0 01.598-.111 1.708 1.708 0 01.045 0zm11.963.008a2.006 2.006 0 01.612.094 1.61 1.61 0 01.507.277l-.386.546a1.562 1.562 0 00-.39-.205 1.178 1.178 0 00-.388-.07.347.347 0 00-.208.052.154.154 0 00-.07.127v.008a.158.158 0 00.022.084.198.198 0 00.076.066.831.831 0 00.147.06c.062.02.14.04.236.061a3.389 3.389 0 01.43.122 1.292 1.292 0 01.328.17.678.678 0 01.207.24.739.739 0 01.071.337v.008a.865.865 0 01-.081.382.82.82 0 01-.229.285 1.032 1.032 0 01-.353.18 1.606 1.606 0 01-.46.061 2.16 2.16 0 01-.71-.116 1.718 1.718 0 01-.593-.346l.43-.514c.277.223.578.335.9.335a.457.457 0 00.236-.05.157.157 0 00.082-.142v-.008a.15.15 0 00-.02-.077.204.204 0 00-.073-.066.753.753 0 00-.143-.062 2.45 2.45 0 00-.233-.062 5.036 5.036 0 01-.413-.113 1.26 1.26 0 01-.331-.16.72.72 0 01-.222-.243.73.73 0 01-.082-.36v-.008a.863.863 0 01.074-.359.794.794 0 01.214-.283 1.007 1.007 0 01.34-.185 1.423 1.423 0 01.448-.066 2.006 2.006 0 01.025 0zm-9.358.025h.742l1.183 2.81h-.825l-.203-.499H8.623l-.198.498h-.81zm2.197.02h.814l.663 1.08.663-1.08h.814v2.79h-.766v-1.602l-.711 1.091h-.016l-.707-1.083v1.593h-.754zm3.469 0h2.235v.658h-1.473v.422h1.334v.61h-1.334v.442h1.493v.658h-2.255zm-5.3.897l-.315.793h.624zm-1.145 5.19h8.014l-4.09 1.348z",
+  gog: "M7.15 15.24H4.36a.4.4 0 0 0-.4.4v2c0 .21.18.4.4.4h2.8v1.32h-3.5c-.56 0-1.02-.46-1.02-1.03v-3.39c0-.56.46-1.02 1.03-1.02h3.48v1.32zM8.16 11.54c0 .58-.47 1.05-1.05 1.05H2.63v-1.35h3.78a.4.4 0 0 0 .4-.4V6.39a.4.4 0 0 0-.4-.4H4.39a.4.4 0 0 0-.41.4v2.02c0 .23.18.4.4.4H6v1.35H3.68c-.58 0-1.05-.46-1.05-1.04V5.68c0-.57.47-1.04 1.05-1.04H7.1c.58 0 1.05.47 1.05 1.04v5.86zM21.36 19.36h-1.32v-4.12h-.93a.4.4 0 0 0-.4.4v3.72h-1.33v-4.12h-.93a.4.4 0 0 0-.4.4v3.72h-1.33v-4.42c0-.56.46-1.02 1.03-1.02h5.61v5.44zM21.37 11.54c0 .58-.47 1.05-1.05 1.05h-4.48v-1.35h3.78a.4.4 0 0 0 .4-.4V6.39a.4.4 0 0 0-.4-.4h-2.03a.4.4 0 0 0-.4.4v2.02c0 .23.18.4.4.4h1.62v1.35H16.9c-.58 0-1.05-.46-1.05-1.04V5.68c0-.57.47-1.04 1.05-1.04h3.43c.58 0 1.05.47 1.05 1.04v5.86zM13.72 4.64h-3.44c-.58 0-1.04.47-1.04 1.04v3.44c0 .58.46 1.04 1.04 1.04h3.44c.57 0 1.04-.46 1.04-1.04V5.68c0-.57-.47-1.04-1.04-1.04m-.3 1.75v2.02a.4.4 0 0 1-.4.4h-2.03a.4.4 0 0 1-.4-.4V6.4c0-.22.17-.4.4-.4H13c.23 0 .4.18.4.4zM12.63 13.92H9.24c-.57 0-1.03.46-1.03 1.02v3.39c0 .57.46 1.03 1.03 1.03h3.39c.57 0 1.03-.46 1.03-1.03v-3.39c0-.56-.46-1.02-1.03-1.02m-.3 1.72v2a.4.4 0 0 1-.4.4v-.01H9.94a.4.4 0 0 1-.4-.4v-1.99c0-.22.18-.4.4-.4h2c.22 0 .4.18.4.4zM23.49 1.1a1.74 1.74 0 0 0-1.24-.52H1.75A1.74 1.74 0 0 0 0 2.33v19.34a1.74 1.74 0 0 0 1.75 1.75h20.5A1.74 1.74 0 0 0 24 21.67V2.33c0-.48-.2-.92-.51-1.24m0 20.58a1.23 1.23 0 0 1-1.24 1.24H1.75A1.23 1.23 0 0 1 .5 21.67V2.33a1.23 1.23 0 0 1 1.24-1.24h20.5a1.24 1.24 0 0 1 1.24 1.24v19.34z",
+};
+const storeLogo = (k) =>
+  `<svg class="st-store-logo" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="${STORE_LOGOS[k]}"/></svg>`;
+const downloads = new Map(); // id -> texto del botón mientras descarga
+
+function downloadLabel(id) {
+  return downloads.get(String(id)) || "Descargar";
+}
+
+function setDownloadLabel(id, text) {
+  if (text) downloads.set(String(id), text);
+  else downloads.delete(String(id));
+  document.querySelectorAll(`[data-dl="${id}"]`).forEach((b) => {
+    b.querySelector("span").textContent = downloadLabel(id);
+    b.classList.toggle("is-busy", !!text);
+  });
+}
+
+window.electronAPI.onStoresProgress?.((p) => {
+  if (p.phase === "download") setDownloadLabel(p.id, `${Math.round((p.progress || 0) * 100)} %`);
+  else if (p.phase === "install") setDownloadLabel(p.id, "Instalando");
+  else setDownloadLabel(p.id, null);
+});
+
+// Al terminar de instalar algo de la cuenta (main lo comprueba al
+// volver a la ventana) se repinta la biblioteca.
+window.electronAPI.onGamesChanged?.(async () => {
+  await loadLibrary();
+  refreshSearchUI();
+});
+
+async function downloadGame(id) {
+  if (downloads.has(String(id))) return;
+  const g = [...libraryGamesCache, ...completedGamesCache].find((x) => String(x.id) === String(id));
+  if (!g) return;
+  const store = STORE_NAMES[g.platform] || "la tienda";
+  let res;
+  try {
+    res = await window.electronAPI.stores("install", id);
+  } catch (err) {
+    res = { ok: false, error: String(err?.message || err) };
+  }
+  if (!res?.ok) {
+    setDownloadLabel(id, null);
+    showNotification(res?.error || "No se ha podido descargar.", "error");
+    return;
+  }
+  if (res.via === "launcher") showNotification(`Abriendo ${store}…`);
+  else {
+    showNotification("Instalador abierto.");
+    setTimeout(() => setDownloadLabel(id, null), 4000);
+  }
+}
+
+async function setExecutable(id) {
+  try {
+    const result = await window.electronAPI.openFileDialog();
+    if (result.canceled) return;
+
+    await window.electronAPI.setExecutable(id, { path: result.filePath });
+    await loadLibrary();
+    refreshSearchUI();
+    showNotification("Ejecutable vinculado correctamente");
+  } catch (err) {
+    console.error(err);
+    showNotification("Error al vincular el ejecutable", "error");
+  }
+}
+
+// ===============================
+// Lanzar juego (modal "Abriendo...")
+// ===============================
+// main.js va contando los pasos (arrancar el cliente, abrir el juego,
+// verlo ya en marcha) y aquí se reflejan en el modal. Se cierra solo
+// cuando el juego arranca o al rato de lanzarlo; si falla, se queda
+// abierto contando por qué.
+const CLIENT_NAMES = { steam: "Steam", epic: "Epic Games", gog: "GOG Galaxy" };
+let currentLaunch = null;
+
+function viaLauncher(g) {
+  return (
+    (g.platform === "steam" && g.steamAppId) ||
+    (g.platform === "epic" && g.epicAppName) ||
+    (g.platform === "gog" && g.gogGameId)
+  );
+}
+
+function setLaunchState(state, text, iconName) {
+  const box = document.querySelector(".sl-launch");
+  if (!box) return;
+  box.dataset.state = state;
+  box.querySelector(".sl-launch-text").textContent = text;
+  const ic = box.querySelector(".sl-launch-status");
+  ic.innerHTML = iconName ? icon(iconName) : `<span class="sl-spinner"></span>`;
+}
+
+function launchStepText(step, g) {
+  const client = CLIENT_NAMES[g.platform] || "el launcher";
+  if (step === "client") return [`Abriendo ${client}…`, `El juego se abrirá en cuanto ${client} esté listo.`];
+  if (step === "launching")
+    return viaLauncher(g)
+      ? ["Abriendo el juego…", `${client} está iniciando el juego.`]
+      : ["Abriendo el juego…", "Iniciando el ejecutable."];
+  return ["Preparando…", ""];
+}
+
+window.electronAPI.onLaunchProgress?.((p) => {
+  if (!currentLaunch || Number(p.id) !== Number(currentLaunch.id)) return;
+  if (p.step === "running") {
+    setLaunchState("ok", "El juego ya está en marcha.", "check");
+    document.querySelector(".sl-launch-title").textContent = "¡A jugar!";
+    return;
+  }
+  const [title, text] = launchStepText(p.step, currentLaunch.game);
+  document.querySelector(".sl-launch-title").textContent = title;
+  setLaunchState("busy", text);
+});
+
+async function launchGame(id) {
+  if (currentLaunch && String(currentLaunch.id) === String(id)) return;
+  const g = [...libraryGamesCache, ...completedGamesCache].find((x) => String(x.id) === String(id)) || {
+    id,
+    name: "Juego",
+  };
+  const launch = { id, game: g };
+  currentLaunch = launch;
+  const [title, text] = launchStepText("start", g);
+
+  openModal({
+    width: 420,
+    html: `
+      <div class="sl-launch" data-state="busy">
+        <div class="sl-launch-cover"><img src="${coverOf(g)}" alt=""></div>
+        <span class="sl-launch-eyebrow">${escapeHtml(g.name)}</span>
+        <h3 class="sl-launch-title">${title}</h3>
+        <p class="sl-launch-row"><span class="sl-launch-status"><span class="sl-spinner"></span></span><span class="sl-launch-text">${text}</span></p>
+      </div>`,
+    showConfirmButton: false,
+    showCloseButton: true,
+    customClass: { popup: "sl-modal-sm" },
+    didClose: () => {
+      if (currentLaunch === launch) currentLaunch = null;
+    },
+  });
+
+  let res;
+  try {
+    res = await window.electronAPI.launchGame(id);
+  } catch (err) {
+    console.error(err);
+    res = { ok: false, error: "Error inesperado al iniciar el juego." };
+  }
+  if (currentLaunch !== launch) return; // el usuario cerró el modal
+  if (res?.ok) window.Achievements?.track("launches");
+
+  if (!res?.ok) {
+    document.querySelector(".sl-launch-title").textContent = "No se ha podido abrir";
+    setLaunchState("error", res?.error || "Error al iniciar el juego.", "alert");
+    currentLaunch = null;
+    return;
+  }
+
+  if (res.running) {
+    setTimeout(() => currentLaunch === null && Swal.isVisible() && document.querySelector(".sl-launch") && Swal.close(), 1600);
+  } else {
+    document.querySelector(".sl-launch-title").textContent = "Juego lanzado";
+    setLaunchState(
+      "ok",
+      viaLauncher(g)
+        ? `Si no aparece, revisa ${CLIENT_NAMES[g.platform]}.`
+        : "Si no aparece, revisa el ejecutable.",
+      "check"
+    );
+    setTimeout(() => currentLaunch === null && Swal.isVisible() && document.querySelector(".sl-launch") && Swal.close(), 3500);
+  }
+  currentLaunch = null;
+}
+
+async function markCompleted(id) {
+  await window.electronAPI.markCompleted(id);
+  loadLibrary();
+}
+
+async function returnToLibrary(id) {
+  await window.electronAPI.returnToLibrary(id);
+  loadLibrary();
+}
+
+async function removeFromLibrary(id) {
+  const game = [...libraryGamesCache, ...completedGamesCache].find((g) => String(g.id) === String(id));
+  const ok = await confirmDialog({
+    title: game ? `¿Quitar "${game.name}"?` : "¿Quitar de la biblioteca?",
+    text: "No se desinstala. No se puede deshacer.",
+    confirmText: "Quitar",
+    danger: true,
+  });
+  if (!ok) return;
+
+  await window.electronAPI.removeGame(Number(id));
+  await loadLibrary();
+  refreshSearchUI();
+  showNotification("Juego eliminado de la biblioteca.");
+}
+
+function toggleDropdown(e, id) {
+  e.stopPropagation();
+  document.querySelectorAll(".dropdown-content").forEach((d) => {
+    if (d.id !== `dropdown-${id}`) d.classList.remove("show");
+  });
+
+  const el = document.getElementById(`dropdown-${id}`);
+  if (!el) return;
+  // Se abre hacia la izquierda; si ahí no cabe (primera columna), hacia
+  // la derecha, para que no lo corte el borde del contenido.
+  el.classList.remove("is-right");
+  el.classList.toggle("show");
+  const box = document.querySelector(".main-content")?.getBoundingClientRect();
+  if (box && el.getBoundingClientRect().left < box.left + 8) el.classList.add("is-right");
+}
+
+async function togglePlatinum(id) {
+  try {
+    await window.electronAPI.togglePlatinum(id);
+    await loadLibrary();
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+// Tu tiempo con el juego (en la columna de la portada).
+function infoPlayHtml(g) {
+  if (!(g.playSecs > 0) && !playingNow.has(String(g.id))) {
+    return canTrack(g) ? `<div class="info-play is-empty">${icon("clock")}<span>Aún no lo has jugado desde el launcher.</span></div>` : "";
+  }
+  const streak = playStreak(g.playDays);
+  const rows = [
+    ["Jugado", fmtPlaytime(g.playSecs)],
+    ["Última vez", playingNow.has(String(g.id)) ? "Ahora mismo" : playAgo(g.lastPlayed)],
+    ["Racha", streak ? `${streak} ${streak === 1 ? "día" : "días"}` : "—"],
+    ["Sesiones", String(g.playSessions || 1)],
+  ];
+  return `<div class="info-play"><p class="info-play-title">${icon("clock")}Tu tiempo</p>${rows
+    .map(([k, v]) => `<div><dt>${k}</dt><dd>${escapeHtml(v)}</dd></div>`)
+    .join("")}</div>`;
+}
+
+// Las tres casillas salen siempre (con "…" mientras busca y "—" si no
+// hay datos), así la ficha no cambia de tamaño al llegar la respuesta.
+// d: null = buscando, false = sin datos.
+function hltbHtml(d, played) {
+  // Como en HowLongToBeat: horas redondeadas a la media hora.
+  const h = (secs) => (d === null ? "…" : secs > 0 ? (secs < 3600 ? `${Math.round(secs / 60)} min` : `${String(Math.round(secs / 1800) / 2).replace(".", ",")} h`) : "—");
+  const tiles = [
+    ["Historia", d?.main],
+    ["Historia y extras", d?.plus],
+    ["Completarlo al 100 %", d?.full],
+  ];
+  // La barra de progreso se reserva siempre que hayas jugado.
+  const bar = (v) => (played > 0 ? `<i>${v > 0 ? `<em style="width:${Math.min(100, Math.round((played / v) * 100))}%"></em>` : ""}</i>` : "");
+  const src =
+    d === null
+      ? "Buscando en HowLongToBeat…"
+      : !d
+        ? "No hay datos de duración para este juego."
+        : `${played > 0 ? `Llevas ${fmtPlaytime(played)}. ` : ""}Fuente: ${
+            d.source === "hltb" ? `<a href="#" data-ext="https://howlongtobeat.com/game/${d.id}">HowLongToBeat</a>` : "IGDB"
+          }`;
+  return `
+    <div class="info-hltb-tiles">${tiles.map(([k, v]) => `<div class="info-hltb-tile"><span>${k}</span><b>${h(v)}</b>${bar(v)}</div>`).join("")}</div>
+    <p class="info-hltb-src">${src}</p>`;
+}

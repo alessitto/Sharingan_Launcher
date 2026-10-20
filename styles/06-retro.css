@@ -1,0 +1,128 @@
+/* Estilo Retro. */
+
+/* =====================================================================
+   Estilo Retro
+   =====================================================================
+   Va encima de cualquier color: letra pixelada, esquinas cuadradas, bordes
+   gruesos con sombra dura (como las ventanas de los juegos de 8/16 bits) y
+   unas líneas de escaneo muy suaves en el fondo. Todo estático: nada que
+   recalcular al moverse, va igual de fluido que el predeterminado. */
+:root[data-effect="retro"] {
+  --retro-font: "Pixelify Sans", "Zen Kaku Gothic New", monospace;
+  --retro-title: "Press Start 2P", "Pixelify Sans", monospace;
+  --retro-line: rgba(var(--fg-rgb), 0.85);
+  --retro-drop: rgba(0, 0, 0, 0.55);
+}
+
+:root[data-effect="retro"][data-tone="light"] {
+  --retro-drop: rgba(0, 0, 0, 0.35);
+}
+
+:root[data-effect="retro"] body,
+:root[data-effect="retro"] body *,
+:root[data-effect="retro"] .swal2-popup.sl-modal {
+  font-family: var(--retro-font) !important;
+  text-shadow: none !important;
+}
+
+:root[data-effect="retro"] h1,
+:root[data-effect="retro"] h2,
+:root[data-effect="retro"] h3,
+:root[data-effect="retro"] .topnav-title,
+:root[data-effect="retro"] .section-title,
+:root[data-effect="retro"] .sl-modal .sl-modal-title {
+  font-family: var(--retro-title) !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  line-height: 1.5;
+}
+
+:root[data-effect="retro"] .section-title {
+  font-size: 22px;
+}
+
+:root[data-effect="retro"] .topnav-title {
+  font-size: 13px;
+}
+
+:root[data-effect="retro"] .sl-modal .sl-modal-title {
+  font-size: 17px !important;
+}
+
+/* Nada redondeado (salvo las imágenes, que se quedan como están) */
+:root[data-effect="retro"] *:not(img),
+:root[data-effect="retro"] *::before,
+:root[data-effect="retro"] *::after {
+  border-radius: 0 !important;
+}
+
+/* Ventanas y tarjetas: borde de 2 px y sombra dura */
+:root[data-effect="retro"] .topnav {
+  border-bottom: 3px solid var(--retro-line);
+  box-shadow: 0 4px 0 var(--retro-drop);
+}
+
+:root[data-effect="retro"] .game-card,
+:root[data-effect="retro"] .swal2-popup.sl-modal,
+:root[data-effect="retro"] .notification,
+:root[data-effect="retro"] .update-toast,
+:root[data-effect="retro"] .dropdown-content,
+:root[data-effect="retro"] .empty-state,
+:root[data-effect="retro"] .pp-park,
+:root[data-effect="retro"] .pp-team,
+:root[data-effect="retro"] .pp-detail,
+:root[data-effect="retro"] .pp-feed-menu {
+  border: 2px solid var(--retro-line) !important;
+  box-shadow: 5px 5px 0 var(--retro-drop) !important;
+}
+
+:root[data-effect="retro"] .game-card:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 7px 7px 0 var(--retro-drop) !important;
+}
+
+/* Botones: bloque con sombra que se "hunde" al pulsarlo */
+:root[data-effect="retro"] .sl-btn,
+:root[data-effect="retro"] button.primary,
+:root[data-effect="retro"] .icon-btn,
+:root[data-effect="retro"] .filter-btn,
+:root[data-effect="retro"] .scroll-top-btn {
+  border: 2px solid var(--retro-line) !important;
+  box-shadow: 3px 3px 0 var(--retro-drop) !important;
+}
+
+:root[data-effect="retro"] .sl-btn:active,
+:root[data-effect="retro"] button.primary:active,
+:root[data-effect="retro"] .icon-btn:active,
+:root[data-effect="retro"] .filter-btn:active {
+  transform: translate(3px, 3px) !important;
+  box-shadow: none !important;
+}
+
+:root[data-effect="retro"] .topnav-item {
+  border: 2px solid transparent;
+  transition: none;
+}
+
+:root[data-effect="retro"] .topnav-item.active {
+  background: var(--red-500);
+  color: var(--on-accent);
+  border-color: var(--retro-line);
+}
+
+:root[data-effect="retro"] input[type="text"],
+:root[data-effect="retro"] select,
+:root[data-effect="retro"] textarea,
+:root[data-effect="retro"] .swal2-input.sl-input {
+  border: 2px solid var(--retro-line) !important;
+  box-shadow: inset 3px 3px 0 var(--retro-drop) !important;
+}
+
+:root[data-effect="retro"] .settings-slider::-webkit-slider-thumb {
+  border: 2px solid var(--retro-line);
+}
+
+/* Líneas de escaneo de pantalla antigua, solo en el fondo */
+:root[data-effect="retro"] .theme-bg {
+  background: repeating-linear-gradient(180deg, rgba(0, 0, 0, 0.08) 0 1px, transparent 1px 3px), var(--ink-950);
+}

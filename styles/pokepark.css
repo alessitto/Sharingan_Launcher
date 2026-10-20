@@ -4648,7 +4648,7 @@ b > .pp-shiny-ic {
 /* ------------------------------------------------------------ Voltorb Flip (como en HG/SS) */
 @font-face {
   font-family: "Press Start 2P";
-  src: url("assets/fonts/press-start-2p.ttf") format("truetype");
+  src: url("../assets/fonts/press-start-2p.ttf") format("truetype");
   font-display: swap;
 }
 
@@ -5436,67 +5436,67 @@ b > .pp-shiny-ic {
    3.4.1: fondos de las cajas de Pokémon Esmeralda
    ===================================================================== */
 .pp-wall-0 {
-  background: url("assets/pokepark/walls/00.png") center / 100% 100% no-repeat;
+  background: url("../assets/pokepark/walls/00.png") center / 100% 100% no-repeat;
 }
 
 .pp-wall-1 {
-  background: url("assets/pokepark/walls/01.png") center / 100% 100% no-repeat;
+  background: url("../assets/pokepark/walls/01.png") center / 100% 100% no-repeat;
 }
 
 .pp-wall-2 {
-  background: url("assets/pokepark/walls/02.png") center / 100% 100% no-repeat;
+  background: url("../assets/pokepark/walls/02.png") center / 100% 100% no-repeat;
 }
 
 .pp-wall-3 {
-  background: url("assets/pokepark/walls/03.png") center / 100% 100% no-repeat;
+  background: url("../assets/pokepark/walls/03.png") center / 100% 100% no-repeat;
 }
 
 .pp-wall-4 {
-  background: url("assets/pokepark/walls/04.png") center / 100% 100% no-repeat;
+  background: url("../assets/pokepark/walls/04.png") center / 100% 100% no-repeat;
 }
 
 .pp-wall-5 {
-  background: url("assets/pokepark/walls/05.png") center / 100% 100% no-repeat;
+  background: url("../assets/pokepark/walls/05.png") center / 100% 100% no-repeat;
 }
 
 .pp-wall-6 {
-  background: url("assets/pokepark/walls/06.png") center / 100% 100% no-repeat;
+  background: url("../assets/pokepark/walls/06.png") center / 100% 100% no-repeat;
 }
 
 .pp-wall-7 {
-  background: url("assets/pokepark/walls/07.png") center / 100% 100% no-repeat;
+  background: url("../assets/pokepark/walls/07.png") center / 100% 100% no-repeat;
 }
 
 .pp-wall-8 {
-  background: url("assets/pokepark/walls/08.png") center / 100% 100% no-repeat;
+  background: url("../assets/pokepark/walls/08.png") center / 100% 100% no-repeat;
 }
 
 .pp-wall-9 {
-  background: url("assets/pokepark/walls/09.png") center / 100% 100% no-repeat;
+  background: url("../assets/pokepark/walls/09.png") center / 100% 100% no-repeat;
 }
 
 .pp-wall-10 {
-  background: url("assets/pokepark/walls/10.png") center / 100% 100% no-repeat;
+  background: url("../assets/pokepark/walls/10.png") center / 100% 100% no-repeat;
 }
 
 .pp-wall-11 {
-  background: url("assets/pokepark/walls/11.png") center / 100% 100% no-repeat;
+  background: url("../assets/pokepark/walls/11.png") center / 100% 100% no-repeat;
 }
 
 .pp-wall-12 {
-  background: url("assets/pokepark/walls/12.png") center / 100% 100% no-repeat;
+  background: url("../assets/pokepark/walls/12.png") center / 100% 100% no-repeat;
 }
 
 .pp-wall-13 {
-  background: url("assets/pokepark/walls/13.png") center / 100% 100% no-repeat;
+  background: url("../assets/pokepark/walls/13.png") center / 100% 100% no-repeat;
 }
 
 .pp-wall-14 {
-  background: url("assets/pokepark/walls/14.png") center / 100% 100% no-repeat;
+  background: url("../assets/pokepark/walls/14.png") center / 100% 100% no-repeat;
 }
 
 .pp-wall-15 {
-  background: url("assets/pokepark/walls/15.png") center / 100% 100% no-repeat;
+  background: url("../assets/pokepark/walls/15.png") center / 100% 100% no-repeat;
 }
 
 /* La caja es el fondo del juego sin la franja de dibujo de arriba (156×116)
@@ -5577,7 +5577,7 @@ b > .pp-shiny-ic {
 /* ------------------------------------------------------------ Pokédle con la fuente de Pokémon */
 @font-face {
   font-family: "Pokemon Solid";
-  src: url("assets/fonts/pokemon-solid.ttf") format("truetype");
+  src: url("../assets/fonts/pokemon-solid.ttf") format("truetype");
   font-display: swap;
 }
 

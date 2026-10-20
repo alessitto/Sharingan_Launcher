@@ -1,0 +1,278 @@
+/* Movimiento: curvas y duraciones. */
+
+/* =====================================================================
+   Movimiento: mismas curvas y duraciones en toda la app
+   ===================================================================== */
+/* Permite animar hasta "auto" (anchos de las etiquetas que se despliegan):
+   así se abren y se cierran a su medida, sin el retardo de max-width. */
+:root {
+  interpolate-size: allow-keywords;
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+}
+
+.topnav-item {
+  transition: background 0.25s var(--ease-smooth), color 0.25s var(--ease-smooth), border-color 0.25s var(--ease-smooth);
+}
+
+/* Cambio de sección: entra con un fundido y un leve desplazamiento */
+.section.active {
+  animation: slSectionIn 0.4s var(--ease-smooth) backwards;
+}
+
+@keyframes slSectionIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* Modales: entran con un poco más de recorrido y salen acelerando */
+@keyframes slModalIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes slModalOut {
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.975);
+  }
+}
+
+.sl-modal-in {
+  animation: slModalIn 0.36s var(--ease-smooth);
+}
+
+.sl-modal-out {
+  animation: slModalOut 0.2s var(--ease-exit) forwards;
+}
+
+.swal2-container {
+  transition: background-color 0.3s var(--ease-smooth) !important;
+}
+
+/* Avisos de arriba: entrada y salida suaves (antes eran lineales) */
+.notification {
+  animation: fadeInOut 3s var(--ease-smooth) forwards;
+}
+
+@keyframes fadeInOut {
+  0% {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.96);
+  }
+  9% {
+    opacity: 1;
+    transform: none;
+  }
+  91% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.98);
+  }
+}
+
+/* Tarjetas: sin escalar el texto (se veía borroso), solo se elevan */
+.game-card {
+  transition: transform 0.35s var(--ease-smooth), box-shadow 0.35s var(--ease-smooth), border-color 0.25s var(--ease-smooth);
+}
+
+.game-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 0 0 1px rgba(var(--red-500-rgb), 0.15), var(--shadow-2);
+}
+
+.game-card img {
+  transition: transform 0.6s var(--ease-smooth);
+}
+
+.game-card:hover img {
+  transform: scale(1.04);
+}
+
+/* Desplegables un pelín más largos para que no "salten" */
+.dropdown-content,
+.dropdown-content.show {
+  transition-duration: 0.2s;
+}
+
+/* Ajustes: cambio de página */
+.st-page.is-entering .st-body {
+  animation: stPageIn 0.34s var(--ease-smooth);
+}
+
+@keyframes stPageIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.st-tab {
+  transition: background 0.2s var(--ease-smooth), color 0.2s var(--ease-smooth), box-shadow 0.25s var(--ease-smooth);
+}
+
+/* Cambio de tema: fundido de toda la ventana (View Transitions) */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.45s;
+  animation-timing-function: var(--ease-smooth);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .section.active,
+  .sl-modal-in,
+  .sl-modal-out {
+    animation-duration: 0.01ms !important;
+  }
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
+}
+
+/* 3.2.1: tiendas vinculadas y juegos de la cuenta sin instalar */
+.game-card.is-not-installed .card-cover img {
+  filter: grayscale(0.55) brightness(0.8);
+  transition: filter 0.2s ease;
+}
+
+.game-card.is-not-installed:hover .card-cover img {
+  filter: none;
+}
+
+.card-actions button.dl-btn .i,
+.card-actions button.add-btn .i {
+  fill: none;
+  stroke-width: 2;
+}
+
+.card-actions button.add-btn .i {
+  stroke-width: 2.4;
+}
+
+.card-actions button.dl-btn.is-busy {
+  pointer-events: none;
+  opacity: 0.85;
+  font-variant-numeric: tabular-nums;
+}
+
+.st-store-icon {
+  position: relative;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: var(--ink-800);
+  border: 1px solid var(--ink-700);
+  color: var(--washi-400);
+  transition: color 0.2s ease, background 0.2s ease;
+}
+
+.st-store-logo {
+  width: 22px;
+  height: 22px;
+}
+
+.st-store.is-on .st-store-icon {
+  color: var(--washi-100);
+  background: rgba(var(--red-500-rgb), 0.12);
+  border-color: rgba(var(--red-500-rgb), 0.35);
+}
+
+.st-store-dot {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 2px solid var(--ink-900);
+  background: var(--washi-400);
+  display: none;
+}
+
+.st-store.is-on .st-store-dot {
+  display: block;
+  background: var(--red-500);
+}
+
+.st-stores.is-busy .sl-btn {
+  pointer-events: none;
+}
+
+.st-stores .st-actions {
+  margin-top: 16px;
+}
+
+/* 3.2.2: lo personal solo con sesión iniciada */
+body.is-guest .needs-account {
+  display: none !important;
+}
+
+/* Ajustes › Tema: colores y estilos juntos */
+.st-body.st-theme-page {
+  overflow-y: auto;
+  margin-right: -14px;
+  padding-right: 14px;
+  padding-bottom: 36px;
+}
+
+.st-theme-sec + .st-theme-sec {
+  margin-top: 28px;
+  padding-top: 22px;
+  border-top: 1px solid var(--ink-800);
+}
+
+.st-theme-head {
+  margin: 0 0 14px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent-text);
+}
+
+/* Tarjeta estrecha: "Agregar" a secas en vez de partir el botón en dos líneas */
+.game-card {
+  container-type: inline-size;
+}
+
+.add-btn .add-short {
+  display: none;
+}
+
+.card-actions button.add-btn {
+  white-space: nowrap;
+}
+
+@container (max-width: 250px) {
+  .add-btn .add-long {
+    display: none;
+  }
+  .add-btn .add-short {
+    display: inline;
+  }
+}
+
+/* Índice A-Z: siempre en una fila; las letras se estrechan si no caben */
+.index-bar {
+  flex-wrap: nowrap;
+}
+
+.index-bar .index-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 34px;
+}
