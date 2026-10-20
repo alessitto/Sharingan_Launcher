@@ -239,8 +239,7 @@
     if (t.closest("[data-import]")) return openImportModal();
     if (t.closest("[data-free]")) return window.FreeGames?.open();
     if (t.closest("[data-friends]")) return window.Community?.openCommunity?.("friends");
-    const prof = t.closest("[data-profile]");
-    if (prof) return window.Community?.openUserProfile?.(prof.dataset.profile);
+    if (t.closest("[data-profile]")) return; // lo abre social.js
     const ext = t.closest("[data-ext]");
     if (ext) return window.electronAPI.openExternal(ext.dataset.ext);
     const open = t.closest("[data-open]");

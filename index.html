@@ -28,6 +28,7 @@
     <link rel="stylesheet" href="styles/spotify-setup.css" />
     <link rel="stylesheet" href="styles/launcher.css" />
     <link rel="stylesheet" href="styles/home-stats.css" />
+    <link rel="stylesheet" href="styles/social.css" />
   </head>
   <body class="is-guest">
     <div class="theme-bg" aria-hidden="true"></div>
@@ -79,12 +80,19 @@
         <div class="topnav-item needs-account" data-section="community" role="button" tabindex="0" aria-label="Comunidad" onclick="showSection('community', this)">
           <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           <span class="topnav-label">Comunidad</span>
+          <span class="nav-count is-alert" id="navCommunityCount" title="Solicitudes de amistad"></span>
         </div>
 
         <!-- Lo último que has jugado (renderRecent) -->
         <div class="side-recent" id="sideRecent" hidden>
           <p class="side-label">Jugado recientemente</p>
           <div class="side-recent-list" id="sideRecentList"></div>
+        </div>
+
+        <!-- Amigos conectados (renderer/social.js) -->
+        <div class="side-recent side-friends" id="sideFriends" hidden>
+          <p class="side-label">Amigos conectados</p>
+          <div class="side-recent-list" id="sideFriendsList"></div>
         </div>
 
         <span class="topnav-spacer"></span>
@@ -280,6 +288,7 @@
     <script src="renderer/shortcuts.js" defer></script>
     <script src="renderer/liquid-glass.js" defer></script>
     <script src="renderer/achievements.js" defer></script>
+    <script src="renderer/social.js" defer></script>
     <script src="renderer/community.js" defer></script>
     <script src="renderer/spotify-setup.js" defer></script>
     <script src="renderer/cd3d.js" defer></script>

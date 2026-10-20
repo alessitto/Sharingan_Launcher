@@ -54,6 +54,12 @@ const MESSAGES = {
   invalid_type: "Elige si es un bug, una sugerencia o una duda.",
   invalid_rating: "La nota tiene que ser de 1 a 5 estrellas.",
   invalid_comment: "El comentario es demasiado largo (máximo 2000 caracteres).",
+  invalid_email: "Ese correo no es válido.",
+  email_taken: "Ese correo ya lo usa otra cuenta.",
+  mail_failed: "No se ha podido enviar el correo. Prueba en un rato.",
+  invalid_code: "El código no es correcto o ha caducado.",
+  friend_self: "No puedes agregarte a ti mismo.",
+  too_many_requests: "Tienes demasiadas solicitudes de amistad pendientes.",
   invalid_image: "Esa imagen no vale. Prueba con un PNG, JPG o WebP.",
   invalid_status: "Ese estado no vale para este reporte.",
   too_large_library: "Tu biblioteca es demasiado grande para guardarla en la cuenta.",
@@ -405,7 +411,11 @@ function createCloud(hooks) {
 
   // ------------------------------------------------------------ Acciones
   async function enter(route, username, password) {
-    const res = await api(route, { body: { username, password }, auth: false });
+    return enterWith(await api(route, { body: { username, password }, auth: false }));
+  }
+
+  // Entrar con la respuesta de la API (login, registro o contraseña nueva)
+  async function enterWith(res) {
     clearTimeout(pushTimer);
     pushTimer = null;
     entering = true;
@@ -450,6 +460,34 @@ function createCloud(hooks) {
       saveSettings();
       return {};
     },
+    // Cuenta (account.php): correo, recuperar contraseña, datos y privacidad
+    setEmail: async (email) => api("account/email", { body: { email } }),
+    verifyEmail: async (code) => api("account/email/verify", { body: { code } }),
+    removeEmail: async () => api("account/email/remove", { body: {} }),
+    setPrivacy: async (priv) => api("account/privacy", { body: { private: !!priv } }),
+    forgot: async (login) => api("auth/forgot", { body: { login }, auth: false }),
+    resetPassword: async (login, code, password) => enterWith(await api("auth/reset", { body: { login, code, password }, auth: false })),
+    exportData: async () => api("account/export"),
+    // Borrar la cuenta: en el servidor se va todo; aquí se cierra la sesión
+    // sin subir nada (ya no hay a dónde).
+    deleteAccount: async (password) => {
+      await api("account/delete", { body: { password } });
+      clearTimeout(pushTimer);
+      dirty.clear();
+      settings.cloudDirty = [];
+      delete settings.cloudLinkedUser;
+      delete settings.cloudLastSync;
+      delete settings.cloudDataOwner;
+      setSession(null, null);
+      saveSettings();
+      return {};
+    },
+    // Amigos y presencia (social.php)
+    friends: async () => api("friends/list"),
+    friendRequest: async (username) => api("friends/request", { body: { username } }),
+    friendRespond: async (username, accept) => api("friends/respond", { body: { username, accept: !!accept } }),
+    friendRemove: async (username) => api("friends/remove", { body: { username } }),
+    presence: async (playing) => api("presence/set", { body: { playing: playing || null } }),
     refreshMe: async () => {
       const res = await api("auth/me");
       settings.cloudUser = res.user;
@@ -499,7 +537,8 @@ function createCloud(hooks) {
     achievements: async () => api("achievements/list"),
     unlock: async (ids) => api("achievements/unlock", { body: { ids } }),
     lock: async (ids) => api("achievements/lock", { body: { ids } }),
-    profile: async (username) => api("users/profile", { query: { username }, auth: false }),
+    // Con sesión se manda el token: así el perfil dice si sois amigos
+    profile: async (username) => api("users/profile", { query: { username } }),
     trades: async () => api("trades/list"),
     tradeOffer: async (to, mon) => api("trades/offer", { body: { to, mon } }),
     tradeAccept: async (id, mon) => api("trades/accept", { body: { id, mon } }),

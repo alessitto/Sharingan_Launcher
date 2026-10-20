@@ -112,6 +112,7 @@ window.electronAPI.onPlaytime?.(({ running, games }) => {
   }
   renderRecent();
   window.GamePage?.refreshPlay();
+  window.Social?.presenceChanged();
 });
 window.electronAPI.playtimeRunning?.().then((ids) => {
   playingNow = new Set((ids || []).map(String));

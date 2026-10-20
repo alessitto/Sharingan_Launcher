@@ -124,6 +124,11 @@
         <p class="cm-auth-hint${current === "register" ? "" : " is-ghost"}" ${current === "register" ? "" : 'aria-hidden="true"'}>Usuario de 3 a 20 caracteres y contraseña de 8 o más.</p>
         <p class="cm-auth-error" role="alert"></p>
         <button type="button" class="sl-btn sl-btn-primary cm-auth-go">${current === "register" ? "Crear cuenta" : "Entrar"}</button>
+        <p class="cm-auth-foot">${
+          current === "register"
+            ? `Al crear la cuenta aceptas la <button type="button" class="cm-link" data-privacy>política de privacidad</button>.`
+            : `<button type="button" class="cm-link" data-forgot>¿Has olvidado la contraseña?</button>`
+        }</p>
       </div>`;
 
     wrap.innerHTML = form();
@@ -135,6 +140,8 @@
     };
     bind(autofocus);
     wrap.addEventListener("click", async (e) => {
+      if (e.target.closest("[data-forgot]")) return window.Social?.openForgot(wrap.querySelector(".cm-in-user")?.value.trim() || "");
+      if (e.target.closest("[data-privacy]")) return window.electronAPI.openExternal("https://alejandrodev.es/sharingan_launcher/privacidad.html");
       const seg = e.target.closest("[data-mode]");
       if (seg) {
         const user = wrap.querySelector(".cm-in-user").value;
@@ -206,6 +213,7 @@
             <span>${icon("refresh")}Sincronización</span>
             <b class="cm-sync-text">${cloudStatus.pending ? "Cambios pendientes de subir" : `Al día · ${ago(cloudStatus.lastSync)}`}</b>
           </div>
+          ${window.Social?.accountExtrasHtml(me) || ""}
           <div class="cm-profile-actions">
             <button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-p="sync">${icon("refresh")}Sincronizar ahora</button>
             <button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-p="ach">${icon("trophy")}Ver logros</button>
@@ -220,6 +228,15 @@
     box.addEventListener("click", async (e) => {
       const b = e.target.closest("[data-p]");
       if (!b) return;
+      if (["email", "email-verify", "email-off", "privacy", "privacy-policy", "my-profile", "export", "delete"].includes(b.dataset.p)) {
+        const changed = await window.Social?.handleAccountAction(b.dataset.p, b, box);
+        if (!changed) return;
+        if (b.dataset.p === "delete") return back?.();
+        const r = await api("refreshMe");
+        if (r.ok) me = r.user;
+        if (box.isConnected && me) box.innerHTML = profileHtml();
+        return;
+      }
       if (b.dataset.p === "photo" || b.dataset.p === "photo-off") {
         const changed = b.dataset.p === "photo" ? await pickAvatar() : await removeAvatar();
         if (changed && box.isConnected) {
@@ -436,6 +453,7 @@
         <div class="cm-tabs">
           <button type="button" data-tab="chat">${icon("message")}Chat</button>
           <button type="button" data-tab="reports">${icon("flag")}Reportes</button>
+          <button type="button" data-tab="friends">${icon("users")}Amigos</button>
           <button type="button" data-tab="achievements">${icon("trophy")}Logros</button>
         </div>
       </div>
@@ -453,6 +471,7 @@
     const body = root.querySelector(".cm-body");
     if (t === "chat") renderChat(body);
     else if (t === "reports") renderReports(body);
+    else if (t === "friends") window.Social?.renderFriendsTab(body);
     else renderAchievements(body);
   }
 
@@ -580,7 +599,7 @@
           <div class="cm-msg ${grouped ? "is-grouped" : ""} ${m.admin ? "is-admin" : ""}">
             ${grouped ? `<span class="cm-msg-time-side">${when(m.createdAt).slice(-5)}</span>` : avatar(m.author, "", { id: m.authorId, avatarV: m.avatarV })}
             <div class="cm-msg-main">
-              ${grouped ? "" : `<p class="cm-msg-head"><b>${esc(m.author)}</b>${m.admin ? adminBadge() : ""}<time>${when(m.createdAt)}</time></p>`}
+              ${grouped ? "" : `<p class="cm-msg-head"><b class="cm-user" data-profile="${esc(m.author)}">${esc(m.author)}</b>${m.admin ? adminBadge() : ""}<time>${when(m.createdAt)}</time></p>`}
               <p class="cm-msg-body">${linkify(m.body)}</p>
             </div>
             ${canDelete ? `<button type="button" class="cm-msg-del" data-del="${m.id}" title="Borrar mensaje">${icon("trash")}</button>` : ""}
@@ -997,6 +1016,9 @@
     openAuth,
     openProfile,
     renderAccount,
+    openCommunity,
+    openUserProfile: (u) => window.Social?.openUserProfile(u),
+    friendsNow: () => window.Social?.friendsNow() || [],
     avgOf,
     avatar,
     noteRated,
