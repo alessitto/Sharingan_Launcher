@@ -11,6 +11,8 @@
 //   playSecs      segundos jugados en total
 //   lastPlayed    última vez que estaba abierto (ms)
 //   playSessions  veces que se ha abierto
+//   playLog       segundos por día { "AAAA-MM-DD": s } (los últimos 400
+//                 días), para las estadísticas (desde la 4.1)
 //   playDays      días (AAAA-MM-DD, hora local) en los que se jugó, para la
 //                 racha; se guardan los últimos 120
 //
@@ -22,6 +24,18 @@ const { execFile } = require("child_process");
 const POLL_MS = 20 * 1000;
 const MAX_STEP_MS = POLL_MS * 3; // si el PC se suspende no se cuenta el hueco
 const DAYS_KEPT = 120;
+const LOG_DAYS = 400;
+
+// Suma segundos al día de hoy en g.playLog (y recorta lo más viejo).
+function logSecs(g, secs, now) {
+  if (!(secs > 0)) return;
+  const log = g.playLog && typeof g.playLog === "object" ? g.playLog : {};
+  const day = dayKey(now);
+  log[day] = Math.round((log[day] || 0) + secs);
+  const keys = Object.keys(log);
+  if (keys.length > LOG_DAYS) for (const k of keys.sort().slice(0, keys.length - LOG_DAYS)) delete log[k];
+  g.playLog = log;
+}
 const SAVE_EVERY_MS = 60 * 1000;
 const SYNC_EVERY_MS = 10 * 60 * 1000;
 const EXE_CACHE_MS = 6 * 60 * 60 * 1000;
@@ -164,6 +178,7 @@ function createPlaytime({ getGames, onChange }) {
         } else {
           const step = Math.min(now - a.last, MAX_STEP_MS);
           g.playSecs = Math.round((g.playSecs || 0) + step / 1000);
+          logSecs(g, step / 1000, now);
           a.last = now;
         }
         g.lastPlayed = now;
@@ -176,7 +191,11 @@ function createPlaytime({ getGames, onChange }) {
         if (running.has(id)) continue;
         const g = byId.get(id);
         const a = active.get(id);
-        if (g && a) g.playSecs = Math.round((g.playSecs || 0) + Math.min(now - a.last, MAX_STEP_MS) / 1000);
+        if (g && a) {
+          const step = Math.min(now - a.last, MAX_STEP_MS);
+          g.playSecs = Math.round((g.playSecs || 0) + step / 1000);
+          logSecs(g, step / 1000, now);
+        }
         active.delete(id);
         ended = changed = true;
       }

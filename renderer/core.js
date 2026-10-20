@@ -313,7 +313,10 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
+// La entrada de la barra lateral se busca por su sección (data-section);
+// el segundo parámetro se queda por compatibilidad.
 function showSection(id, el) {
+  el = document.querySelector(`.topnav-item[data-section="${id}"]`) || el;
   if (id !== "game") window.GamePage?.onLeave();
   document
     .querySelectorAll(".section")
@@ -337,6 +340,8 @@ function showSection(id, el) {
   if (id === "pokepark") window.PokePark?.onShow();
   document.body.classList.toggle("in-community", id === "community");
   window.Community?.setVisible(id === "community");
+  if (id === "home") window.Home?.onShow();
+  if (id === "stats") window.Stats?.onShow();
   focusedIndex = 0;
   updateGamepadFocus(true);
 }

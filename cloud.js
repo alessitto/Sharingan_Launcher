@@ -178,6 +178,10 @@ function createCloud(hooks) {
     }
     const days = [...new Set([...(a.playDays || []), ...(b.playDays || [])])].sort().slice(-120);
     if (days.length) out.playDays = days;
+    // Segundos por día: lo mayor de cada día
+    const log = { ...(a.playLog || {}) };
+    for (const [d, s] of Object.entries(b.playLog || {})) log[d] = Math.max(Number(log[d]) || 0, Number(s) || 0);
+    if (Object.keys(log).length) out.playLog = log;
     return out;
   }
 

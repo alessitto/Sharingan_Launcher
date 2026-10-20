@@ -27,6 +27,7 @@
     <link rel="stylesheet" href="styles/spotify.css" />
     <link rel="stylesheet" href="styles/spotify-setup.css" />
     <link rel="stylesheet" href="styles/launcher.css" />
+    <link rel="stylesheet" href="styles/home-stats.css" />
   </head>
   <body class="is-guest">
     <div class="theme-bg" aria-hidden="true"></div>
@@ -49,21 +50,29 @@
       <!-- Barra lateral: secciones, jugado recientemente y la cuenta -->
       <nav class="topnav sidebar" aria-label="Secciones">
         <span class="topnav-title"><img class="topnav-logo" src="assets/icon.png" alt="" /><span>Sharingan<small>Launcher</small></span></span>
-        <div class="topnav-item active" role="button" tabindex="0" aria-label="Descubrir" onclick="showSection('popular', this)">
+        <div class="topnav-item active" data-section="home" role="button" tabindex="0" aria-label="Inicio" onclick="showSection('home', this)">
+          <svg viewBox="0 0 24 24"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+          <span class="topnav-label">Inicio</span>
+        </div>
+        <div class="topnav-item" data-section="popular" role="button" tabindex="0" aria-label="Descubrir" onclick="showSection('popular', this)">
           <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16.24 7.76-2.12 6.36-6.36 2.12 2.12-6.36 6.36-2.12z"/></svg>
           <span class="topnav-label">Descubrir</span>
         </div>
-        <div class="topnav-item" role="button" tabindex="0" aria-label="Mi biblioteca" onclick="showSection('library', this)">
+        <div class="topnav-item" data-section="library" role="button" tabindex="0" aria-label="Mi biblioteca" onclick="showSection('library', this)">
           <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
           <span class="topnav-label">Biblioteca</span>
           <span class="nav-count" id="navLibraryCount"></span>
         </div>
-        <div class="topnav-item" role="button" tabindex="0" aria-label="Juegos pasados" onclick="showSection('completed', this)">
+        <div class="topnav-item" data-section="completed" role="button" tabindex="0" aria-label="Juegos pasados" onclick="showSection('completed', this)">
           <svg viewBox="0 0 24 24"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0V4Z"/><path d="M7 6H4a2 2 0 0 0 0 4h1"/><path d="M17 6h3a2 2 0 0 1 0 4h-1"/></svg>
           <span class="topnav-label">Pasados</span>
           <span class="nav-count" id="navCompletedCount"></span>
         </div>
-        <div class="topnav-item needs-account" role="button" tabindex="0" aria-label="PokéPark" onclick="showSection('pokepark', this)">
+        <div class="topnav-item" data-section="stats" role="button" tabindex="0" aria-label="Estadísticas" onclick="showSection('stats', this)">
+          <svg viewBox="0 0 24 24"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+          <span class="topnav-label">Estadísticas</span>
+        </div>
+        <div class="topnav-item needs-account" data-section="pokepark" role="button" tabindex="0" aria-label="PokéPark" onclick="showSection('pokepark', this)">
           <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h6"/><path d="M15 12h6"/><circle cx="12" cy="12" r="3"/></svg>
           <span class="topnav-label">PokéPark</span>
         </div>
@@ -93,7 +102,12 @@
       <!-- Contenido principal -->
       <main class="main-content">
         <!-- Populares / búsqueda -->
-        <section id="popular" class="section active">
+        <!-- Inicio (renderer/home.js) -->
+        <section id="home" class="section active">
+          <div class="home-root" id="homeRoot"></div>
+        </section>
+
+        <section id="popular" class="section">
           <header class="page-head">
             <div class="page-head-title">
               <span class="section-eyebrow">Catálogo</span>
@@ -236,6 +250,11 @@
           <div class="cm-root" id="cmRoot"></div>
         </section>
 
+        <!-- Estadísticas (renderer/stats.js) -->
+        <section id="stats" class="section">
+          <div class="stats-root" id="statsRoot"></div>
+        </section>
+
         <!-- Página de un juego (gamepage.js): la misma para todos, cambian los datos -->
         <section id="game" class="section">
           <div class="gp-root" id="gpRoot"></div>
@@ -266,6 +285,8 @@
     <script src="renderer/cd3d.js" defer></script>
     <script src="renderer/spotify-ui.js" defer></script>
     <script src="renderer/gamepage.js" defer></script>
+    <script src="renderer/home.js" defer></script>
+    <script src="renderer/stats.js" defer></script>
 
     <script src="renderer/core.js"></script>
     <script src="renderer/discover.js"></script>

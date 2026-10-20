@@ -1608,7 +1608,7 @@ function setupMinigames() {
 // lastPlayed, playSessions, playDays), así viaja con la cuenta con el resto
 // de la biblioteca. A la ventana se le manda solo lo que cambia.
 let playtime = null;
-const PLAY_FIELDS = ["playSecs", "lastPlayed", "playSessions", "playDays"];
+const PLAY_FIELDS = ["playSecs", "lastPlayed", "playSessions", "playDays", "playLog"];
 function setupPlaytime() {
   playtime = createPlaytime({
     getGames: () => [...games, ...completedGames],

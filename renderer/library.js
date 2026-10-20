@@ -28,6 +28,8 @@ async function loadLibrary() {
   renderCompletedList();
   renderSideNav();
   window.GamePage?.refresh();
+  window.Home?.refresh();
+  window.Stats?.refresh();
   updateGamepadFocus(true);
 }
 
