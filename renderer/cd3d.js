@@ -18,7 +18,7 @@
   "use strict";
 
   let threeJob = null;
-  const loadThree = () => (threeJob ||= import("./vendor/three/three.module.min.js"));
+  const loadThree = () => (threeJob ||= import("../vendor/three/three.module.min.js"));
 
   const S = 1024; // lado de las texturas del disco
   const HOLE = 0.125; // agujero de 15 mm en 120 mm
