@@ -370,25 +370,14 @@ function playIntroOut(screen) {
       setTimeout(() => document.body.classList.remove("app-enter"), 900);
     }).then(() => screen.remove());
   }
+  // Sin WebGL: el logo girando de siempre, con su fundido
   return new Promise((resolve) => {
     if (!screen) return resolve();
-    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-    // El giro rápido sigue desde donde va el lento (sin saltos)
-    const spin = screen.querySelector(".ie-spin");
-    if (spin) {
-      const m = new DOMMatrix(getComputedStyle(spin).transform);
-      screen.style.setProperty("--ie-from", `${Math.round((Math.atan2(m.b, m.a) * 180) / Math.PI)}deg`);
-    }
-    screen.classList.add("is-go");
-    const total = reduce ? 0 : 1150;
-    setTimeout(() => {
-      document.body.classList.add("app-enter");
-      setTimeout(() => document.body.classList.remove("app-enter"), 700);
-    }, Math.max(0, total - 420));
+    screen.classList.add("hidden");
     setTimeout(() => {
       screen.remove();
       resolve();
-    }, total);
+    }, 500);
   });
 }
 

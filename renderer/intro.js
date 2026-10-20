@@ -1,12 +1,15 @@
-// Intro con el Sharingan en WebGL (un shader a pantalla completa).
-//   0,0 s  una rendija roja: los párpados se abren
-//   0,4 s  el iris (fibras, brillo, anillo y pupila)
-//   1,0 s  los tres tomoe, uno tras otro, cada uno con su onda
-//   1,9 s  gira despacio mientras carga la app (ascuas y humo detrás)
-//   fin    Intro.finish(): giro rapidísimo con estela, destello, zoom
-//          dentro de la pupila y la app aparece a través de ella.
+// Intro con el Sharingan en WebGL (un shader a pantalla completa), estilo
+// anime (dibujo plano):
+//   0,0 s  el ojo aparece de golpe y se llena de rojo desde la pupila
+//   0,4 s  los tres tomoe: salen de la pupila como un punto, vuelan en
+//          espiral hasta el anillo, golpean (onda, destello, líneas de
+//          velocidad y temblor) y se les dibuja la cola
+//   1,3 s  gira mientras carga la app
+//   fin    Intro.finish(): los tomoe se meten girando hacia la pupila, se
+//          funden y sale el Mangekyō de Itachi; gira, remolino, zoom
+//          hacia dentro y la app aparece desde el centro.
 // Se carga justo detrás de #intro-screen para empezar cuanto antes. Sin
-// WebGL (o con "reducir movimiento") se queda la intro de CSS.
+// WebGL (o con "reducir movimiento") se queda el logo girando de siempre.
 (() => {
   const screen = document.getElementById("intro-screen");
   if (!screen || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -22,159 +25,209 @@ precision highp float;
 uniform vec2 uRes;
 uniform float uT;      // segundos desde el inicio
 uniform float uGo;     // segundos desde finish() (-1 antes)
-uniform float uAng;    // giro de los tomoe
+uniform float uAng;    // giro del dibujo
 uniform float uSpd;    // velocidad de giro (para la estela)
 
 const float PI = 3.14159265;
+const float TAU = 6.2831853;
+const float RING = .58;
 
-float hash(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
-float noise(vec2 p){
-  vec2 i = floor(p), f = fract(p);
-  vec2 u = f * f * (3. - 2. * f);
-  return mix(mix(hash(i), hash(i + vec2(1, 0)), u.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), u.x), u.y);
-}
-float fbm(vec2 p){
-  float v = 0., a = .5;
-  for (int i = 0; i < 4; i++) { v += a * noise(p); p = p * 2.03 + 17.1; a *= .5; }
-  return v;
-}
 float sq(float x){ return x * x; }
+float hash(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 float easeOutBack(float x){ float c1 = 1.70158, c3 = c1 + 1., y = x - 1.; return 1. + c3 * y * y * y + c1 * y * y; }
+float easeOutCubic(float x){ float y = 1. - x; return 1. - y * y * y; }
+float wrapPi(float a){ return mod(a + PI, TAU) - PI; }
 
-// Tomoe: la "coma" del yin-yang. Cabeza en (-s/2, 0), cola que acaba en (s, 0).
-float tomoeSDF(vec2 q, float s){
-  float big = max(length(q) - s, q.y);
-  float head = length(q - vec2(-.5 * s, 0.)) - .5 * s;
-  float cut = length(q - vec2(.5 * s, 0.)) - .5 * s;
-  return max(min(big, head), -cut);
+// Momentos (en segundos)
+const float BORN0 = .38;   // sale el primer tomoe
+const float BORN_GAP = .24;
+const float FLY = .26;
+
+// Tomoe: cabeza en (rho, th) y cola detrás siguiendo el círculo de radio
+// rho, que se afina y se curva hacia dentro. L = largo de la cola (rad).
+float tomoeSDF(vec2 p, float rho, float th, float hr, float L, float thin){
+  float dHead = length(p - rho * vec2(cos(th), sin(th))) - hr;
+  if (L < .002) return dHead;
+  float r = length(p);
+  float del = mod(th - atan(p.y, p.x), TAU);
+  if (del > L + .5) return dHead;
+  float s = clamp(del / L, 0., 1.);
+  float rc = rho - .075 * s * s * min(L / .55, 1.6);
+  float w = hr * thin * pow(1. - s, .95);
+  float dTail = del <= L ? abs(r - rc) - w : length(vec2((del - L) * rho, r - rc));
+  return min(dHead, dTail);
 }
 
-// Los tres tomoe (cobertura 0..1) con el giro "ang"; cada uno crece desde un punto
-float tomoes(vec2 p, float ang, float aa, out float waves){
+// Mangekyō de Itachi: disco central y tres aspas curvas que se afinan.
+float mangekyoSDF(vec2 p, float ang, float Rb, float core){
+  float r = length(p);
+  float phi = atan(p.y, p.x);
+  float d = r - core;
+  for (int k = 0; k < 3; k++) {
+    float th = ang + float(k) * TAU / 3.;
+    float t = clamp(r / Rb, 0., 1.);
+    float c = th + 1.4 * t * t;                        // el aspa se curva
+    float dl = wrapPi(phi - c);
+    float hw = .38 * pow(1. - t, .8) * (dl > 0. ? .5 : 1.);    // un lado más afilado
+    float db = r < Rb ? abs(dl) * r - hw * r * 1.6 : r - Rb;
+    d = min(d, max(db, -r + .01));
+  }
+  return d;
+}
+
+// El dibujo negro del ojo en un momento (tomoe, fusión o Mangekyō)
+float pattern(vec2 p, float ang, float aa, float go, float going){
   float cov = 0.;
-  waves = 0.;
+  // fusión: los tomoe se van hacia la pupila
+  float m = going * smoothstep(.0, .42, go);
+  float mIn = m * m;
   for (int k = 0; k < 3; k++) {
     float fk = float(k);
-    float born = 1.0 + .27 * fk;
-    float g = clamp((uT - born) / .38, 0., 1.);
-    float s = .19 * (g > 0. ? easeOutBack(g) : 0.);
-    float th = ang + fk * 2. * PI / 3. + PI / 2.;
-    vec2 c = .58 * vec2(cos(th), sin(th));
-    vec2 t = vec2(-sin(th), cos(th));
-    vec2 n = vec2(cos(th), sin(th));
-    vec2 d = p - c;
-    vec2 q = vec2(-dot(d, t), dot(d, n)) + vec2(-.5 * s, 0.);
-    if (s > .001) cov = max(cov, 1. - smoothstep(-aa, aa, tomoeSDF(q, s)));
-    // Onda al nacer
-    float w = uT - born;
-    if (w > 0. && w < .7) {
-      float r = w * .9;
-      waves += (1. - w / .7) * (1. - smoothstep(0., .02 + w * .03, abs(length(d) - r)));
+    float born = BORN0 + BORN_GAP * fk;
+    if (uT < born) continue;
+    float fly = clamp((uT - born) / FLY, 0., 1.);
+    float thF = ang + fk * TAU / 3. + PI / 2.;
+    float e = easeOutCubic(fly);
+    float rho = mix(.2, RING, e);
+    float th = thF - (1. - e) * PI * 1.15;
+    float hr, L, thin;
+    if (fly < 1.) {
+      hr = mix(.04, .1, e);
+      L = .9 * sin(fly * PI) + .05;
+      thin = .55;
+    } else {
+      float ink = clamp((uT - born - FLY) / .18, 0., 1.);
+      hr = .1 * (1. + .35 * sin(ink * PI) * (1. - ink));
+      L = .62 * easeOutBack(ink);
+      thin = 1.02;
     }
+    rho = mix(rho, .24, mIn);
+    L = L + 1.2 * m;
+    hr = hr * (1. - .25 * m);
+    float d = tomoeSDF(p, rho, th, hr, L, thin);
+    cov = max(cov, (1. - smoothstep(-aa, aa, d)) * (1. - smoothstep(.85, 1., m)));
+  }
+  // la mancha que se forma al juntarse
+  float blob = going * smoothstep(.2, .45, go);
+  cov = max(cov, (1. - smoothstep(-aa, aa, length(p) - mix(.2, .3, blob))) * step(.001, blob));
+  // Mangekyō que crece desde la mancha
+  float g2 = going * clamp((go - .34) / .32, 0., 1.);
+  if (g2 > 0.) {
+    float Rb = mix(.3, .92, easeOutBack(g2));
+    float dm = mangekyoSDF(p, ang + .6, Rb, .3);
+    cov = max(cov, 1. - smoothstep(-aa, aa, dm));
   }
   return cov;
 }
 
 void main(){
   vec2 frag = gl_FragCoord.xy;
-  vec2 uv = (frag - .5 * uRes) / uRes.y;
+  vec2 uv0 = (frag - .5 * uRes) / uRes.y;
   float px = 1. / uRes.y;
 
-  // ---------------------------------------------------- tiempos
   float go = max(uGo, 0.);
   float going = step(0., uGo);
-  float zoom = going * pow(smoothstep(.5, 1.0, go), 2.);
-  float scale = 1. + zoom * 46.;              // zoom hasta dentro de la pupila
-  float R = .19;                               // radio del iris (en alto de pantalla)
-  vec2 p = uv / (R * scale);                   // iris = radio 1
+
+  // Golpes: al llegar cada tomoe al anillo y al salir el Mangekyō
+  float hit = 0.;
+  for (int k = 0; k < 3; k++) {
+    float a = uT - (BORN0 + BORN_GAP * float(k) + FLY);
+    if (a > 0.) hit += exp(-a * 9.);
+  }
+  float msHit = going * (go > .34 ? exp(-(go - .34) * 7.) : 0.);
+  hit += msHit * 1.5;
+  vec2 uv = uv0 + (vec2(hash(vec2(floor(uT * 60.), 1.)), hash(vec2(floor(uT * 60.), 2.))) - .5) * .012 * min(hit, 1.5);
+
+  // Zoom hacia dentro del jutsu (con remolino)
+  float zoom = going * pow(smoothstep(.8, 1.3, go), 2.);
+  float pop = easeOutBack(clamp(uT / .34, 0., 1.));
+  float scale = max(pop, .001) * (1. + zoom * 46.);
+  float R = .19;
+  vec2 p = uv / (R * scale);
+  float swirl = going * smoothstep(.75, 1.35, go) * 2.6 / (.35 + length(p));
+  p = mat2(cos(swirl), -sin(swirl), sin(swirl), cos(swirl)) * p;
   float r = length(p);
-  float aa = 1.6 * px / (R * scale);
+  float aa = 1.5 * px / (R * scale);
 
   // ---------------------------------------------------- fondo
-  vec3 bg = vec3(.035, .03, .036);
-  float smoke = fbm(uv * 2.2 + vec2(uT * .05, -uT * .08));
-  bg += vec3(.22, .02, .03) * smoke * smoke * smoothstep(1.3, .0, length(uv)) * smoothstep(.2, 1.5, uT);
-  bg *= 1. - .55 * smoothstep(.45, 1.1, length(uv * vec2(.8, 1.)));
-  // ascuas que suben
-  for (int i = 0; i < 22; i++) {
-    float fi = float(i);
-    vec2 seed = vec2(fi * 7.31, fi * 1.93);
-    float life = fract(uT * (.08 + .07 * hash(seed)) + hash(seed + 3.1));
-    vec2 ep = vec2((hash(seed + 1.7) - .5) * 1.9, -.6 + life * 1.3);
-    ep.x += .04 * sin(uT * 1.3 + fi);
-    float e = smoothstep(.006, .0, length(uv - ep)) * sin(life * PI);
-    bg += vec3(1., .35, .15) * e * .9 * smoothstep(.4, 1.6, uT);
-  }
+  float rs = length(uv0);
+  vec3 col = vec3(.03, .022, .03);
+  col += vec3(.35, .02, .05) * exp(-rs * 2.6) * smoothstep(.0, .5, uT);
+  float a0 = atan(uv0.y, uv0.x) / TAU * 160.;
+  float line = step(.8, hash(vec2(floor(a0), floor(uT * 14.))));
+  float lineW = smoothstep(.0, .5, fract(a0)) * smoothstep(1., .5, fract(a0));
+  float speed = clamp(hit * .9 + going * smoothstep(.0, .3, go) * 1.3 + (1. - smoothstep(.0, .45, uT)) * .8, 0., 1.6);
+  col += vec3(1., .5, .5) * line * lineW * smoothstep(.3, 1., rs) * speed * .22;
 
-  // ---------------------------------------------------- párpados
-  float open = smoothstep(.12, .95, uT);
-  float lid = pow(open, 1.6) * 3.2;            // se abre y luego desaparece
-  float W = 2.3;
-  float lens = lid * 1.25 * sqrt(max(0., 1. - sq(p.x / W)));
-  float eyeMask = smoothstep(lens + aa * 2., lens - aa * 2., abs(p.y));
-  float slit = exp(-sq(abs(p.y) - lens) * 900.) * smoothstep(W, 0., abs(p.x)) * (1. - smoothstep(.35, 1.1, lid));
+  // ---------------------------------------------------- iris (dibujo plano)
+  float fill = easeOutCubic(clamp((uT - .06) / .34, 0., 1.)) * 1.08;
+  vec3 red = vec3(.9, .06, .1);
+  vec3 iris = mix(vec3(.12, .0, .02), red, step(r, fill));
+  iris += vec3(1., .6, .55) * (1. - smoothstep(0., .03, abs(r - fill))) * (1. - step(1., fill));
+  // anillos finos de dibujo
+  iris *= 1. - .18 * (1. - smoothstep(.0, .006, abs(r - .8))) - .12 * (1. - smoothstep(.0, .005, abs(r - .7)));
+  // sombra arriba
+  float shade = step(.5 - .22 * p.x * p.x, p.y);
+  iris = mix(iris, iris * vec3(.62, .45, .5), shade * .85);
+  // anillo de los tomoe: fino y discontinuo, se borra con el Mangekyō
+  float phi = atan(p.y, p.x);
+  float dash = .55 + .45 * step(.45, fract((phi - uAng * .5) * 28. / TAU));
+  float ringA = (1. - smoothstep(.01 - aa, .01 + aa, abs(r - RING))) * dash * (1. - going * smoothstep(.3, .6, go));
+  iris = mix(iris, vec3(.02, 0., .01), ringA);
+  // borde negro
+  iris = mix(iris, vec3(.02, 0., .01), smoothstep(.915 - aa, .915 + aa, r));
 
-  // ---------------------------------------------------- iris
-  float a = atan(p.y, p.x);
-  float fib = fbm(vec2(a * 9., r * 2.5 - uT * .05)) * .6 + fbm(vec2(a * 31., r * 7.)) * .4;
-  vec3 iris = mix(vec3(.30, .0, .02), vec3(.93, .05, .09), smoothstep(1., .25, r));
-  iris *= .62 + .55 * fib;
-  iris += vec3(1., .3, .22) * exp(-sq(r - .34) * 70.) * .35;             // brillo junto a la pupila
-  iris *= mix(1., .45, 1. - smoothstep(0., .014, abs(r - .58)));              // anillo
-  iris *= smoothstep(1.02, .86, r) * .85 + .15;                               // borde oscuro
-  float limbus = smoothstep(.93, 1., r);
-  iris = mix(iris, vec3(.02, 0., .0), limbus);
-
-  // pupila que respira (y se abre del todo al final)
-  float pr = .2 + .012 * sin(uT * 2.2) + going * smoothstep(.2, .6, go) * .05;
-  float pupil = 1. - smoothstep(pr - aa, pr + aa, r);
-
-  // tomoe (con estela según la velocidad)
-  float waves = 0.;
+  // dibujo negro (con estela según la velocidad)
   float cov = 0.;
-  float trail = clamp(uSpd * .016, 0., .9);
-  for (int j = 0; j < 7; j++) {
-    float off = float(j) / 6. * trail;
-    float w;
-    float c = tomoes(p, uAng - off, aa, w);
-    cov += c * (j == 0 ? 1. : .55 * (1. - float(j) / 7.));
-    if (j == 0) waves = w;
+  float trail = clamp(uSpd * .014, 0., .8);
+  for (int j = 0; j < 6; j++) {
+    float off = float(j) / 5. * trail;
+    float c = pattern(p, uAng - off, aa, go, going);
+    cov = max(cov, c * (j == 0 ? 1. : .55 * (1. - float(j) / 6.)));
+    if (trail < .02) break;
   }
-  cov = clamp(cov, 0., 1.);
+  iris = mix(iris, vec3(.02, 0., .01), cov);
 
-  vec3 eye = iris;
-  eye = mix(eye, vec3(.015, .0, .005), cov);
-  eye = mix(eye, vec3(.01, .0, .0), pupil);
-  // brillo especular y reflejo
-  vec2 hl = p - vec2(-.38, .42);
-  eye += vec3(1., .92, .9) * exp(-dot(hl, hl) * 26.) * .55;
-  eye += vec3(1., .6, .55) * exp(-sq(length(p - vec2(.35, -.3)) - .1) * 400.) * .12;
-  eye += vec3(1., .2, .2) * smoothstep(.75, 1., r) * smoothstep(1., .95, r) * .25 * (.5 + .5 * sin(a * 2. + uT));
+  // pupila del Sharingan (un poco ovalada); en el Mangekyō, punto rojo
+  float pupil = 1. - smoothstep(.2 - aa, .2 + aa, length(p * vec2(1.12, .94)));
+  iris = mix(iris, vec3(.01, 0., .005), pupil);
+  float rdot = going * smoothstep(.45, .6, go) * (1. - smoothstep(.055 - aa, .055 + aa, r));
+  iris = mix(iris, red * 1.05, rdot);
 
-  float irisIn = smoothstep(.25, .95, uT);
-  float inside = (1. - smoothstep(1. - aa, 1. + aa, r)) * irisIn;
+  // brillos
+  vec2 h1 = (p - vec2(-.44, .42)) * mat2(.8, -.6, .6, .8);
+  float hl = 1. - smoothstep(1. - aa * 12., 1. + aa * 12., length(h1 / vec2(.15, .085)));
+  float hd = 1. - smoothstep(.045 - aa, .045 + aa, length(p - vec2(.36, -.42)));
+  iris = mix(iris, vec3(1.), (hl * .92 + hd * .8) * step(.18, uT) * (1. - zoom));
 
-  // ---------------------------------------------------- composición
-  vec3 col = bg;
-  // halo rojo alrededor del ojo
-  float glow = .35 + going * smoothstep(0., .5, go) * .9;
-  col += vec3(.9, .05, .08) * exp(-max(r - 1., 0.) * 5.) * .35 * glow * irisIn * eyeMask;
-  col = mix(col, eye, inside * eyeMask);
-  col += vec3(1., .25, .2) * slit * 1.4;
-  col += vec3(1., .3, .25) * waves * .6 * inside;
+  float inside = 1. - smoothstep(1. - aa, 1. + aa, r);
+  col += vec3(.95, .05, .1) * exp(-max(r - 1., 0.) * 4.5) * (.35 + hit * .5 + going * smoothstep(0., .5, go) * .9) * smoothstep(0., .3, uT);
+  col = mix(col, iris, inside);
 
-  // "pum": destello y onda al final del giro
-  float fl = going * exp(-sq((go - .52) * 14.));
-  col += vec3(1., .35, .3) * fl * .5 * exp(-length(uv) * 2.2);
+  // ---------------------------------------------------- impactos
+  for (int k = 0; k < 3; k++) {
+    float fk = float(k);
+    float a = uT - (BORN0 + BORN_GAP * fk + FLY);
+    if (a < 0. || a > .5) continue;
+    float th = uAng + fk * TAU / 3. + PI / 2.;
+    vec2 d = p - RING * vec2(cos(th), sin(th));
+    float wave = 1. - smoothstep(.0, .012 + .02 * (1. - a * 2.), abs(length(d) - (.06 + a * 1.1)));
+    col += vec3(1., .85, .85) * wave * (1. - a * 2.) * .9;
+    float st = exp(-abs(d.x) * 70.) * exp(-abs(d.y) * 9.) + exp(-abs(d.y) * 70.) * exp(-abs(d.x) * 9.);
+    col += vec3(1.) * st * exp(-a * 10.);
+  }
+  // aro blanco al aparecer el ojo y al salir el Mangekyō
+  if (uT < .5) col += vec3(1., .8, .8) * (1. - smoothstep(0., .015, abs(r - 1. - uT * 2.5))) * (1. - uT * 2.) * .8;
+  float mw = go - .34;
+  if (going > .5 && mw > 0. && mw < .45) col += vec3(1., .85, .85) * (1. - smoothstep(0., .02, abs(r - 1. - mw * 3.))) * (1. - mw / .45);
+  // destello del Mangekyō
+  col += vec3(1., .4, .35) * msHit * .35 * exp(-length(uv0) * 2.) * (1. - cov * inside * .8);
 
-  // grano de película
-  col += (hash(frag + fract(uT) * 91.) - .5) * .025;
-
-  // ---------------------------------------------------- se ve la app por la pupila
-  float hole = going * smoothstep(.95, 1.3, go);
+  // ---------------------------------------------------- la app por el centro
+  float hole = going * smoothstep(1.2, 1.55, go);
   float holeR = hole * 1.25;
-  float alpha = smoothstep(holeR - .02, holeR + .03, length(uv));
-  col += vec3(1., .2, .2) * (1. - smoothstep(0., .035, abs(length(uv) - holeR))) * hole * (1. - hole) * 3.;
+  float alpha = smoothstep(holeR - .02, holeR + .03, length(uv0));
+  col += vec3(1., .2, .2) * (1. - smoothstep(0., .035, abs(length(uv0) - holeR))) * hole * (1. - hole) * 3.;
   alpha = going > .5 ? alpha : 1.;
   gl_FragColor = vec4(col * alpha, alpha);
 }`;
@@ -235,7 +288,7 @@ void main(){
     last = now;
     const go = goAt < 0 ? -1 : (now - goAt) / 1000;
     // Despacio mientras carga; al terminar, acelera muchísimo
-    const target = go < 0 ? 1.4 * smooth(1.7, 2.4, t) : 1.4 + 34 * smooth(0, 0.55, go);
+    const target = go < 0 ? 1.5 * smooth(1.2, 1.8, t) : 1.5 + 30 * smooth(0, 0.4, go) - 18 * smooth(0.45, 0.8, go);
     spd += (target - spd) * Math.min(1, dt * (go < 0 ? 3 : 9));
     ang += spd * dt;
     gl.uniform2f(U.uRes, canvas.width, canvas.height);
@@ -249,14 +302,14 @@ void main(){
   frame(start);
 
   // Lo que dura el final (giro, destello, zoom y la app por la pupila)
-  const OUT_MS = 1350;
-  const REVEAL_MS = 950; // la pupila empieza a abrirse (uGo = 0,95 s)
+  const OUT_MS = 1600;
+  const REVEAL_MS = 1200; // se empieza a ver la app (uGo = 1,2 s)
   window.Intro = {
     // onReveal: cuando la app empieza a verse por la pupila
     finish(onReveal) {
       return new Promise((resolve) => {
         // Como pronto cuando ya han salido los tres tomoe
-        const wait = Math.max(0, 1900 - (performance.now() - start));
+        const wait = Math.max(0, 1350 - (performance.now() - start));
         setTimeout(() => {
           goAt = performance.now();
           screen.classList.add("is-go");
