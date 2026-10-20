@@ -62,7 +62,7 @@
           <button type="button" class="hm-stat" data-go="stats"><small>En total</small><b>${total ? fmtPlaytime(total) : "—"}</b></button>
           <button type="button" class="hm-stat" data-go="completed"><small>Pasados</small><b>${completedGamesCache.length}</b></button>
           <button type="button" class="hm-stat" data-go="platinum"><small>Platinos</small><b>${plats}</b></button>
-          <button type="button" class="hm-stat" data-go="library"><small>En tu biblioteca</small><b>${libraryGamesCache.length}</b></button>
+          <button type="button" class="hm-stat" data-go="library"><small>En tu biblioteca</small><b>${allLibraryCount()}</b></button>
         </section>
         <section class="hm-sec hm-friends" hidden></section>
         <section class="hm-sec hm-free" hidden></section>

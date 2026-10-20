@@ -2104,6 +2104,12 @@ button.gp-stat:hover b {
   color: var(--ink-400);
 }
 
+/* Las estrellas, en la misma columna a la derecha en todas las reseñas */
+.gp-rev-head .gp-rev-stars {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
 .gp-rev-body {
   margin: 0;
   font-size: 13.5px;
@@ -3013,7 +3019,7 @@ button.gp-stat:hover b {
 
 /* Rótulos pequeños: en minúscula normal y sin espaciar (las mayúsculas
    espaciadas por todas partes eran lo que más "plantilla" parecía) */
-:root:not([data-effect]) :is(.req-key, .sg-results-title, .sg-pick-or, .library-divider, .sl-launch-eyebrow, .bk-dest-label, .sg-sugs-title, .tp-sub, .st-theme-head, .info-play-title, .info-hltb-tile span, .fg-h, .sc-group h4) {
+:root:not([data-effect]) :is(.req-key, .sg-results-title, .sg-pick-or, .library-divider, .bk-dest-label, .sg-sugs-title, .tp-sub, .st-theme-head, .info-play-title, .info-hltb-tile span, .fg-h, .sc-group h4) {
   text-transform: none;
   letter-spacing: 0;
 }
@@ -3452,16 +3458,6 @@ summary,
 /* ===============================
    Jugar ahora y biblioteca con pasados
    =============================== */
-/* Tarjetas más grandes que en el resto */
-.cards-grid.play-grid {
-  grid-template-columns: repeat(auto-fill, minmax(clamp(190px, 15vw, 270px), 1fr));
-  gap: 30px 22px;
-}
-
-.cards-grid.play-grid .card-info h3 {
-  font-size: 15px;
-}
-
 .play-search {
   width: 260px;
 }
@@ -3540,4 +3536,538 @@ summary,
   border-color: var(--red-500);
   background: color-mix(in srgb, var(--red-500) 16%, transparent);
   color: var(--washi-50);
+}
+
+/* ===============================
+   Intro: el Sharingan se abre, salen los tres tomoe, giro rápido y la app
+   =============================== */
+.intro-eye {
+  display: block;
+  width: 156px;
+  height: 156px;
+  margin: 0 auto 26px;
+  overflow: visible;
+  filter: drop-shadow(0 0 0 rgba(255, 40, 40, 0));
+}
+
+.ie-eye {
+  transform-box: view-box;
+  transform-origin: 50px 50px;
+  animation: ieOpen 0.55s cubic-bezier(0.2, 1.4, 0.4, 1) 0.08s both;
+}
+
+/* Cada tomoe crece desde un punto, uno tras otro */
+.ie-tomoe {
+  fill: #0a0a0a;
+  transform-box: view-box;
+  transform-origin: 0 0;
+  animation: iePop 0.34s cubic-bezier(0.2, 1.6, 0.4, 1) both;
+}
+
+.ie-t1 {
+  animation-delay: 0.45s;
+}
+
+.ie-t2 {
+  animation-delay: 0.68s;
+}
+
+.ie-t3 {
+  animation-delay: 0.91s;
+}
+
+/* Mientras carga: gira despacio */
+.ie-spin {
+  transform-box: view-box;
+  transform-origin: 50px 50px;
+  animation: ieIdle 2.4s linear 1.25s infinite;
+}
+
+.intro-title {
+  animation: ieTitle 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) 0.3s both;
+}
+
+/* Listo: giro rápido... */
+#intro-screen.is-go .ie-spin {
+  animation: ieFast 0.72s cubic-bezier(0.5, 0, 0.2, 1) forwards;
+}
+
+#intro-screen.is-go .intro-eye {
+  animation: ieGlow 0.72s ease-in forwards, ieBurst 0.42s cubic-bezier(0.6, 0, 0.8, 0.4) 0.7s forwards;
+}
+
+#intro-screen.is-go .intro-title {
+  animation: ieTitleOut 0.35s ease-in 0.62s forwards;
+}
+
+/* ...y pum: el ojo se abre a toda la pantalla y se ve la app */
+#intro-screen.is-go {
+  animation: ieScreenOut 0.42s ease-in 0.74s forwards;
+}
+
+body.app-enter .app {
+  animation: appEnter 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes ieOpen {
+  from {
+    opacity: 0;
+    transform: scale(0.35) rotate(-40deg);
+  }
+}
+
+@keyframes iePop {
+  0% {
+    opacity: 0;
+    transform: scale(0);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.35);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes ieIdle {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes ieFast {
+  from {
+    transform: rotate(var(--ie-from, 0deg));
+  }
+  to {
+    transform: rotate(calc(var(--ie-from, 0deg) + 1080deg));
+  }
+}
+
+@keyframes ieGlow {
+  to {
+    filter: drop-shadow(0 0 26px rgba(255, 40, 40, 0.75));
+  }
+}
+
+@keyframes ieBurst {
+  from {
+    transform: scale(1);
+    filter: drop-shadow(0 0 26px rgba(255, 40, 40, 0.75));
+  }
+  to {
+    transform: scale(16);
+    opacity: 0;
+    filter: drop-shadow(0 0 40px rgba(255, 40, 40, 0));
+  }
+}
+
+@keyframes ieTitle {
+  from {
+    opacity: 0;
+    letter-spacing: 0.4em;
+    transform: translateY(8px);
+  }
+}
+
+@keyframes ieTitleOut {
+  to {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+@keyframes ieScreenOut {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+@keyframes appEnter {
+  from {
+    opacity: 0;
+    transform: scale(1.04);
+    filter: blur(6px);
+  }
+}
+
+/* ===============================
+   Abriendo un juego: pantalla completa con su arte
+   =============================== */
+.lo {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  overflow: hidden;
+  background: #050505;
+  color: #fff;
+  -webkit-app-region: no-drag;
+  animation: loIn 0.35s ease-out both;
+}
+
+.lo.is-out {
+  pointer-events: none;
+  animation: loOut 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.lo-bg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+/* La portada desenfocada de fondo (mientras llega el arte, y detrás de él) */
+.lo-blur {
+  position: absolute;
+  inset: -80px;
+  background-size: cover;
+  background-position: center;
+  filter: blur(48px) saturate(1.35) brightness(0.55);
+  animation: loZoomIn 1.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+/* El arte ancho: entra con un zoom y luego se mueve muy despacio */
+.lo-art {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center 30%;
+  opacity: 0;
+  transition: opacity 0.8s ease;
+}
+
+.lo-art.is-ready {
+  opacity: 1;
+  animation: loZoomIn 1.5s cubic-bezier(0.2, 0.7, 0.2, 1) both, loDrift 24s ease-in-out 1.5s infinite alternate;
+}
+
+/* Muy panorámico (el de Steam): entero, como una franja arriba */
+.lo-art.is-band {
+  bottom: auto;
+  height: calc(100vw / var(--ratio, 3));
+  background-position: center top;
+  -webkit-mask-image: linear-gradient(to bottom, #000 62%, transparent);
+  mask-image: linear-gradient(to bottom, #000 62%, transparent);
+}
+
+.lo-shade {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.4) 16%, rgba(0, 0, 0, 0) 38%),
+    linear-gradient(to top, rgba(0, 0, 0, 0.96) 0%, rgba(0, 0, 0, 0.7) 26%, rgba(0, 0, 0, 0.15) 58%, rgba(0, 0, 0, 0) 75%),
+    radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 55%, rgba(0, 0, 0, 0.45) 100%);
+}
+
+/* Un destello que cruza la imagen al entrar (y al arrancar el juego) */
+.lo-sweep {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 38%, rgba(255, 255, 255, 0.13) 48%, rgba(255, 255, 255, 0.02) 54%, transparent 62%);
+  transform: translateX(-100%);
+  animation: loSweep 1.3s cubic-bezier(0.4, 0, 0.2, 1) 0.35s;
+}
+
+.lo[data-state="ok"] .lo-sweep {
+  animation: loSweep 1.1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.lo-close {
+  position: absolute;
+  top: calc(var(--titlebar-h, 0px) + 16px);
+  right: 22px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(10px);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  animation: loFade 0.4s ease 0.6s forwards;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.lo-close:hover {
+  background: rgba(255, 255, 255, 0.16);
+  transform: scale(1.06);
+}
+
+.lo-close .i {
+  width: 18px;
+  height: 18px;
+}
+
+.lo-body {
+  position: absolute;
+  left: clamp(32px, 6vw, 96px);
+  right: clamp(32px, 6vw, 96px);
+  bottom: clamp(40px, 9vh, 110px);
+  max-width: 980px;
+}
+
+.lo-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(var(--red-500-rgb), 0.9);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  animation: loUp 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) 0.2s both;
+}
+
+.lo-eyebrow .i {
+  width: 12px;
+  height: 12px;
+  fill: currentColor;
+}
+
+/* El nombre entra letra a letra */
+.lo-name {
+  margin: 18px 0 26px;
+  font-size: clamp(38px, 5.6vw, 84px);
+  font-weight: 800;
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+  text-shadow: 0 6px 30px rgba(0, 0, 0, 0.6);
+  perspective: 600px;
+}
+
+.lo-word {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.lo-word > span {
+  display: inline-block;
+  transform-origin: 50% 100%;
+  animation: loLetter 0.6s cubic-bezier(0.2, 0.9, 0.25, 1.15) calc(0.3s + var(--i) * 28ms) both;
+}
+
+.lo[data-state="ok"] .lo-word > span {
+  animation: loLetterGlow 0.7s ease calc(var(--i) * 18ms);
+}
+
+.lo-status {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  animation: loUp 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) 0.55s both;
+}
+
+.lo-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.lo-text {
+  margin: 2px 0 0;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.lo-ico {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+}
+
+.lo-ico > .i {
+  width: 20px;
+  height: 20px;
+  stroke-width: 2.6;
+}
+
+.lo[data-state="ok"] .lo-ico {
+  background: #2f9e62;
+  animation: loPop 0.45s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+
+.lo[data-state="error"] .lo-ico {
+  background: var(--danger, #d33);
+  animation: loPop 0.45s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+
+/* Sharingan pequeño que gira mientras arranca */
+.lo-sharingan {
+  width: 38px;
+  height: 38px;
+  overflow: visible;
+  filter: drop-shadow(0 0 10px rgba(255, 40, 40, 0.45));
+}
+
+.lo-sh-iris {
+  fill: #c90f1f;
+  stroke: #0a0a0a;
+  stroke-width: 4;
+}
+
+.lo-sh-ring {
+  fill: none;
+  stroke: rgba(0, 0, 0, 0.5);
+  stroke-width: 2;
+}
+
+.lo-sh-pupil,
+.lo-sh-spin path {
+  fill: #0a0a0a;
+}
+
+.lo-sh-spin {
+  transform-box: view-box;
+  transform-origin: 50px 50px;
+  animation: ieIdle 1.1s linear infinite;
+}
+
+.lo-bar {
+  position: relative;
+  height: 4px;
+  margin-top: 22px;
+  max-width: 520px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.14);
+  animation: loUp 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) 0.65s both;
+}
+
+.lo-bar i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 38%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, transparent, var(--red-500) 30%, #ff6b6b 70%, transparent);
+  animation: loBar 1.25s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+.lo[data-state="ok"] .lo-bar i,
+.lo[data-state="error"] .lo-bar i {
+  width: 100%;
+  animation: loBarFill 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.lo[data-state="ok"] .lo-bar i {
+  background: linear-gradient(90deg, #2f9e62, #5cd394);
+}
+
+.lo[data-state="error"] .lo-bar i {
+  background: var(--danger, #d33);
+}
+
+@keyframes loIn {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes loOut {
+  to {
+    opacity: 0;
+    transform: scale(1.04);
+  }
+}
+
+@keyframes loZoomIn {
+  from {
+    transform: scale(1.22);
+    opacity: 0;
+  }
+}
+
+@keyframes loDrift {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.07) translate(-1%, -0.6%);
+  }
+}
+
+@keyframes loSweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes loFade {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes loUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+}
+
+@keyframes loLetter {
+  from {
+    opacity: 0;
+    transform: translateY(0.55em) rotateX(-70deg);
+    filter: blur(6px);
+  }
+}
+
+@keyframes loLetterGlow {
+  40% {
+    color: #fff;
+    text-shadow: 0 0 22px rgba(255, 255, 255, 0.85), 0 6px 30px rgba(0, 0, 0, 0.6);
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes loPop {
+  from {
+    transform: scale(0.4);
+  }
+}
+
+@keyframes loBar {
+  from {
+    left: -38%;
+  }
+  to {
+    left: 100%;
+  }
+}
+
+@keyframes loBarFill {
+  from {
+    transform: scaleX(0);
+    transform-origin: left;
+  }
+  to {
+    transform-origin: left;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lo,
+  .lo *,
+  #intro-screen,
+  #intro-screen * {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+  }
 }

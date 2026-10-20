@@ -38,7 +38,26 @@
     <!-- Pantalla de Intro -->
     <div id="intro-screen">
       <div class="intro-content">
-        <img src="assets/icon.png" alt="Logo" class="intro-logo" />
+        <svg class="intro-eye" viewBox="0 0 100 100" aria-hidden="true">
+          <defs>
+            <radialGradient id="introIris" cx="50%" cy="42%" r="58%">
+              <stop offset="0%" stop-color="#ff4a4a" />
+              <stop offset="55%" stop-color="#c90f1f" />
+              <stop offset="100%" stop-color="#55000a" />
+            </radialGradient>
+          </defs>
+          <g class="ie-eye">
+            <circle cx="50" cy="50" r="46" fill="url(#introIris)" />
+            <circle cx="50" cy="50" r="46" fill="none" stroke="#0a0a0a" stroke-width="3.2" />
+            <circle class="ie-ring" cx="50" cy="50" r="27" fill="none" stroke="rgba(0,0,0,0.5)" stroke-width="1.4" />
+            <circle class="ie-pupil" cx="50" cy="50" r="9.5" fill="#0a0a0a" />
+            <g class="ie-spin">
+              <g transform="rotate(0 50 50) translate(50 23)"><path class="ie-tomoe ie-t1" d="M0 -5.6A5.6 5.6 0 1 1 0 5.6C-5.2 6.1-10.4 5-14.6 2.2C-9.8 2.7-6.4 0.9-5.4-1.6A5.6 5.6 0 0 1 0 -5.6Z" /></g>
+              <g transform="rotate(120 50 50) translate(50 23)"><path class="ie-tomoe ie-t2" d="M0 -5.6A5.6 5.6 0 1 1 0 5.6C-5.2 6.1-10.4 5-14.6 2.2C-9.8 2.7-6.4 0.9-5.4-1.6A5.6 5.6 0 0 1 0 -5.6Z" /></g>
+              <g transform="rotate(240 50 50) translate(50 23)"><path class="ie-tomoe ie-t3" d="M0 -5.6A5.6 5.6 0 1 1 0 5.6C-5.2 6.1-10.4 5-14.6 2.2C-9.8 2.7-6.4 0.9-5.4-1.6A5.6 5.6 0 0 1 0 -5.6Z" /></g>
+            </g>
+          </g>
+        </svg>
         <h1 class="intro-title">Sharingan Launcher</h1>
       </div>
       <audio id="intro-audio" src="assets/intro.mp3"></audio>

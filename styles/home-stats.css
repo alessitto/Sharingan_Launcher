@@ -158,10 +158,14 @@
 }
 
 /* Fila de portadas */
+/* Cada portada mide lo mismo que en la biblioteca (--grid-cols), aunque
+   haya una sola: con 1fr una sola ocupaba todo el ancho. */
 .hm-row {
+  --hm-cols: var(--grid-cols, 5);
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: minmax(140px, 1fr);
+  grid-auto-columns: calc((100% - (var(--hm-cols) - 1) * 16px) / var(--hm-cols));
+  justify-content: start;
   gap: 16px;
   overflow-x: auto;
   padding-bottom: 4px;

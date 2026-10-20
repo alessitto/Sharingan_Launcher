@@ -362,6 +362,29 @@ function showSection(id, el) {
   updateGamepadFocus(true);
 }
 
+function playIntroOut(screen) {
+  return new Promise((resolve) => {
+    if (!screen) return resolve();
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    // El giro rápido sigue desde donde va el lento (sin saltos)
+    const spin = screen.querySelector(".ie-spin");
+    if (spin) {
+      const m = new DOMMatrix(getComputedStyle(spin).transform);
+      screen.style.setProperty("--ie-from", `${Math.round((Math.atan2(m.b, m.a) * 180) / Math.PI)}deg`);
+    }
+    screen.classList.add("is-go");
+    const total = reduce ? 0 : 1150;
+    setTimeout(() => {
+      document.body.classList.add("app-enter");
+      setTimeout(() => document.body.classList.remove("app-enter"), 700);
+    }, Math.max(0, total - 420));
+    setTimeout(() => {
+      screen.remove();
+      resolve();
+    }, total);
+  });
+}
+
 function getActiveSectionId() {
   const el = document.querySelector(".section.active");
   return el?.id || "popular";
@@ -394,16 +417,18 @@ window.addEventListener("DOMContentLoaded", async () => {
   libraryReady = loadLibrary();
   const loadPromises = Promise.all([libraryReady, loadDiscoverGames()]);
 
+  // Intro: el ojo se abre y salen los tomoe (CSS); cuando todo ha cargado
+  // (y como pronto a los 1,5 s), giro rápido, el ojo se abre de golpe y
+  // aparece la app.
   setTimeout(async () => {
     await loadPromises;
-    introScreen.classList.add("hidden");
-    setTimeout(() => introScreen.remove(), 500);
+    await playIntroOut(introScreen);
 
     // foco inicial mando
     focusedContainerId = "gamesList";
     focusedIndex = 0;
     updateGamepadFocus(true);
-  }, 2000);
+  }, 1500);
 
   // gamepad loop
   setupGamepad();

@@ -806,7 +806,7 @@
         <article class="gp-rev">
           ${window.Community?.avatar(x.author, "", { id: x.userId, avatarV: x.avatarV }) || ""}
           <div class="gp-rev-main">
-            <p class="gp-rev-head"><b class="cm-user" data-profile="${esc(x.author)}">${esc(x.author)}</b>${x.admin ? `<span class="cm-admin">${icon("crown")}Admin</span>` : ""}${starsHtml(x.score)}<time>${x.updatedAt ? new Date(x.updatedAt).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" }) : ""}</time></p>
+            <p class="gp-rev-head"><b class="cm-user" data-profile="${esc(x.author)}">${esc(x.author)}</b>${x.admin ? `<span class="cm-admin">${icon("crown")}Admin</span>` : ""}<time>${x.updatedAt ? new Date(x.updatedAt).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" }) : ""}</time>${starsHtml(x.score, "gp-rev-stars")}</p>
             ${x.comment ? `<p class="gp-rev-body">${esc(x.comment).replace(/\n/g, "<br>")}</p>` : `<p class="gp-rev-body is-empty">Solo ha puntuado.</p>`}
           </div>
           ${me?.admin && x.comment ? `<button type="button" class="icon-btn gp-rev-mod" data-act="rev-moderate" data-user="${x.userId}" title="Quitar comentario">${icon("trash")}</button>` : ""}

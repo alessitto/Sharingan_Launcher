@@ -234,7 +234,10 @@
             }${g.platinum ? `<i class="up-plat">${icon("crown")}</i>` : ""}</span><b>${esc(g.name)}</b>${g.hours ? `<small>${fmtH(g.hours)}</small>` : ""}</div>`
         )
         .join("")}</div>`;
-    const stars = (n) => `<span class="up-stars">${"★".repeat(n)}<span>${"★".repeat(5 - n)}</span></span>`;
+    const stars = (n) => {
+      const k = Math.max(0, Math.min(5, Number(n) || 0));
+      return `<span class="up-stars" title="${k} de 5">${"★".repeat(k)}<span>${"★".repeat(5 - k)}</span></span>`;
+    };
     const s = p.stats || {};
     const body = p.hidden
       ? `<div class="up-private">${icon("user")}<p><b>Este perfil es privado.</b><br>Solo sus amigos pueden ver sus juegos y estadísticas.</p></div>`
@@ -253,7 +256,7 @@
             ? `<h4 class="up-h">Reseñas</h4><div class="up-reviews">${p.reviews
                 .map(
                   (r) =>
-                    `<div class="up-review">${r.cover ? `<img src="${esc(r.cover)}" alt="">` : ""}<div><p class="up-review-head"><b>${esc(r.name || "Juego")}</b>${stars(r.score)}</p>${
+                    `<div class="up-review">${r.cover ? `<img src="${esc(r.cover)}" alt="">` : `<span class="up-review-nocover">${icon("gamepad")}</span>`}<div class="up-review-main"><p class="up-review-head"><b>${esc(r.name || "Juego quitado de la biblioteca")}</b>${stars(r.score)}</p>${
                       r.comment ? `<p class="up-review-body">${esc(r.comment)}</p>` : ""
                     }</div></div>`
                 )

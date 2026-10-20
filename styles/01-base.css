@@ -757,14 +757,6 @@ button:disabled:active {
   text-align: center;
 }
 
-.intro-logo {
-  width: 84px;
-  height: 84px;
-  margin-bottom: 22px;
-  border-radius: 50%;
-  animation: spin 3s linear infinite;
-}
-
 .intro-title {
   font-family: "Shippori Mincho", serif;
   font-size: 30px;

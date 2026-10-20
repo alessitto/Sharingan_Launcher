@@ -138,13 +138,107 @@ function viaLauncher(g) {
   );
 }
 
+// Pantalla completa: el arte ancho del juego detrás (con sombra arriba y
+// abajo), el nombre letra a letra y una barra mientras arranca.
+const LO_TOMOE = "M0 -5.6A5.6 5.6 0 1 1 0 5.6C-5.2 6.1-10.4 5-14.6 2.2C-9.8 2.7-6.4 0.9-5.4-1.6A5.6 5.6 0 0 1 0 -5.6Z";
+const loSpinner = () =>
+  `<svg class="lo-sharingan" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="46" class="lo-sh-iris"/><circle cx="50" cy="50" r="27" class="lo-sh-ring"/><circle cx="50" cy="50" r="9.5" class="lo-sh-pupil"/><g class="lo-sh-spin">${[0, 120, 240]
+    .map((a) => `<g transform="rotate(${a} 50 50) translate(50 23)"><path d="${LO_TOMOE}"/></g>`)
+    .join("")}</g></svg>`;
+
+function launchEl() {
+  return document.querySelector(".lo:not(.is-out)");
+}
+
 function setLaunchState(state, text, iconName) {
-  const box = document.querySelector(".sl-launch");
+  const box = launchEl();
   if (!box) return;
   box.dataset.state = state;
-  box.querySelector(".sl-launch-text").textContent = text;
-  const ic = box.querySelector(".sl-launch-status");
-  ic.innerHTML = iconName ? icon(iconName) : `<span class="sl-spinner"></span>`;
+  box.querySelector(".lo-text").textContent = text;
+  box.querySelector(".lo-ico").innerHTML = iconName ? icon(iconName) : loSpinner();
+}
+
+function setLaunchTitle(text) {
+  const t = launchEl()?.querySelector(".lo-title");
+  if (t) t.textContent = text;
+}
+
+function closeLaunchOverlay(el = launchEl()) {
+  if (!el || el.classList.contains("is-out")) return;
+  el.classList.add("is-out");
+  setTimeout(() => el.remove(), 520);
+}
+
+// Arte ancho: primero el de IGDB (16:9, encaja en la pantalla) y si no hay,
+// el "hero" de la biblioteca de Steam (muy panorámico: se enseña entero
+// como una franja arriba). Mientras tanto, la portada desenfocada.
+async function loadLaunchArt(box, g) {
+  const tryImg = (url) =>
+    new Promise((ok) => {
+      const im = new Image();
+      im.onload = () => ok(im);
+      im.onerror = () => ok(null);
+      im.src = url;
+    });
+  const imported = g.installDir || g.steamAppId || g.epicAppName || g.gogGameId || g.gogProductId;
+  const igdbId = g.igdbId || (!imported && Number(g.id) > 0 ? Number(g.id) : null);
+  const m = igdbId ? await window.electronAPI.gameMedia?.({ igdbId }).catch(() => null) : null;
+  const pic = m?.hero || m?.screenshots?.[0];
+  let im = pic && box.isConnected ? await tryImg(`https://images.igdb.com/igdb/image/upload/t_1080p/${pic}.jpg`) : null;
+  if (!im && g.steamAppId && box.isConnected) im = await tryImg(`https://cdn.cloudflare.steamstatic.com/steam/apps/${g.steamAppId}/library_hero.jpg`);
+  if (!im || !box.isConnected) return;
+  const art = box.querySelector(".lo-art");
+  const ratio = im.naturalWidth / im.naturalHeight || 1.78;
+  art.style.backgroundImage = `url('${im.src}')`;
+  art.style.setProperty("--ratio", ratio.toFixed(3));
+  art.classList.toggle("is-band", ratio > 2.3);
+  art.classList.add("is-ready");
+}
+
+function openLaunchOverlay(g, title, text, onClose) {
+  document.querySelectorAll(".lo").forEach((el) => el.remove());
+  const box = document.createElement("div");
+  box.className = "lo";
+  box.dataset.state = "busy";
+  box.setAttribute("role", "dialog");
+  box.setAttribute("aria-label", `Abriendo ${g.name || "el juego"}`);
+  let n = 0;
+  const words = String(g.name || "Juego")
+    .split(/\s+/)
+    .map((w) => `<span class="lo-word">${[...w].map((c) => `<span style="--i:${n++}">${escapeHtml(c)}</span>`).join("")}</span>`)
+    .join(" ");
+  const from = viaLauncher(g) ? CLIENT_NAMES[g.platform] : "Sharingan Launcher";
+  box.innerHTML = `
+    <div class="lo-bg"><div class="lo-blur" style="background-image:url('${coverOf(g)}')"></div><div class="lo-art"></div></div>
+    <div class="lo-shade"></div>
+    <div class="lo-sweep"></div>
+    <button type="button" class="lo-close" title="Cerrar" aria-label="Cerrar">${icon("x")}</button>
+    <div class="lo-body">
+      <span class="lo-eyebrow">${icon("play")}${escapeHtml(from)}</span>
+      <h1 class="lo-name">${words}</h1>
+      <div class="lo-status">
+        <span class="lo-ico">${loSpinner()}</span>
+        <div><p class="lo-title">${escapeHtml(title)}</p><p class="lo-text">${escapeHtml(text)}</p></div>
+      </div>
+      <div class="lo-bar"><i></i></div>
+    </div>`;
+  const close = () => {
+    document.removeEventListener("keydown", onKey, true);
+    closeLaunchOverlay(box);
+    onClose?.();
+  };
+  const onKey = (e) => {
+    if (e.key === "Escape" && box.isConnected && !box.classList.contains("is-out")) {
+      e.stopPropagation();
+      close();
+    }
+  };
+  box.querySelector(".lo-close").addEventListener("click", close);
+  document.addEventListener("keydown", onKey, true);
+  box._close = close;
+  document.body.appendChild(box);
+  loadLaunchArt(box, g);
+  return box;
 }
 
 function launchStepText(step, g) {
@@ -161,11 +255,11 @@ window.electronAPI.onLaunchProgress?.((p) => {
   if (!currentLaunch || Number(p.id) !== Number(currentLaunch.id)) return;
   if (p.step === "running") {
     setLaunchState("ok", "El juego ya está en marcha.", "check");
-    document.querySelector(".sl-launch-title").textContent = "¡A jugar!";
+    setLaunchTitle("¡A jugar!");
     return;
   }
   const [title, text] = launchStepText(p.step, currentLaunch.game);
-  document.querySelector(".sl-launch-title").textContent = title;
+  setLaunchTitle(title);
   setLaunchState("busy", text);
 });
 
@@ -179,21 +273,8 @@ async function launchGame(id) {
   currentLaunch = launch;
   const [title, text] = launchStepText("start", g);
 
-  openModal({
-    width: 420,
-    html: `
-      <div class="sl-launch" data-state="busy">
-        <div class="sl-launch-cover"><img src="${coverOf(g)}" alt=""></div>
-        <span class="sl-launch-eyebrow">${escapeHtml(g.name)}</span>
-        <h3 class="sl-launch-title">${title}</h3>
-        <p class="sl-launch-row"><span class="sl-launch-status"><span class="sl-spinner"></span></span><span class="sl-launch-text">${text}</span></p>
-      </div>`,
-    showConfirmButton: false,
-    showCloseButton: true,
-    customClass: { popup: "sl-modal-sm" },
-    didClose: () => {
-      if (currentLaunch === launch) currentLaunch = null;
-    },
+  const box = openLaunchOverlay(g, title, text, () => {
+    if (currentLaunch === launch) currentLaunch = null;
   });
 
   let res;
@@ -210,16 +291,14 @@ async function launchGame(id) {
   }
 
   if (!res?.ok) {
-    document.querySelector(".sl-launch-title").textContent = "No se ha podido abrir";
+    setLaunchTitle("No se ha podido abrir");
     setLaunchState("error", res?.error || "Error al iniciar el juego.", "alert");
     currentLaunch = null;
     return;
   }
 
-  if (res.running) {
-    setTimeout(() => currentLaunch === null && Swal.isVisible() && document.querySelector(".sl-launch") && Swal.close(), 1600);
-  } else {
-    document.querySelector(".sl-launch-title").textContent = "Juego lanzado";
+  if (!res.running) {
+    setLaunchTitle("Juego lanzado");
     setLaunchState(
       "ok",
       viaLauncher(g)
@@ -227,8 +306,8 @@ async function launchGame(id) {
         : "Si no aparece, revisa el ejecutable.",
       "check"
     );
-    setTimeout(() => currentLaunch === null && Swal.isVisible() && document.querySelector(".sl-launch") && Swal.close(), 3500);
   }
+  setTimeout(() => box.isConnected && closeLaunchOverlay(box), res.running ? 1700 : 3500);
   currentLaunch = null;
 }
 
