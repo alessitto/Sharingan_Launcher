@@ -21,7 +21,7 @@ const NEXUS_GQL = "https://api.nexusmods.com/v2/graphql";
 const STEAM_API = "https://api.steampowered.com";
 const DAY = 864e5;
 
-function createGameInfo({ fetch, igdbQuery, steamKey, steamAppList, Fuse, steamId, cacheFile, notify, onAllUnlocked }) {
+function createGameInfo({ fetch, igdbQuery, steamGet, steamAppList, Fuse, steamId, cacheFile, notify, onAllUnlocked }) {
   // ------------------------------------------------------------ Caché en disco
   let cache = null;
   let saveTimer = null;
@@ -251,8 +251,7 @@ function createGameInfo({ fetch, igdbQuery, steamKey, steamAppList, Fuse, steamI
   async function schemaOf(appid) {
     const hit = cached("schema", appid, 7 * DAY);
     if (hit) return hit.list;
-    if (!steamKey) return null;
-    const j = await getJson(`${STEAM_API}/ISteamUserStats/GetSchemaForGame/v2/?key=${steamKey}&appid=${appid}&l=spanish`).catch(() => null);
+    const j = await steamGet("ISteamUserStats/GetSchemaForGame/v2", { appid, l: "spanish" }).catch(() => null);
     if (!j) return null;
     const list = (j.game?.availableGameStats?.achievements || []).map((a) => ({
       name: a.name,
@@ -280,12 +279,12 @@ function createGameInfo({ fetch, igdbQuery, steamKey, steamAppList, Fuse, steamI
   const playerCache = new Map();
   async function playerOf(appid) {
     const sid = steamId();
-    if (!sid || !steamKey) return null;
+    if (!sid) return null;
     const c = playerCache.get(appid);
     if (c && Date.now() - c.at < 2 * 60 * 1000) return c.map;
     let map = null;
     try {
-      const j = await getJson(`${STEAM_API}/ISteamUserStats/GetPlayerAchievements/v1/?key=${steamKey}&steamid=${sid}&appid=${appid}`);
+      const j = await steamGet("ISteamUserStats/GetPlayerAchievements/v1", { steamid: sid, appid });
       if (j?.playerstats?.success) {
         map = {};
         for (const a of j.playerstats.achievements || []) if (a.achieved) map[a.apiname] = (a.unlocktime || 0) * 1000;
@@ -396,7 +395,7 @@ function createGameInfo({ fetch, igdbQuery, steamKey, steamAppList, Fuse, steamI
     const appid = await resolveAppId(game);
     if (!appid) return { ok: false, reason: "no_steam" };
     const [schema, global, player] = await Promise.all([schemaOf(appid), globalOf(appid), playerOf(appid)]);
-    if (!schema) return { ok: false, reason: steamKey ? "network" : "no_key", appid };
+    if (!schema) return { ok: false, reason: "network", appid };
     const local = localOf(appid);
     const list = schema.map((a) => {
       const steamAt = player ? player[a.name] : undefined;
@@ -540,9 +539,8 @@ function createGameInfo({ fetch, igdbQuery, steamKey, steamAppList, Fuse, steamI
   // ------------------------------------------------------------ Steam Workshop
   const WS_SORT = { popular: 3, downloads: 9, updated: 21, new: 1 };
   async function workshop(appid, { sort = "popular", query = "", page = 0 } = {}) {
-    if (!steamKey || !appid) return null;
+    if (!appid) return null;
     const q = new URLSearchParams({
-      key: steamKey,
       appid: String(appid),
       query_type: String(query ? 12 : WS_SORT[sort] ?? 3),
       page: String(page + 1),
@@ -554,7 +552,7 @@ function createGameInfo({ fetch, igdbQuery, steamKey, steamAppList, Fuse, steamI
       days: "3650",
     });
     if (query) q.set("search_text", query);
-    const j = await getJson(`${STEAM_API}/IPublishedFileService/QueryFiles/v1/?${q}`).catch(() => null);
+    const j = await steamGet("IPublishedFileService/QueryFiles/v1", Object.fromEntries(q)).catch(() => null);
     const r = j?.response;
     if (!r) return null;
     return {
@@ -585,8 +583,8 @@ function createGameInfo({ fetch, igdbQuery, steamKey, steamAppList, Fuse, steamI
     if (source === "nexus" && nexusGame) out.nexus = await nexusMods(nexusGame.domain, opts).catch(() => null);
     if (source === "workshop" && appid) out.workshop = await workshop(appid, opts);
     // Para saber si enseñar la pestaña del Workshop: una consulta mínima.
-    if (appid && source === "nexus" && steamKey) {
-      const probe = await getJson(`${STEAM_API}/IPublishedFileService/QueryFiles/v1/?key=${steamKey}&appid=${appid}&numperpage=1&query_type=0`).catch(() => null);
+    if (appid && source === "nexus") {
+      const probe = await steamGet("IPublishedFileService/QueryFiles/v1", { appid, numperpage: 1, query_type: 0 }).catch(() => null);
       out.workshopCount = probe?.response?.total || 0;
     }
     return out;

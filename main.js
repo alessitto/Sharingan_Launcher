@@ -4,7 +4,7 @@ const path = require("path");
 const { execFile, spawn } = require("child_process");
 const saves = require("./saves");
 const ai = require("./ai");
-const { createCloud } = require("./cloud");
+const { createCloud, API_URL } = require("./cloud");
 const { createSpotify } = require("./spotify");
 const { createStores } = require("./stores");
 const { createMinigames } = require("./minigames");
@@ -1041,6 +1041,8 @@ app.on("window-all-closed", () => {
 // -------------------- IGDB helper --------------------
 // Acepta 'endpoint' opcional ("games" por defecto) para usar "external_games" cuando sea necesario
 async function igdbGamesQuery(body, endpoint = "games", isRetry = false) {
+  // La app instalada no lleva las claves: pregunta a la API (proxy.php).
+  if (!IGDB_CLIENT_ID || !IGDB_CLIENT_SECRET) return igdbViaApi(body, endpoint);
   let token;
   try {
     token = await getIgdbToken();
@@ -1082,6 +1084,55 @@ async function igdbGamesQuery(body, endpoint = "games", isRetry = false) {
   }
 
   return res.json().catch(() => null);
+}
+
+// -------------------- Claves de IGDB y Steam: en el servidor --------------------
+// Desde la 4.1 el instalador no lleva config.json: IGDB y la Web API de Steam
+// se consultan por la API de alejandrodev.es (proxy.php), que es quien tiene
+// las claves. En desarrollo, con config.json, se va directo.
+async function igdbViaApi(body, endpoint = "games") {
+  try {
+    const u = new URL(API_URL);
+    u.searchParams.set("r", "proxy/igdb");
+    const res = await fetch(u.toString(), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ endpoint, body }),
+      timeout: 25000,
+    });
+    if (!res.ok) {
+      console.error("IGDB (API)", res.status);
+      return null;
+    }
+    return await res.json();
+  } catch (err) {
+    console.error("IGDB (API) sin conexión", err.message);
+    return null;
+  }
+}
+
+// Método de api.steampowered.com ("Interfaz/Método/v1") con sus parámetros.
+// Lanza un error con .status si Steam (o la API) responde mal.
+async function steamGet(apiPath, params = {}) {
+  const q = new URLSearchParams(Object.entries(params).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)]));
+  let url;
+  if (STEAM_WEB_API_KEY) {
+    q.set("key", STEAM_WEB_API_KEY);
+    url = `https://api.steampowered.com/${apiPath}/?${q}`;
+  } else {
+    const u = new URL(API_URL);
+    u.searchParams.set("r", "proxy/steam");
+    u.searchParams.set("path", apiPath);
+    for (const [k, v] of q) u.searchParams.set(k, v);
+    url = u.toString();
+  }
+  const res = await fetch(url, { timeout: 30000, headers: { "User-Agent": "SharinganLauncher", Accept: "application/json" } });
+  if (!res.ok) {
+    const err = new Error(`http_${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
+  return res.json();
 }
 
 // -------------------- IGDB IPC --------------------
@@ -1636,7 +1687,7 @@ const gameInfo = createGameInfo({
   fetch,
   Fuse,
   igdbQuery: (body, endpoint) => igdbGamesQuery(body, endpoint),
-  steamKey: config.steamWebApiKey || "",
+  steamGet: (p, q) => steamGet(p, q),
   steamAppList: () => getSteamAppListCached(),
   steamId: () => stores?.steamId() || null,
   cacheFile: path.join(app.getPath("userData"), "gameinfo-cache.json"),
@@ -1774,7 +1825,7 @@ function setupStores() {
     session,
     fetch,
     getWin: () => win,
-    steamKey: config.steamWebApiKey || "",
+    steamGet: (p, q) => steamGet(p, q),
     epic: { clientId: config.epicClientId, clientSecret: config.epicClientSecret },
     gog: { clientId: config.gogClientId, clientSecret: config.gogClientSecret },
     cacheDir: app.getPath("userData"),
@@ -3224,15 +3275,12 @@ function safeWriteJson(p, obj) {
 
 // Descarga TODA la lista usando paginación (last_appid + max_results) desde IStoreService/GetAppList. [web:38]
 async function fetchSteamAppListAllGames() {
-  if (!STEAM_WEB_API_KEY)
-    throw new Error("Falta STEAM_WEB_API_KEY (variable de entorno).");
 
   const all = [];
   let lastAppId = 0;
 
   while (true) {
-    const qs = new URLSearchParams({
-      key: STEAM_WEB_API_KEY,
+    const j = await steamGet("IStoreService/GetAppList/v1", {
       include_games: "true",
       include_dlc: "false",
       include_software: "false",
@@ -3241,18 +3289,6 @@ async function fetchSteamAppListAllGames() {
       max_results: "50000",
       last_appid: String(lastAppId),
     });
-
-    const url = `https://api.steampowered.com/IStoreService/GetAppList/v1/?${qs.toString()}`;
-    const r = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
-
-    if (!r.ok) {
-      const text = await r.text().catch(() => "");
-      throw new Error(
-        `Steam StoreService error: ${r.status} ${r.statusText} ${text}`.trim()
-      );
-    }
-
-    const j = await r.json();
     const apps = j?.response?.apps || [];
 
     if (!Array.isArray(apps) || apps.length === 0) break;

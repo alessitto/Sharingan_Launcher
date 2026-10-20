@@ -54,6 +54,7 @@
     "files": [
       "**/*",
       "!tools/hw-db/raw/**",
+      "!config.json",
       "!test/**"
     ]
   }

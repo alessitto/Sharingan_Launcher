@@ -46,12 +46,17 @@ class StoreError extends Error {
   }
 }
 
-function createStores({ safeStorage, settings, saveSettings, BrowserWindow, session, fetch, getWin, steamKey, epic = {}, gog = {}, cacheDir, tempDir }) {
-  const EPIC_CLIENT = epic.clientId || "";
-  const EPIC_SECRET = epic.clientSecret || "";
+// Los clientes públicos del launcher de Epic y de GOG Galaxy (los mismos que
+// usan Legendary y Heroic, que son de código abierto): no son secretos.
+const EPIC_PUBLIC = { clientId: "34a02cf8f4414e29b15921876da36f9a", clientSecret: "daafbccc737745039dffe53d94fc76cf" };
+const GOG_PUBLIC = { clientId: "46899977096215655", clientSecret: "9d85c43b1482497dbbce61f6e4aa173a433796eeae2ca8c5f6129f2dc4de46d9" };
+
+function createStores({ safeStorage, settings, saveSettings, BrowserWindow, session, fetch, getWin, steamGet, epic = {}, gog = {}, cacheDir, tempDir }) {
+  const EPIC_CLIENT = epic.clientId || EPIC_PUBLIC.clientId;
+  const EPIC_SECRET = epic.clientSecret || EPIC_PUBLIC.clientSecret;
   const EPIC_REDIRECT = `https://www.epicgames.com/id/api/redirect?clientId=${EPIC_CLIENT}&responseType=code`;
-  const GOG_CLIENT = gog.clientId || "";
-  const GOG_SECRET = gog.clientSecret || "";
+  const GOG_CLIENT = gog.clientId || GOG_PUBLIC.clientId;
+  const GOG_SECRET = gog.clientSecret || GOG_PUBLIC.clientSecret;
 
   // ------------------------------------------------------------ Sesiones
   function readAuth() {
@@ -145,7 +150,6 @@ function createStores({ safeStorage, settings, saveSettings, BrowserWindow, sess
 
   // ------------------------------------------------------------ Steam
   async function linkSteam() {
-    if (!steamKey) throw new StoreError("no_steam_key");
     const q = new URLSearchParams({
       "openid.ns": "http://specs.openid.net/auth/2.0",
       "openid.mode": "checkid_setup",
@@ -180,9 +184,7 @@ function createStores({ safeStorage, settings, saveSettings, BrowserWindow, sess
 
     let name = null;
     try {
-      const j = await getJson(
-        `https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?key=${steamKey}&steamids=${steamId}`
-      );
+      const j = await steamGet("ISteamUser/GetPlayerSummaries/v2", { steamids: steamId });
       name = j?.response?.players?.[0]?.personaname || null;
     } catch {}
     setAuth("steam", { steamId, name });
@@ -192,15 +194,13 @@ function createStores({ safeStorage, settings, saveSettings, BrowserWindow, sess
   async function ownedSteam() {
     const a = readAuth().steam;
     if (!a) throw new StoreError("not_linked");
-    if (!steamKey) throw new StoreError("no_steam_key");
-    const q = new URLSearchParams({
-      key: steamKey,
-      steamid: a.steamId,
-      include_appinfo: "1",
-      include_played_free_games: "1",
-      format: "json",
-    });
-    const j = await getJson(`https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?${q}`);
+    let j;
+    try {
+      j = await steamGet("IPlayerService/GetOwnedGames/v1", { steamid: a.steamId, include_appinfo: "1", include_played_free_games: "1", format: "json" });
+    } catch (err) {
+      if (err.status === 401 || err.status === 403) throw new StoreError("steam_private");
+      throw new StoreError("network");
+    }
     // Con el perfil privado Steam responde un "response" vacío.
     if (!j?.response || j.response.game_count === undefined) throw new StoreError("steam_private");
     return (j.response.games || []).map((g) => ({ appid: Number(g.appid), name: g.name || `Steam App ${g.appid}` }));
