@@ -271,6 +271,7 @@ async function persistSetting(patch) {
 // sin scroll. Se vuelve a la última página que se miró.
 const SETTINGS_PAGES = [
   { id: "account", name: "Cuenta", icon: "user" },
+  { id: "general", name: "General", icon: "maximize" },
   { id: "stores", name: "Tiendas", icon: "link", account: true },
   { id: "theme", name: "Tema", icon: "palette", account: true },
   { id: "discover", name: "Descubrir", icon: "grid", account: true },
@@ -317,6 +318,31 @@ window.electronAPI.cloud("status").then((s) => applyAccountGate(!!s?.user)).catc
 const settingsPageHtml = {
   account: () => `<div class="st-account"></div>`,
   shortcuts: () => `<div class="st-shortcuts"></div>`,
+  // Ventana y arranque (solo de este PC, no van con la cuenta)
+  general: (s) => `
+    <div class="settings-data st-general">
+      <label class="settings-data-row">
+        <div>
+          <p class="settings-data-title">Al cerrar, seguir en la bandeja</p>
+          <p class="settings-update-text">La × esconde la ventana y el launcher sigue en la bandeja del sistema (junto al reloj). Para salir del todo: clic derecho en el icono › Salir.</p>
+        </div>
+        <input type="checkbox" class="st-switch" data-pref="closeToTray" ${s.closeToTray !== false ? "checked" : ""}>
+      </label>
+      <label class="settings-data-row">
+        <div>
+          <p class="settings-data-title">Arrancar con Windows</p>
+          <p class="settings-update-text">Se abre en la bandeja al encender el PC, sin ventana.</p>
+        </div>
+        <input type="checkbox" class="st-switch" data-pref="startWithWindows" ${s.startWithWindows ? "checked" : ""}>
+      </label>
+      <label class="settings-data-row">
+        <div>
+          <p class="settings-data-title">Minimizar al jugar</p>
+          <p class="settings-update-text">Al lanzar un juego, la ventana del launcher se minimiza.</p>
+        </div>
+        <input type="checkbox" class="st-switch" data-pref="minimizeOnLaunch" ${s.minimizeOnLaunch ? "checked" : ""}>
+      </label>
+    </div>`,
   stores: () => `<div class="st-stores"></div>`,
   // Tema: colores y estilos en la misma página (con scroll propio).
   theme: () => {
@@ -405,7 +431,11 @@ const settingsPageHtml = {
 };
 
 function bindSettingsPage(id, page) {
-  if (id === "shortcuts") {
+  if (id === "general") {
+    page.querySelectorAll("[data-pref]").forEach((el) =>
+      el.addEventListener("change", () => window.electronAPI.setSettings({ [el.dataset.pref]: el.checked }))
+    );
+  } else if (id === "shortcuts") {
     window.Shortcuts?.renderSettings(page.querySelector(".st-shortcuts"));
   } else if (id === "account") {
     window.Community?.renderAccount(page.querySelector(".st-account"), () => openSettingsModal("account"));
@@ -615,7 +645,7 @@ async function renderSpotifySettings(box) {
           : ""
       }
       <label class="settings-data-row st-sp-toggle">
-        <div><p class="settings-data-title">Botón en la barra de arriba</p></div>
+        <div><p class="settings-data-title">Botón en la barra lateral</p></div>
         <input type="checkbox" class="st-switch" data-sp="button" ${S.buttonShown() ? "checked" : ""}>
       </label>
     </div>`;
@@ -639,6 +669,9 @@ async function openSettingsModal(start) {
   const values = {
     gamesPerPage: settings.gamesPerPage || DISCOVER_PAGE_SIZE || 60,
     gridColumns: Number(getComputedStyle(document.documentElement).getPropertyValue("--grid-cols")) || settings.gridColumns || 5,
+    closeToTray: settings.closeToTray,
+    startWithWindows: settings.startWithWindows,
+    minimizeOnLaunch: settings.minimizeOnLaunch,
   };
 
   await openModal({

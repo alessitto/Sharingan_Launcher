@@ -136,5 +136,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   nexusSearch: (term) => ipcRenderer.invoke('game:nexusSearch', term),
   onAchievementUnlocked: (cb) => ipcRenderer.on('achievements:unlocked', (_e, a) => cb(a)),
 
+  // Ventana y bandeja
+  afterLaunch: () => ipcRenderer.invoke('window:afterLaunch'),
+  onTrayLaunch: (cb) => ipcRenderer.on('tray:launch', (_e, id) => cb(id)),
+
   openExternal: (url) => ipcRenderer.invoke('app:openExternal', url),
 });

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, safeStorage, session, Menu, globalShortcut, nativeTheme, Notification } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, shell, safeStorage, session, Menu, globalShortcut, nativeTheme, Notification, Tray, nativeImage } = require("electron");
 const Fuse = require("fuse.js");
 const path = require("path");
 const { execFile, spawn } = require("child_process");
@@ -325,8 +325,86 @@ ipcMain.handle("settings:set", (_e, patch = {}) => {
   }
   if (patch.shortcuts !== undefined) appSettings.shortcuts = cleanShortcuts(patch.shortcuts);
   if (patch.glassTint !== undefined) appSettings.glassTint = cleanTint(patch.glassTint);
+  // Ventana (Ajustes > General): solo de este PC
+  if (patch.closeToTray !== undefined) appSettings.closeToTray = !!patch.closeToTray;
+  if (patch.minimizeOnLaunch !== undefined) appSettings.minimizeOnLaunch = !!patch.minimizeOnLaunch;
+  if (patch.startWithWindows !== undefined) {
+    appSettings.startWithWindows = !!patch.startWithWindows;
+    applyLoginItem();
+  }
+  if (patch.theme !== undefined || patch.themeEffect !== undefined) updateTitleBar();
   saveSettings();
   return publicSettings();
+});
+
+// -------------------- Ventana: barra de título, bandeja y arranque --------------------
+// Sin la barra de Windows: los botones de minimizar/maximizar/cerrar son los
+// nativos (titleBarOverlay), transparentes sobre la app y con el color del
+// texto del tema. El resto de la franja de arriba arrastra la ventana.
+const TITLEBAR_H = 40;
+function titleBarColors() {
+  const bg = themes.windowBg(appSettings);
+  return { color: "#00000000", symbolColor: themes.isDark(bg) ? "#f2f2f2" : "#1a1a1a", height: TITLEBAR_H };
+}
+function updateTitleBar() {
+  try {
+    if (win && !win.isDestroyed()) win.setTitleBarOverlay(titleBarColors());
+  } catch {}
+}
+
+// Arrancar con Windows (minimizado en la bandeja)
+function applyLoginItem() {
+  if (!app.isPackaged) return;
+  app.setLoginItemSettings({ openAtLogin: !!appSettings.startWithWindows, args: ["--hidden"] });
+}
+const startHidden = process.argv.includes("--hidden");
+
+// Bandeja: clic abre la ventana; el menú tiene los últimos juegos.
+let tray = null;
+function showWindow() {
+  if (!win || win.isDestroyed()) return createWindow();
+  if (win.isMinimized()) win.restore();
+  win.show();
+  win.focus();
+}
+function trayMenu() {
+  const recent = [...games, ...completedGames]
+    .filter((g) => g.lastPlayed && canLaunch(g))
+    .sort((a, b) => b.lastPlayed - a.lastPlayed)
+    .slice(0, 5);
+  return Menu.buildFromTemplate([
+    { label: "Abrir Sharingan Launcher", click: showWindow },
+    { type: "separator" },
+    ...(recent.length
+      ? [
+          { label: "Jugar", enabled: false },
+          ...recent.map((g) => ({
+            label: `   ${g.name}`.slice(0, 60),
+            click: () => win && !win.isDestroyed() && win.webContents.send("tray:launch", g.id),
+          })),
+          { type: "separator" },
+        ]
+      : []),
+    { label: "Salir", click: () => app.quit() },
+  ]);
+}
+function setupTray() {
+  if (tray) return;
+  const img = nativeImage.createFromPath(path.join(__dirname, "assets", process.platform === "win32" ? "icon.ico" : "icon.png"));
+  tray = new Tray(img.isEmpty() ? nativeImage.createFromPath(path.join(__dirname, "assets/icon.png")).resize({ width: 16 }) : img);
+  tray.setToolTip("Sharingan Launcher");
+  tray.on("click", showWindow);
+  tray.on("right-click", () => tray.popUpContextMenu(trayMenu()));
+}
+
+let quitting = false;
+app.on("before-quit", () => {
+  quitting = true;
+});
+
+// Tras lanzar un juego: minimizar si así está en Ajustes
+ipcMain.handle("window:afterLaunch", () => {
+  if (appSettings.minimizeOnLaunch && win && !win.isDestroyed()) win.minimize();
 });
 
 // -------------------- Helpers procesos --------------------
@@ -792,7 +870,12 @@ function createWindow() {
   win = new BrowserWindow({
     width: 1280,
     height: 720,
+    minWidth: 960,
+    minHeight: 600,
+    show: false,
     autoHideMenuBar: true,
+    titleBarStyle: "hidden",
+    titleBarOverlay: titleBarColors(),
     backgroundColor: themes.windowBg(appSettings),
     icon: path.join(__dirname, "assets/icon.png"),
     webPreferences: {
@@ -815,7 +898,20 @@ function createWindow() {
     if (url.startsWith("https://")) shell.openExternal(url);
   });
 
+  // Cerrar = a la bandeja (Ajustes > General), salvo al salir de verdad.
+  win.on("close", (e) => {
+    if (quitting || appSettings.closeToTray === false) return;
+    e.preventDefault();
+    win.hide();
+    if (!appSettings.trayHintShown && Notification.isSupported()) {
+      appSettings.trayHintShown = true;
+      saveSettings();
+      new Notification({ title: "Sharingan Launcher sigue abierto", body: "Está en la bandeja del sistema. Puedes cambiarlo en Ajustes > General." }).show();
+    }
+  });
+
   win.maximize();
+  if (!startHidden) win.once("ready-to-show", () => win.show());
   win.loadFile("index.html");
 }
 
@@ -924,6 +1020,8 @@ app.whenReady().then(() => {
     }
   });
   setupAutoUpdates();
+  setupTray();
+  applyLoginItem();
   // Con sesión iniciada, se trae lo de la cuenta en cuanto la ventana está lista.
   win.webContents.once("did-finish-load", () => cloud.start());
 

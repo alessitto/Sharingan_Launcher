@@ -3400,3 +3400,51 @@ button.gp-stat:hover b {
 .index-bar[hidden] {
   display: none;
 }
+
+/* Barra de título propia: la franja de arriba arrastra la ventana; los
+   botones nativos de minimizar/maximizar/cerrar van encima, a la derecha
+   (titleBarOverlay en main.js, 40 px). Lo que se pulsa no arrastra. */
+:root {
+  --titlebar-h: 40px;
+  --page-pad-y: 46px;
+}
+
+.titlebar-drag {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--titlebar-h);
+  z-index: 2;
+  pointer-events: none;
+  -webkit-app-region: drag;
+}
+
+button,
+input,
+select,
+textarea,
+a,
+label,
+summary,
+[role="button"],
+.game-card,
+.side-game,
+.gp-shot,
+.dropdown-content,
+.index-bar,
+.swal2-container,
+.sp-full,
+.gp-lightbox,
+#intro-screen {
+  -webkit-app-region: no-drag;
+}
+
+#notification-container {
+  top: calc(var(--titlebar-h) + 10px);
+}
+
+/* Liquid Glass: su barra lateral flota; el contenido baja igual */
+:root[data-effect="glass"] #notification-container {
+  top: calc(var(--titlebar-h) + 10px);
+}

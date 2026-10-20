@@ -204,7 +204,10 @@ async function launchGame(id) {
     res = { ok: false, error: "Error inesperado al iniciar el juego." };
   }
   if (currentLaunch !== launch) return; // el usuario cerró el modal
-  if (res?.ok) window.Achievements?.track("launches");
+  if (res?.ok) {
+    window.Achievements?.track("launches");
+    window.electronAPI.afterLaunch?.();
+  }
 
   if (!res?.ok) {
     document.querySelector(".sl-launch-title").textContent = "No se ha podido abrir";
@@ -228,6 +231,9 @@ async function launchGame(id) {
   }
   currentLaunch = null;
 }
+
+// "Jugar" desde la bandeja del sistema
+window.electronAPI.onTrayLaunch?.((id) => launchGame(id));
 
 async function markCompleted(id) {
   await window.electronAPI.markCompleted(id);
