@@ -651,11 +651,21 @@ function stableNegativeId(input) {
 // puntuacion, que es justo donde suelen diferir sin ser un juego distinto.
 function normalizeGameName(name) {
   return String(name || "")
-    .replace(/[®™©]/g, "")
-    .replace(/[:_\-–—]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase();
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[®™©'’‘`´]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+// Juego de la biblioteca con ese id de IGDB (añadido desde Descubrir, cuyo id
+// es el de IGDB, o importado con su igdbId ya encontrado).
+function findGameByIgdb(igdbId) {
+  const n = Number(igdbId);
+  if (!(n > 0)) return null;
+  const hit = (x) => x.igdbId === n || (x.id === n && !isImportedGame(x));
+  return games.find(hit) || completedGames.find(hit) || null;
 }
 
 function findGameByExternalId(gameObj) {
@@ -729,6 +739,11 @@ function canLaunch(g) {
 // resumen de la importación no cuente como "importado" lo que ya tenías.
 function upsertGameImported(gameObj) {
   const gameId = Number(gameObj.id);
+  // Ya estaba (p. ej. añadido desde Descubrir): se completa ese
+  if (gameObj.steamAppId && steamIgdbCache.has(Number(gameObj.steamAppId)) && !findAnyGame(gameId)) {
+    const same = findGameByIgdb(steamIgdbCache.get(Number(gameObj.steamAppId)));
+    if (same) gameObj = { ...gameObj, id: same.id, name: same.name, cover: same.cover, coverUrl: same.coverUrl };
+  }
 
   // 1) Mismo id exacto: es un reescaneo de la misma fuente (p.ej. volver a
   // importar Steam), se refresca todo tal cual llega, como siempre.
@@ -822,6 +837,7 @@ function upsertOwnedGame(gameObj) {
     games.find((x) => x.id === gameObj.id) ||
     completedGames.find((x) => x.id === gameObj.id) ||
     findGameByExternalId(gameObj) ||
+    findGameByIgdb(gameObj.steamAppId ? steamIgdbCache.get(Number(gameObj.steamAppId)) : null) ||
     findGameByName(gameObj);
   if (g) {
     if (canLaunch(g)) {
@@ -1690,6 +1706,7 @@ const gameInfo = createGameInfo({
   steamGet: (p, q) => steamGet(p, q),
   steamAppList: () => getSteamAppListCached(),
   steamId: () => stores?.steamId() || null,
+  steamRoot: () => detectSteamRoot(),
   cacheFile: path.join(app.getPath("userData"), "gameinfo-cache.json"),
   // Jugando, se completa la lista de logros: platino automático
   onAllUnlocked: (game) => {
@@ -2625,9 +2642,9 @@ ipcMain.handle("stores:addOwned", async (_e, keys = []) => {
   }
   for (const p of ["steam", "epic", "gog"]) {
     if (![...want].some((k) => k.startsWith(`${p}:`)) || !stores?.isLinked(p)) continue;
-    for (const o of await ownedOf(p).catch(() => [])) {
-      const obj = ownedToGame(p, o);
-      if (!obj || !want.has(ownedKey(obj))) continue;
+    const mine = (await ownedOf(p).catch(() => [])).map((o) => ownedToGame(p, o)).filter((obj) => obj && want.has(ownedKey(obj)));
+    if (p === "steam") await steamIgdbIds(mine.map((o) => o.steamAppId));
+    for (const obj of mine) {
       const { status, game } = upsertOwnedGame(obj);
       if (status === "new") added.push(game.name);
     }
@@ -2724,6 +2741,8 @@ async function repairSteamGames() {
       }
     }
 
+    if (mergeDuplicateGames()) changed = true;
+
     if (changed) {
       saveData();
       if (win && !win.isDestroyed()) win.webContents.send("games:changed");
@@ -2733,6 +2752,75 @@ async function repairSteamGames() {
   } finally {
     repairing = false;
   }
+}
+
+// appid de Steam -> id de IGDB (external_games), con caché
+const steamIgdbCache = new Map();
+async function steamIgdbIds(appids) {
+  const need = [...new Set(appids.map(Number).filter((a) => a > 0 && !steamIgdbCache.has(a)))];
+  for (let i = 0; i < need.length; i += 200) {
+    const chunk = need.slice(i, i + 200);
+    const rows = await igdbGamesQuery(`fields game,uid; where external_game_source = 1 & uid = (${chunk.map((a) => `"${a}"`).join(",")}); limit 500;`, "external_games");
+    if (!Array.isArray(rows)) return;
+    for (const a of chunk) steamIgdbCache.set(a, rows.find((r) => String(r.uid) === String(a))?.game || null);
+  }
+}
+
+// Un mismo juego dos veces en la biblioteca (uno añadido desde Descubrir y
+// otro de una tienda, o de dos tiendas): se queda uno solo. Se conserva el
+// que tenga más historia (pasado, tiempo jugado, el de Descubrir) y se le
+// pasan los datos de la tienda (ids, carpeta, .exe, instalado o no), el
+// tiempo jugado y su sitio en las sagas.
+function mergeDuplicateGames() {
+  const all = () => [...games, ...completedGames];
+  const keyOf = (g) => {
+    const igdb = g.igdbId || (!isImportedGame(g) && g.id > 0 ? g.id : null);
+    return igdb ? `igdb:${igdb}` : `name:${normalizeGameName(g.name)}`;
+  };
+  const groups = new Map();
+  for (const g of all()) {
+    const k = keyOf(g);
+    if (k === "name:") continue;
+    (groups.get(k) || groups.set(k, []).get(k)).push(g);
+  }
+  let merged = false;
+  for (const list of groups.values()) {
+    if (list.length < 2) continue;
+    const score = (g) =>
+      (completedGames.includes(g) ? 1000 : 0) + (g.isPlatinum ? 500 : 0) + (!isImportedGame(g) ? 100 : 0) + (g.playSecs > 0 ? 50 : 0) + (canLaunch(g) ? 10 : 0);
+    list.sort((a, b) => score(b) - score(a));
+    const keep = list[0];
+    for (const dup of list.slice(1)) {
+      for (const k of ["steamAppId", "epicAppName", "gogGameId", "gogProductId", "installDir", "executable", "igdbId"]) {
+        if (keep[k] == null && dup[k] != null) keep[k] = dup[k];
+      }
+      if ((!keep.platform || keep.platform === "none") && dup.platform) keep.platform = dup.platform;
+      // Instalado si cualquiera de los dos lo está
+      // Sin carpeta ni .exe y de una cuenta sin instalar: "Descargar"
+      if (!(keep.installDir || keep.executable) && (keep.notInstalled || dup.notInstalled)) keep.notInstalled = true;
+      else delete keep.notInstalled;
+      // Tiempo jugado: lo mayor, y los días juntos
+      keep.playSecs = Math.max(keep.playSecs || 0, dup.playSecs || 0) || keep.playSecs;
+      keep.lastPlayed = Math.max(keep.lastPlayed || 0, dup.lastPlayed || 0) || keep.lastPlayed;
+      keep.playSessions = Math.max(keep.playSessions || 0, dup.playSessions || 0) || keep.playSessions;
+      if (dup.playDays?.length) keep.playDays = [...new Set([...(keep.playDays || []), ...dup.playDays])].sort().slice(-120);
+      if (dup.playLog) {
+        keep.playLog = { ...(keep.playLog || {}) };
+        for (const [d, s] of Object.entries(dup.playLog)) keep.playLog[d] = Math.max(keep.playLog[d] || 0, s);
+      }
+      if (!keep.cover?.image_id && !keep.coverUrl) (keep.cover = dup.cover), (keep.coverUrl = dup.coverUrl);
+      // Sagas: el duplicado se cambia por el que se queda
+      for (const s of sagas) {
+        if (!s.gameIds.includes(dup.id)) continue;
+        s.gameIds = s.gameIds.includes(keep.id) ? s.gameIds.filter((x) => x !== dup.id) : s.gameIds.map((x) => (x === dup.id ? keep.id : x));
+      }
+      games = games.filter((x) => x !== dup);
+      completedGames = completedGames.filter((x) => x !== dup);
+      merged = true;
+      console.log(`[duplicados] "${dup.name}" (${dup.id}) -> "${keep.name}" (${keep.id})`);
+    }
+  }
+  return merged;
 }
 
 function ownedToGame(platform, o) {

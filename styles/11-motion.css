@@ -140,16 +140,7 @@
   }
 }
 
-/* 3.2.1: tiendas vinculadas y juegos de la cuenta sin instalar */
-.game-card.is-not-installed .card-cover img {
-  filter: grayscale(0.55) brightness(0.8);
-  transition: filter 0.2s ease;
-}
-
-.game-card.is-not-installed:hover .card-cover img {
-  filter: none;
-}
-
+/* Juegos de la cuenta sin instalar: la portada se ve normal */
 .card-actions button.dl-btn .i,
 .card-actions button.add-btn .i {
   fill: none;
@@ -221,7 +212,8 @@ body.is-guest .needs-account {
   display: none !important;
 }
 
-/* Ajustes › Tema: colores y estilos juntos */
+/* Ajustes › Tema: colores y estilos juntos (y Cuenta, que también es larga) */
+.st-body.st-account-page,
 .st-body.st-theme-page {
   overflow-y: auto;
   margin-right: -14px;

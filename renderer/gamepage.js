@@ -593,11 +593,12 @@
       body.innerHTML = emptyHtml("trophy", "Este juego no tiene logros", "En Steam no tiene ninguno.");
       return;
     }
-    const known = a.steamData || a.emus?.length || a.unlocked > 0;
+    const known = a.steamData || a.steamPc || a.emus?.length || a.unlocked > 0;
     const pct = Math.round((a.unlocked / a.total) * 100);
     let src;
     if (a.steamData && a.emus?.length) src = `Tus logros de Steam y los de este PC (${esc(a.emus.join(", "))}).`;
     else if (a.steamData) src = "Sincronizado con tu cuenta de Steam.";
+    else if (a.steamPc) src = "Leídos de Steam en este PC (vale también para juegos añadidos con LuaTools o SteamTools).";
     else if (a.emus?.length) src = `Leídos de los archivos del juego en este PC (${esc(a.emus.join(", "))}). Se avisan solos mientras juegas.`;
     else if (!a.steamLinked)
       src = `¿Lo juegas en Steam? <button type="button" class="cm-link" data-act="link-steam">Vincula tu cuenta</button> para ver los que tienes. Si no, aparecerán al conseguirlos jugando.`;

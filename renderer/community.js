@@ -190,35 +190,41 @@
   function profileHtml() {
     const list = window.Achievements?.list() || [];
     const got = list.filter((a) => a.unlockedAt).length;
+    // Cabecera (tú), dos tarjetas iguales (logros y nube) y después los
+    // grupos de ajustes de la cuenta, con el mismo aspecto que el resto.
     return `
-        <div class="cm-profile">
-          <div class="cm-profile-top">
+        <div class="cm-profile acc">
+          <div class="acc-head">
             <button type="button" class="cm-avatar-edit" data-p="photo" title="Cambiar foto de perfil">
               ${avatar(me.username, "is-lg", me)}
               <span class="cm-avatar-cam">${icon("pencil")}</span>
             </button>
-            <div>
+            <div class="acc-id">
               <p class="cm-profile-name">${esc(me.username)} ${me.admin ? adminBadge() : ""}</p>
               <p class="cm-profile-meta">Miembro desde ${me.createdAt ? new Date(me.createdAt).toLocaleDateString("es-ES", { month: "long", year: "numeric" }) : "hoy"}</p>
-              <p class="cm-profile-photo">
-                <button type="button" class="cm-link" data-p="photo">${me.avatarV ? "Cambiar foto" : "Poner foto de perfil"}</button>
-                ${me.avatarV ? `<span aria-hidden="true">·</span><button type="button" class="cm-link" data-p="photo-off">Quitar</button>` : ""}
+              <p class="acc-photo">
+                <button type="button" class="acc-link" data-p="photo">${me.avatarV ? "Cambiar foto" : "Poner foto"}</button>
+                ${me.avatarV ? `<span aria-hidden="true">·</span><button type="button" class="acc-link" data-p="photo-off">Quitar</button>` : ""}
               </p>
             </div>
+            <div class="acc-head-actions">
+              ${window.Social ? `<button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-p="my-profile">${icon("user")}Ver mi perfil</button>` : ""}
+              <button type="button" class="sl-btn sl-btn-danger-ghost sl-btn-sm" data-p="logout">${icon("logout")}Cerrar sesión</button>
+            </div>
           </div>
-          <div class="cm-profile-row">
-            <span>${icon("trophy")}Logros</span><b>${got} / ${list.length}</b>
-          </div>
-          <div class="cm-profile-row">
-            <span>${icon("refresh")}Sincronización</span>
-            <b class="cm-sync-text">${cloudStatus.pending ? "Cambios pendientes de subir" : `Al día · ${ago(cloudStatus.lastSync)}`}</b>
+          <div class="acc-stats">
+            <div class="acc-stat">
+              <span class="acc-stat-label">${icon("trophy")}Logros</span>
+              <b class="acc-stat-value">${got} <small>/ ${list.length}</small></b>
+              <button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-p="ach">Ver logros</button>
+            </div>
+            <div class="acc-stat">
+              <span class="acc-stat-label">${icon("refresh")}Sincronización</span>
+              <b class="acc-stat-value cm-sync-text">${cloudStatus.pending ? "Pendiente de subir" : `Al día · ${ago(cloudStatus.lastSync)}`}</b>
+              <button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-p="sync">Sincronizar ahora</button>
+            </div>
           </div>
           ${window.Social?.accountExtrasHtml(me) || ""}
-          <div class="cm-profile-actions">
-            <button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-p="sync">${icon("refresh")}Sincronizar ahora</button>
-            <button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-p="ach">${icon("trophy")}Ver logros</button>
-            <button type="button" class="sl-btn sl-btn-danger-ghost sl-btn-sm" data-p="logout">${icon("logout")}Cerrar sesión</button>
-          </div>
         </div>`;
   }
 
@@ -412,9 +418,8 @@
   async function openProfile() {
     if (!me) return openAuth();
     await openModal({
-      eyebrow: "Tu cuenta",
-      title: me.username,
-      width: 460,
+      title: "Tu cuenta",
+      width: 560,
       html: profileHtml(),
       showConfirmButton: false,
       showCloseButton: true,

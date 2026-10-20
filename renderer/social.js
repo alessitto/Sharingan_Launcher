@@ -302,25 +302,39 @@
 
   // ------------------------------------------------------------ Cuenta: correo, privacidad y datos
   // Lo pinta community.js dentro de su página de la cuenta.
+  // Grupos de la página Cuenta: seguridad y privacidad, y tus datos. Cada
+  // fila: título y explicación a la izquierda, el control a la derecha.
   function accountExtrasHtml(u) {
+    const row = (title, desc, control, cls = "") =>
+      `<div class="settings-data-row ${cls}"><div><p class="settings-data-title">${title}</p><p class="settings-update-text">${desc}</p></div><div class="acc-ctl">${control}</div></div>`;
+    const btn = (p, label, kind = "ghost") => `<button type="button" class="sl-btn sl-btn-${kind}" data-p="${p}">${label}</button>`;
     const email = u.emailVerified
-      ? `<div class="cm-profile-row"><span>${icon("send")}Correo</span><b>${esc(u.email)} <em class="ac-ok">${icon("check")}</em></b></div>
-         <div class="ac-line"><button type="button" class="cm-link" data-p="email">Cambiar correo</button><span>·</span><button type="button" class="cm-link" data-p="email-off">Quitar</button></div>`
+      ? row(
+          `Correo <em class="ac-ok" title="Confirmado">${icon("check")}</em>`,
+          `${esc(u.email)} · <button type="button" class="acc-link" data-p="email-off">Quitar</button>`,
+          btn("email", "Cambiar")
+        )
       : u.emailPending
-        ? `<div class="cm-profile-row"><span>${icon("send")}Correo</span><b>Falta confirmar ${esc(u.emailPending)}</b></div>
-           <div class="ac-verify"><input type="text" class="ac-code" inputmode="numeric" maxlength="6" placeholder="Código de 6 cifras"><button type="button" class="sl-btn sl-btn-primary sl-btn-sm" data-p="email-verify">Confirmar</button><button type="button" class="cm-link" data-p="email">Reenviar</button></div>`
-        : `<div class="cm-profile-row is-warn"><span>${icon("send")}Correo</span><b>Sin correo: si olvidas la contraseña no podrás recuperarla</b></div>
-           <div class="ac-line"><button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-p="email">${icon("plus")}Añadir correo</button></div>`;
+        ? row(
+            "Confirma tu correo",
+            `Te hemos mandado un código a ${esc(u.emailPending)}. <button type="button" class="acc-link" data-p="email">Reenviar</button>`,
+            `<input type="text" class="ac-code" inputmode="numeric" maxlength="6" placeholder="000000">${btn("email-verify", "Confirmar", "primary")}`
+          )
+        : row("Correo", "Sin correo: si olvidas la contraseña no podrás recuperar la cuenta.", btn("email", "Añadir correo"), "is-warn");
     return `
-      <div class="ac">
+      <h3 class="acc-h">Seguridad y privacidad</h3>
+      <div class="acc-group">
         ${email}
-        <label class="cm-profile-row ac-switch"><span>${icon("user")}Perfil privado <small>Solo tus amigos ven tus juegos y estadísticas</small></span><input type="checkbox" class="st-switch" data-p="privacy" ${u.profilePrivate ? "checked" : ""}></label>
-        <div class="cm-profile-actions">
-          <button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-p="my-profile">${icon("user")}Ver mi perfil</button>
-          <button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-p="export">${icon("download")}Descargar mis datos</button>
-          <button type="button" class="sl-btn sl-btn-danger-ghost sl-btn-sm" data-p="delete">${icon("trash")}Borrar mi cuenta</button>
-        </div>
-        <p class="ac-legal"><button type="button" class="cm-link" data-p="privacy-policy">Política de privacidad</button></p>
+        <label class="settings-data-row">
+          <div><p class="settings-data-title">Perfil privado</p><p class="settings-update-text">Solo tus amigos ven tus juegos y estadísticas.</p></div>
+          <div class="acc-ctl"><input type="checkbox" class="st-switch" data-p="privacy" ${u.profilePrivate ? "checked" : ""}></div>
+        </label>
+      </div>
+      <h3 class="acc-h">Tus datos</h3>
+      <div class="acc-group">
+        ${row("Descargar mis datos", "Todo lo que guarda tu cuenta, en un archivo.", btn("export", "Descargar"))}
+        ${row("Política de privacidad", "Qué se guarda, para qué y tus derechos.", btn("privacy-policy", "Leer"))}
+        ${row("Borrar mi cuenta", "Se borra del servidor para siempre. Lo de este PC se queda.", btn("delete", "Borrar cuenta", "danger-ghost"))}
       </div>`;
   }
 

@@ -21,7 +21,7 @@ const NEXUS_GQL = "https://api.nexusmods.com/v2/graphql";
 const STEAM_API = "https://api.steampowered.com";
 const DAY = 864e5;
 
-function createGameInfo({ fetch, igdbQuery, steamGet, steamAppList, Fuse, steamId, cacheFile, notify, onAllUnlocked }) {
+function createGameInfo({ fetch, igdbQuery, steamGet, steamAppList, Fuse, steamId, steamRoot, cacheFile, notify, onAllUnlocked }) {
   // ------------------------------------------------------------ Caché en disco
   let cache = null;
   let saveTimer = null;
@@ -391,14 +391,100 @@ function createGameInfo({ fetch, igdbQuery, steamGet, steamAppList, Fuse, steamI
     return { map: merged, emus: [...emus] };
   }
 
+  // ------------------------------------------------------------ Logros de Steam en este PC
+  // Steam guarda en appcache/stats los logros de todo lo que ejecuta (también
+  // lo inyectado con LuaTools/SteamTools, que la Web API no ve):
+  //   UserGameStatsSchema_<appid>.bin   qué bit de qué estadística es cada logro
+  //   UserGameStats_<cuenta>_<appid>.bin los bits conseguidos y la hora
+  // Son KeyValues binarios de Steam.
+  function parseKV(buf) {
+    let i = 0;
+    const str = () => {
+      const e = buf.indexOf(0, i);
+      const s = buf.toString("utf8", i, e < 0 ? buf.length : e);
+      i = e < 0 ? buf.length : e + 1;
+      return s;
+    };
+    const obj = (depth) => {
+      const o = {};
+      while (i < buf.length) {
+        const t = buf[i++];
+        if (t === 8 || t === 11) return o;
+        const k = str();
+        if (t === 0) o[k] = depth > 12 ? {} : obj(depth + 1);
+        else if (t === 1) o[k] = str();
+        else if (t === 2 || t === 4 || t === 6) (o[k] = buf.readInt32LE(i)), (i += 4);
+        else if (t === 3) (o[k] = buf.readFloatLE(i)), (i += 4);
+        else if (t === 7 || t === 10) (o[k] = Number(buf.readBigUInt64LE(i))), (i += 8);
+        else if (t === 5) str();
+        else return o; // tipo desconocido: lo leído vale
+      }
+      return o;
+    };
+    return obj(0);
+  }
+
+  let steamRootCache;
+  async function steamStatsDir() {
+    if (steamRootCache === undefined) steamRootCache = (await steamRoot?.().catch(() => null)) || null;
+    return steamRootCache ? path.join(steamRootCache, "appcache", "stats") : null;
+  }
+
+  // nombre del logro (en minúsculas) -> ms; null si Steam no tiene nada
+  async function steamLocalOf(appid) {
+    const dir = await steamStatsDir();
+    if (!dir) return null;
+    let files;
+    try {
+      files = fs.readdirSync(dir);
+    } catch {
+      return null;
+    }
+    const schemaFile = files.find((f) => f === `UserGameStatsSchema_${appid}.bin`);
+    const userFiles = files.filter((f) => new RegExp(`^UserGameStats_\\d+_${appid}\\.bin$`).test(f));
+    if (!schemaFile || !userFiles.length) return null;
+    let schema;
+    try {
+      const root = parseKV(fs.readFileSync(path.join(dir, schemaFile)));
+      schema = root[String(appid)]?.stats || Object.values(root)[0]?.stats;
+    } catch {
+      return null;
+    }
+    if (!schema) return null;
+    const got = {};
+    for (const uf of userFiles) {
+      let cache;
+      try {
+        cache = parseKV(fs.readFileSync(path.join(dir, uf))).cache;
+      } catch {
+        continue;
+      }
+      if (!cache) continue;
+      for (const [statId, st] of Object.entries(schema)) {
+        if (!st?.bits) continue;
+        const u = cache[statId];
+        if (!u || typeof u.data !== "number") continue;
+        for (const [bit, def] of Object.entries(st.bits)) {
+          if (!def?.name || !((u.data >>> Number(bit)) & 1)) continue;
+          const t = Number(u.AchievementTimes?.[bit]) || 0;
+          got[String(def.name).toLowerCase()] = t ? t * 1000 : got[String(def.name).toLowerCase()] || 0;
+        }
+      }
+    }
+    return got;
+  }
+
   async function achievements(game) {
     const appid = await resolveAppId(game);
     if (!appid) return { ok: false, reason: "no_steam" };
     const [schema, global, player] = await Promise.all([schemaOf(appid), globalOf(appid), playerOf(appid)]);
     if (!schema) return { ok: false, reason: "network", appid };
     const local = localOf(appid);
+    // Lo que Steam tiene en este PC (vale para juegos con LuaTools)
+    const steamPc = await steamLocalOf(appid).catch(() => null);
     const list = schema.map((a) => {
-      const steamAt = player ? player[a.name] : undefined;
+      const pcAt = steamPc ? steamPc[a.name.toLowerCase()] : undefined;
+      const steamAt = player && player[a.name] !== undefined ? player[a.name] : pcAt;
       const localAt = local.map[a.name.toLowerCase()];
       const unlocked = steamAt !== undefined || localAt !== undefined;
       return {
@@ -417,6 +503,7 @@ function createGameInfo({ fetch, igdbQuery, steamGet, steamAppList, Fuse, steamI
       unlocked: list.filter((a) => a.unlocked).length,
       steamLinked: !!steamId(),
       steamData: !!player,
+      steamPc: !!steamPc && Object.keys(steamPc).length > 0,
       emus: local.emus,
     };
   }
@@ -429,6 +516,7 @@ function createGameInfo({ fetch, igdbQuery, steamGet, steamAppList, Fuse, steamI
     for (const [id, w] of watched) {
       if (ids.has(id)) continue;
       clearInterval(w.timer);
+      clearInterval(w.steamTimer);
       watched.delete(id);
     }
     for (const g of runningGames) {
@@ -452,6 +540,15 @@ function createGameInfo({ fetch, igdbQuery, steamGet, steamAppList, Fuse, steamI
         // Con el último, platino
         if (schema.length && schema.every((s) => w.known.has(s.name.toLowerCase()))) onAllUnlocked?.(g);
       }, 5000);
+      // Steam (también con LuaTools): sin avisos (ya los da Steam), pero el
+      // platino sí se pone al conseguir el último.
+      w.steamTimer = setInterval(async () => {
+        const pc = await steamLocalOf(w.appid).catch(() => null);
+        if (!pc) return;
+        const schema = (await schemaOf(w.appid).catch(() => null)) || [];
+        const have = new Set([...Object.keys(pc), ...w.known]);
+        if (schema.length && schema.every((s) => have.has(s.name.toLowerCase()))) onAllUnlocked?.(g);
+      }, 30000);
     }
   }
 
