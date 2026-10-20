@@ -363,6 +363,13 @@ function showSection(id, el) {
 }
 
 function playIntroOut(screen) {
+  // Intro en WebGL (intro.js): su final ya enseña la app por la pupila
+  if (screen && window.Intro && screen.classList.contains("has-gl")) {
+    return window.Intro.finish(() => {
+      document.body.classList.add("app-enter");
+      setTimeout(() => document.body.classList.remove("app-enter"), 900);
+    }).then(() => screen.remove());
+  }
   return new Promise((resolve) => {
     if (!screen) return resolve();
     const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
