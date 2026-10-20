@@ -209,7 +209,7 @@
     }
     const box = root.querySelector(".hm-reco");
     if (!box || my !== seq) return;
-    const items = recoCache.items.filter((x) => !libraryIds.has(x.id)).slice(0, 8);
+    const items = recoCache.items.filter((x) => !isOwnedGame(x)).slice(0, 8);
     box.hidden = !items.length;
     if (!items.length) return;
     // Para que la página del juego los encuentre

@@ -11,6 +11,14 @@ async function loadLibrary() {
 
   if (Array.isArray(games)) games.forEach((g, i) => (g._order = i + 1));
   libraryIds.clear();
+  ownedIgdbIds = new Set();
+  ownedNames = new Set();
+  for (const g of [...(games || []), ...(completedGames || [])]) {
+    if (Number(g.igdbId) > 0) ownedIgdbIds.add(Number(g.igdbId));
+    if (Number(g.igdbParent) > 0) ownedIgdbIds.add(Number(g.igdbParent));
+    const k = ownedNameKey(g.name);
+    if (k) ownedNames.add(k);
+  }
   if (Array.isArray(games)) games.forEach((g) => libraryIds.add(g.id));
   if (Array.isArray(completedGames))
     completedGames.forEach((g) => libraryIds.add(g.id));

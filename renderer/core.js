@@ -7,6 +7,20 @@
 // ===============================
 let gamesTemp = [];
 let libraryIds = new Set();
+// Para reconocer en Descubrir lo que ya tienes aunque venga de Steam, Epic o
+// GOG (su id no es el de IGDB): por id de IGDB y por nombre.
+let ownedIgdbIds = new Set();
+let ownedNames = new Set();
+const ownedNameKey = (s) =>
+  String(s || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[®™©]/g, "")
+    .replace(/[^a-z0-9]+/g, "");
+function isOwnedGame(g) {
+  return !!g && (libraryIds.has(g.id) || ownedIgdbIds.has(Number(g.id)) || ownedNames.has(ownedNameKey(g.name)));
+}
 // Descubrir espera a la biblioteca para poder quitar lo que ya tienes.
 let libraryReady = Promise.resolve();
 let currentSearchGames = [];

@@ -1022,6 +1022,8 @@ app.whenReady().then(() => {
   setupAutoUpdates();
   setupTray();
   applyLoginItem();
+  // Ids de IGDB y portadas de los juegos de Steam (en segundo plano)
+  setTimeout(() => repairSteamGames(), 8000);
   // Con sesión iniciada, se trae lo de la cuenta en cuanto la ventana está lista.
   win.webContents.once("did-finish-load", () => cloud.start());
 
@@ -2518,6 +2520,7 @@ async function runImport(config = {}) {
   }
 
   saveData();
+  setTimeout(() => repairSteamGames(), 1500);
   return { ok: true, report };
 }
 
@@ -2578,9 +2581,108 @@ ipcMain.handle("stores:addOwned", async (_e, keys = []) => {
       if (status === "new") added.push(game.name);
     }
   }
-  if (added.length) saveData();
+  if (added.length) {
+    saveData();
+    setTimeout(() => repairSteamGames(), 1500);
+  }
   return { ok: true, added };
 });
+
+// -------------------- Juegos de Steam: id de IGDB y portadas --------------------
+// Los importados de Steam llevan su appid como id, así que no se reconocían
+// en Descubrir (que usa ids de IGDB) y salían para "Agregar" aunque ya los
+// tuvieras. Aquí se busca su id de IGDB por el appid (external_games, exacto).
+// Además, la portada vertical de Steam no siempre está en library_600x900.jpg
+// (los juegos antiguos la tienen como portrait.png en otra ruta): se pide la
+// buena a la API de la tienda y, si no hay, se usa la portada de IGDB.
+let repairing = false;
+async function repairSteamGames() {
+  if (repairing) return;
+  repairing = true;
+  try {
+    const steam = [...games, ...completedGames].filter((g) => Number(g.steamAppId) > 0);
+    let changed = false;
+
+    // 1) id de IGDB por el appid
+    const need = steam.filter((g) => !g.igdbId && !g.igdbChecked);
+    for (let i = 0; i < need.length; i += 200) {
+      const chunk = need.slice(i, i + 200);
+      const rows = await igdbGamesQuery(
+        `fields game,uid; where external_game_source = 1 & uid = (${chunk.map((g) => `"${Number(g.steamAppId)}"`).join(",")}); limit 500;`,
+        "external_games"
+      );
+      if (!Array.isArray(rows)) break; // sin conexión: otro día
+      for (const g of chunk) {
+        const r = rows.find((x) => String(x.uid) === String(g.steamAppId) && x.game);
+        if (r) g.igdbId = r.game;
+        g.igdbChecked = true;
+        changed = true;
+      }
+    }
+
+    // 1b) El juego "padre" de las ediciones (Full Burst, GOTY, remasters...):
+    // si tienes la edición, en Descubrir tampoco sale el original.
+    const parents = [...games, ...completedGames].filter((g) => Number(g.igdbId) > 0 && g.igdbParent === undefined);
+    for (let i = 0; i < parents.length; i += 200) {
+      const chunk = parents.slice(i, i + 200);
+      const rows = await igdbGamesQuery(`fields parent_game,version_parent; where id = (${chunk.map((g) => Number(g.igdbId)).join(",")}); limit 500;`);
+      if (!Array.isArray(rows)) break;
+      for (const g of chunk) {
+        const r = rows.find((x) => x.id === Number(g.igdbId));
+        g.igdbParent = r?.version_parent || r?.parent_game || null;
+        changed = true;
+      }
+    }
+
+    // 2) portadas: primero la de IGDB (la carátula de siempre, la que sale
+    // en Descubrir); la de Steam solo si IGDB no tiene. Steam a veces no
+    // la tiene en library_600x900.jpg (los antiguos usan portrait.png en
+    // otra ruta), así que se pide la buena a su API de la tienda.
+    const isSteamCover = (u) => !u || /steamstatic\.com\/(store_item_assets\/)?steam\/apps\//.test(u);
+    const covers = steam.filter((g) => !g.cover?.image_id && isSteamCover(g.coverUrl) && g.coverV !== 2);
+    const withIgdb = covers.filter((g) => Number(g.igdbId) > 0);
+    const stillNeed = covers.filter((g) => !(Number(g.igdbId) > 0));
+    for (let i = 0; i < withIgdb.length; i += 200) {
+      const chunk = withIgdb.slice(i, i + 200);
+      const rows = await igdbGamesQuery(`fields cover.image_id; where id = (${chunk.map((g) => Number(g.igdbId)).join(",")}); limit 500;`);
+      if (!Array.isArray(rows)) break;
+      for (const g of chunk) {
+        const r = rows.find((x) => x.id === Number(g.igdbId));
+        if (r?.cover?.image_id) {
+          g.cover = { image_id: r.cover.image_id };
+          g.coverUrl = null;
+          g.coverV = 2;
+          changed = true;
+        } else stillNeed.push(g);
+      }
+    }
+    for (let i = 0; i < stillNeed.length; i += 50) {
+      const chunk = stillNeed.slice(i, i + 50);
+      const input = { ids: chunk.map((g) => ({ appid: Number(g.steamAppId) })), context: { language: "spanish", country_code: "ES" }, data_request: { include_assets: true } };
+      let items = null;
+      try {
+        const res = await fetch(`https://api.steampowered.com/IStoreBrowseService/GetItems/v1/?input_json=${encodeURIComponent(JSON.stringify(input))}`, { timeout: 20000 });
+        items = res.ok ? (await res.json())?.response?.store_items || [] : null;
+      } catch {}
+      if (!items) break;
+      for (const g of chunk) {
+        const a = items.find((x) => Number(x.appid) === Number(g.steamAppId))?.assets;
+        if (a?.library_capsule && a.asset_url_format) g.coverUrl = `https://shared.akamai.steamstatic.com/store_item_assets/${a.asset_url_format.replace("${FILENAME}", a.library_capsule)}`;
+        g.coverV = 2;
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      saveData();
+      if (win && !win.isDestroyed()) win.webContents.send("games:changed");
+    }
+  } catch (err) {
+    console.error("repairSteamGames", err);
+  } finally {
+    repairing = false;
+  }
+}
 
 function ownedToGame(platform, o) {
   if (platform === "steam") {

@@ -141,7 +141,7 @@ function buildDiscoverCard(game) {
   const index = gamesTemp.length;
   gamesTemp.push(game);
 
-  const buttonsHtml = libraryIds.has(game.id)
+  const buttonsHtml = isOwnedGame(game)
     ? `<span class="badge-owned">${icon("check")}En tu biblioteca</span>`
     : `<button class="primary add-btn" data-index='${index}' title="Agregar a biblioteca">${icon("plus")}<span class="add-long">Agregar a biblioteca</span><span class="add-short">Agregar</span></button>`;
   const year = releaseYear(game);

@@ -311,7 +311,7 @@ async function setupAiSettings() {
 }
 
 // Lo que ya tienes (biblioteca o pasados) no sale en Descubrir.
-const notOwned = (items) => items.filter((g) => !libraryIds.has(g.id));
+const notOwned = (items) => items.filter((g) => !isOwnedGame(g));
 
 async function applyDiscoverPage(res, replace, seq = discoverSeq) {
   await libraryReady;
