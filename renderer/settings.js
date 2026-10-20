@@ -206,7 +206,6 @@ function applyGridColumns(value) {
   // Los bloques de saga calculan su ancho en columnas al pintarse.
   if (document.querySelector(".saga-group")) {
     applyLibraryFilter();
-    renderCompletedList();
   }
 }
 

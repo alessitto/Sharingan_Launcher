@@ -7,17 +7,22 @@
 // ===============================
 // Card de un juego "pasado" (completado) — usada tanto para sueltos
 // como para los que van dentro de un bloque de saga.
+// mode: "library" (sin pasar), "completed" (pasado) o "play" (Jugar
+// ahora: sin marcas de pasado ni platino, eso se ve en su página).
 function buildGameCard(game, mode) {
   const div = document.createElement("div");
   div.className = "game-card";
   div.dataset.gameId = game.id;
 
   const name = game.name || "Sin nombre";
-  if (game.isPlatinum) div.classList.add("platinum-card");
+  const marks = mode === "completed";
+  if (marks && game.isPlatinum) div.classList.add("platinum-card");
   if (game.notInstalled) div.classList.add("is-not-installed");
-  const crownHtml = game.isPlatinum
-    ? `<span class="platinum-crown" title="Platino">${icon("crown")}</span>`
-    : "";
+  const crownHtml = !marks
+    ? ""
+    : game.isPlatinum
+    ? `<span class="platinum-crown" title="Pasado con platino">${icon("crown")}</span>`
+    : `<span class="done-badge" title="Pasado">${icon("check")}</span>`;
 
   // La portada es la tarjeta: las acciones salen encima al pasar el
   // ratón (o con el foco del mando) y el clic abre la página del juego.
@@ -29,7 +34,7 @@ function buildGameCard(game, mode) {
     </div>
     <div class="card-info">
       <h3 title="${escapeHtml(name)}">${escapeHtml(name)}</h3>
-      ${mode === "library" || mode === "completed" ? `<p class="card-play" data-play="${game.id}">${playLineHtml(game)}</p>` : ""}
+      ${mode === "library" || mode === "completed" || mode === "play" ? `<p class="card-play" data-play="${game.id}">${playLineHtml(game)}</p>` : ""}
     </div>
   `;
 
@@ -274,14 +279,14 @@ function displayGames(containerId, games, mode) {
       container.innerHTML = `
       <div class="empty-state">
         <span class="empty-icon">${icon("grid")}</span>
-        <p class="empty-title">${showOnlyLinked && libraryGamesCache.length ? "Ningún juego se puede lanzar todavía" : "Tu biblioteca está vacía"}</p>
+        <p class="empty-title">${showOnlyLinked && allLibraryCount() ? "No tienes ningún juego instalado" : "Tu biblioteca está vacía"}</p>
         <p class="empty-text">${
-          showOnlyLinked && libraryGamesCache.length
-            ? "Ningún juego tiene su .exe vinculado."
+          showOnlyLinked && allLibraryCount()
+            ? "Importa los del PC o vincula el .exe de alguno."
             : "Importa tus juegos o añádelos desde Descubrir."
         }</p>
         <div class="empty-actions">${
-          showOnlyLinked && libraryGamesCache.length
+          showOnlyLinked && allLibraryCount()
             ? `<button class="primary" onclick="toggleLinkedFilter()">Quitar el filtro</button>`
             : `<button class="primary" onclick="openImportModal()">Importar instalados</button>
                <button onclick="showSection('popular', document.querySelectorAll('.topnav-item')[0])">Ir a Descubrir</button>`
@@ -306,7 +311,7 @@ function displayGames(containerId, games, mode) {
   const hasLoose = entries.some((e) => e.type === "game");
   entries.forEach((entry, i) => {
     if (entry.type === "saga") {
-      container.appendChild(buildSagaGroup(entry.saga, entry.games, (g) => buildGameCard(g, "library"), letterBucket(entry.key)));
+      container.appendChild(buildSagaGroup(entry.saga, entry.games, libraryCard, letterBucket(entry.key)));
       return;
     }
     if (hasSagas && entries[i - 1]?.type === "saga") {
@@ -315,7 +320,7 @@ function displayGames(containerId, games, mode) {
       divider.innerHTML = `<span>Juegos sueltos</span>`;
       container.appendChild(divider);
     }
-    const card = buildGameCard(entry.game, "library");
+    const card = libraryCard(entry.game);
     card.dataset.letter = letterBucket(entry.key);
     container.appendChild(card);
   });

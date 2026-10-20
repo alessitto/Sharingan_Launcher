@@ -5,20 +5,37 @@
 // ===============================
 // Filtro biblioteca
 // ===============================
-// Buscar por nombre, tienda, estado y orden. En "A-Z" sin buscar se ven
-// las sagas y el índice de letras; con cualquier otro orden o buscando, la
-// rejilla es plana. Se recuerda entre sesiones (localStorage).
+// La biblioteca tiene todos los juegos, pasados incluidos. Buscar por
+// nombre, tienda, estado (Jugar ahora, Pasados, con platino...) y orden. En
+// "A-Z" sin buscar se ven las sagas y el índice de letras; con cualquier
+// otro orden o buscando, la rejilla es plana. Se recuerda entre sesiones.
 const LIB_DEFAULT = { q: "", store: "", state: "", sort: "az" };
+const OLD_LIB_STATES = { playable: "play", installed: "play", played: "" };
 let libView = (() => {
   try {
     const saved = JSON.parse(localStorage.getItem("libraryView") || "null");
-    if (saved) return { ...LIB_DEFAULT, ...saved, q: "" };
+    if (saved) {
+      const v = { ...LIB_DEFAULT, ...saved, q: "" };
+      if (v.state in OLD_LIB_STATES) v.state = OLD_LIB_STATES[v.state];
+      return v;
+    }
     // De antes: el botón "Jugables"
-    return { ...LIB_DEFAULT, state: localStorage.getItem("libraryLinkedFilter") === "true" ? "playable" : "" };
+    return { ...LIB_DEFAULT, state: localStorage.getItem("libraryLinkedFilter") === "true" ? "play" : "" };
   } catch {
     return { ...LIB_DEFAULT };
   }
 })();
+
+// Pasados (ids) y la biblioteca entera, en orden de nombre.
+let completedIds = new Set();
+const isCompletedGame = (g) => completedIds.has(String(g.id));
+const allLibraryCount = () => libraryGamesCache.length + completedGamesCache.length;
+const sortName = (g) => (g.sortKey || g.name || "").toString();
+function allLibraryGames() {
+  return [...libraryGamesCache, ...completedGamesCache].sort((a, b) => sortName(a).localeCompare(sortName(b), "es", { sensitivity: "base" }));
+}
+// Tarjeta de la biblioteca: la de pasado (con su marca) o la normal.
+const libraryCard = (g) => buildGameCard(g, isCompletedGame(g) ? "completed" : "library");
 
 function saveLibView() {
   try {
@@ -34,22 +51,24 @@ const normName = (s) =>
 
 const isInstalled = (g) => !g.notInstalled && !!(g.installDir || g.executable || canPlay(g));
 const LIB_STATE = {
-  playable: (g) => canPlay(g),
-  installed: isInstalled,
-  notInstalled: (g) => !!g.notInstalled,
+  play: isInstalled,
+  notInstalled: (g) => !isInstalled(g),
+  pending: (g) => !isCompletedGame(g),
+  completed: isCompletedGame,
+  platinum: (g) => isCompletedGame(g) && !!g.isPlatinum,
   unplayed: (g) => !(g.playSecs > 0),
-  played: (g) => g.playSecs > 0,
 };
 const LIB_SORT = {
   recent: (a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0),
   most: (a, b) => (b.playSecs || 0) - (a.playSecs || 0),
   added: (a, b) => (b.addedAt || b._order || 0) - (a.addedAt || a._order || 0),
   release: (a, b) => (b.first_release_date || 0) - (a.first_release_date || 0),
+  done: (a, b) => (isCompletedGame(b) ? b.completedAt || 1 : 0) - (isCompletedGame(a) ? a.completedAt || 1 : 0),
 };
 
-// El mando (X) y los atajos siguen alternando "Jugables".
+// El mando (X) y los atajos alternan "Jugar ahora".
 function toggleLinkedFilter() {
-  libView.state = libView.state === "playable" ? "" : "playable";
+  libView.state = libView.state === "play" ? "" : "play";
   saveLibView();
   applyLibraryFilter();
   updateGamepadFocus(true);
@@ -63,10 +82,12 @@ function applyLibraryFilter() {
   sel("libStore", libView.store);
   sel("libState", libView.state);
   sel("libSort", libView.sort);
-  showOnlyLinked = libView.state === "playable";
+  showOnlyLinked = libView.state === "play";
+  renderLibraryChips();
 
+  const all = allLibraryGames();
   const q = normName(libView.q.trim());
-  let list = libraryGamesCache.filter(
+  let list = all.filter(
     (g) =>
       (!q || normName(g.name).includes(q) || normName(g.sortKey).includes(q)) &&
       (!libView.store || (g.platform || "none") === libView.store) &&
@@ -76,7 +97,7 @@ function applyLibraryFilter() {
   document.getElementById("libClear").hidden = !filtered;
 
   const title = document.getElementById("libraryTitle");
-  title.textContent = filtered ? `${list.length} de ${libraryGamesCache.length}` : String(libraryGamesCache.length);
+  title.textContent = filtered ? `${list.length} de ${all.length}` : String(all.length);
 
   const flat = libView.sort !== "az" || !!q;
   document.getElementById("libraryIndexBar").hidden = flat || (filtered && !list.length);
@@ -96,8 +117,124 @@ function applyLibraryFilter() {
       </div>`;
     return;
   }
-  for (const g of list) container.appendChild(buildGameCard(g, "library"));
+  for (const g of list) container.appendChild(libraryCard(g));
 }
+
+// Debajo del título: cuántos pasados y platinos, y al pulsar se filtra.
+function renderLibraryChips() {
+  const box = document.getElementById("libChips");
+  if (!box) return;
+  const done = completedGamesCache.length;
+  const plat = completedGamesCache.filter((g) => g.isPlatinum).length;
+  const chip = (state, ico, text) =>
+    `<button type="button" class="lib-chip${libView.state === state ? " is-on" : ""}" data-state="${state}">${icon(ico)}${text}</button>`;
+  box.innerHTML =
+    (done ? chip("completed", "check", `${done} ${done === 1 ? "pasado" : "pasados"}`) : "") +
+    (plat ? chip("platinum", "crown", `${plat} ${plat === 1 ? "platino" : "platinos"}`) : "");
+}
+
+document.getElementById("libChips")?.addEventListener("click", (e) => {
+  const b = e.target.closest(".lib-chip");
+  if (!b) return;
+  libView.state = libView.state === b.dataset.state ? "" : b.dataset.state;
+  saveLibView();
+  applyLibraryFilter();
+  updateGamepadFocus(true);
+});
+
+// Desde fuera (Inicio, atajos, enlaces viejos a "Pasados"): la biblioteca
+// con ese filtro.
+function showLibraryState(state) {
+  libView = { ...libView, q: "", state };
+  const input = document.getElementById("libSearch");
+  if (input) input.value = "";
+  saveLibView();
+  applyLibraryFilter();
+  showSection("library");
+}
+
+// ===============================
+// Jugar ahora
+// ===============================
+// Todo lo instalado (pasado o no), con tarjetas grandes y sin marcas de
+// pasado ni platino: es para lanzar juegos.
+let playView = { q: "", sort: "recent" };
+try {
+  playView.sort = localStorage.getItem("playSort") || "recent";
+} catch {}
+const playGames = () => [...libraryGamesCache, ...completedGamesCache].filter(isInstalled);
+const PLAY_SORT = {
+  recent: (a, b) =>
+    (playingNow.has(String(b.id)) ? 1 : 0) - (playingNow.has(String(a.id)) ? 1 : 0) ||
+    (b.lastPlayed || 0) - (a.lastPlayed || 0) ||
+    sortName(a).localeCompare(sortName(b), "es", { sensitivity: "base" }),
+  az: (a, b) => sortName(a).localeCompare(sortName(b), "es", { sensitivity: "base", numeric: true }),
+  most: (a, b) => (b.playSecs || 0) - (a.playSecs || 0) || sortName(a).localeCompare(sortName(b), "es"),
+};
+
+function renderPlayList() {
+  const box = document.getElementById("playList");
+  if (!box) return;
+  const sortSel = document.getElementById("playSort");
+  if (sortSel && sortSel.value !== playView.sort) sortSel.value = playView.sort;
+  const all = playGames();
+  const q = normName(playView.q.trim());
+  const list = (q ? all.filter((g) => normName(g.name).includes(q) || normName(g.sortKey).includes(q)) : all.slice()).sort(PLAY_SORT[playView.sort] || PLAY_SORT.recent);
+  const title = document.getElementById("playTitle");
+  if (title) title.textContent = q ? `${list.length} de ${all.length}` : String(all.length);
+  box.innerHTML = "";
+  if (!all.length) {
+    box.innerHTML = `
+      <div class="empty-state">
+        <span class="empty-icon">${icon("play")}</span>
+        <p class="empty-title">No tienes juegos instalados</p>
+        <p class="empty-text">Importa los que tienes en el PC o vincula el .exe de alguno de tu biblioteca.</p>
+        <div class="empty-actions">
+          <button class="primary" onclick="openImportModal()">Importar instalados</button>
+          <button onclick="showSection('library')">Ir a la biblioteca</button>
+        </div>
+      </div>`;
+    return;
+  }
+  if (!list.length) {
+    box.innerHTML = `
+      <div class="empty-state">
+        <span class="empty-icon">${icon("searchX")}</span>
+        <p class="empty-title">Ningún juego coincide</p>
+      </div>`;
+    return;
+  }
+  for (const g of list) box.appendChild(buildGameCard(g, "play"));
+}
+
+(() => {
+  const input = document.getElementById("playSearch");
+  let t = 0;
+  input?.addEventListener("input", () => {
+    clearTimeout(t);
+    t = setTimeout(() => {
+      playView.q = input.value;
+      renderPlayList();
+      updateGamepadFocus(true);
+    }, 120);
+  });
+  input?.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && input.value) {
+      e.stopPropagation();
+      input.value = "";
+      playView.q = "";
+      renderPlayList();
+    }
+  });
+  document.getElementById("playSort")?.addEventListener("change", (e) => {
+    playView.sort = e.target.value;
+    try {
+      localStorage.setItem("playSort", playView.sort);
+    } catch {}
+    renderPlayList();
+    updateGamepadFocus(true);
+  });
+})();
 
 function clearLibraryFilters() {
   libView = { ...LIB_DEFAULT, sort: libView.sort };

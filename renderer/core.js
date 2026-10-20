@@ -330,6 +330,8 @@ document.addEventListener("keydown", (e) => {
 // La entrada de la barra lateral se busca por su sección (data-section);
 // el segundo parámetro se queda por compatibilidad.
 function showSection(id, el) {
+  // "Pasados" ya no es una sección: la biblioteca con ese filtro
+  if (id === "completed" || id === "platinum") return showLibraryState(id);
   el = document.querySelector(`.topnav-item[data-section="${id}"]`) || el;
   if (id !== "game") window.GamePage?.onLeave();
   document
@@ -349,7 +351,7 @@ function showSection(id, el) {
 
   if (id === "popular") focusedContainerId = "gamesList";
   if (id === "library") focusedContainerId = "libraryList";
-  if (id === "completed") focusedContainerId = "completedList";
+  if (id === "play") focusedContainerId = "playList";
   document.body.classList.toggle("in-pokepark", id === "pokepark");
   if (id === "pokepark") window.PokePark?.onShow();
   document.body.classList.toggle("in-community", id === "community");

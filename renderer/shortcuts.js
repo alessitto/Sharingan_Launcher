@@ -27,8 +27,9 @@
   const ACTIONS = [
     { group: "Navegación", items: [
       { id: "go-discover", label: "Ir a Descubrir", run: () => go("popular", "Descubrir") },
+      { id: "go-play", label: "Ir a Jugar ahora", run: () => go("play", "Jugar ahora") },
       { id: "go-library", label: "Ir a Mi biblioteca", run: () => go("library", "Mi biblioteca") },
-      { id: "go-completed", label: "Ir a Juegos pasados", run: () => go("completed", "Juegos pasados") },
+      { id: "go-completed", label: "Ver juegos pasados", run: () => showLibraryState("completed") },
       { id: "go-pokepark", label: "Ir al PokéPark", run: () => go("pokepark", "PokéPark") },
       { id: "go-community", label: "Ir a Comunidad", run: () => go("community", "Comunidad") },
       { id: "go-free", label: "Abrir Juegos gratis", run: () => window.FreeGames?.open() },

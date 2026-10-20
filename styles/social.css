@@ -688,7 +688,7 @@
 }
 
 .acc-ctl input.ac-code:focus {
-  border-color: var(--accent);
+  border-color: var(--red-500);
 }
 
 :root[data-effect="glass"] .acc-head,

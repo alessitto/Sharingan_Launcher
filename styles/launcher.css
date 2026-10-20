@@ -3448,3 +3448,96 @@ summary,
 :root[data-effect="glass"] #notification-container {
   top: calc(var(--titlebar-h) + 10px);
 }
+
+/* ===============================
+   Jugar ahora y biblioteca con pasados
+   =============================== */
+/* Tarjetas más grandes que en el resto */
+.cards-grid.play-grid {
+  grid-template-columns: repeat(auto-fill, minmax(clamp(190px, 15vw, 270px), 1fr));
+  gap: 30px 22px;
+}
+
+.cards-grid.play-grid .card-info h3 {
+  font-size: 15px;
+}
+
+.play-search {
+  width: 260px;
+}
+
+/* Marca de pasado (sin platino), donde va la corona */
+.game-card .done-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #2f9e62;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45), 0 0 0 2px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+}
+
+.game-card .done-badge .i {
+  width: 14px;
+  height: 14px;
+  stroke-width: 3;
+}
+
+/* Bajo el título de la biblioteca: pasados y platinos (filtran al pulsar) */
+.lib-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.lib-chips:empty {
+  display: none;
+}
+
+.lib-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(var(--fg-rgb), 0.12);
+  background: rgba(var(--fg-rgb), 0.04);
+  color: var(--ink-200);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.lib-chip .i {
+  width: 14px;
+  height: 14px;
+}
+
+.lib-chip[data-state="completed"] .i {
+  color: #3fbf78;
+}
+
+.lib-chip[data-state="platinum"] .i {
+  color: var(--gold-400);
+}
+
+.lib-chip:hover {
+  border-color: rgba(var(--fg-rgb), 0.24);
+  color: var(--washi-50);
+  transform: none;
+}
+
+.lib-chip.is-on {
+  border-color: var(--red-500);
+  background: color-mix(in srgb, var(--red-500) 16%, transparent);
+  color: var(--washi-50);
+}

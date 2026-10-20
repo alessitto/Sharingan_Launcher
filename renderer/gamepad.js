@@ -49,10 +49,8 @@ function getCardsInActiveGrid() {
     return Array.from(
       document.querySelectorAll("#libraryList .game-card")
     );
-  if (secId === "completed")
-    return Array.from(
-      document.querySelectorAll("#completedList .game-card")
-    );
+  if (secId === "play")
+    return Array.from(document.querySelectorAll("#playList .game-card"));
   return [];
 }
 
@@ -212,7 +210,7 @@ function tickGamepad() {
       const sec = getActiveSectionId();
       if (sec === "popular") {
         document.getElementById("searchInput")?.focus();
-      } else if (sec === "library" || sec === "completed") {
+      } else if (sec === "library" || sec === "play") {
         // Y: la página del juego enfocado
         const card = getCardsInActiveGrid()[focusedIndex];
         if (card?.dataset.gameId) window.GamePage?.open(card.dataset.gameId);

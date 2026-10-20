@@ -32,8 +32,9 @@ async function loadLibrary() {
   libraryGamesCache = games;
   completedGamesCache = Array.isArray(completedGames) ? completedGames : [];
   window.Achievements?.refresh();
+  completedIds = new Set(completedGamesCache.map((g) => String(g.id)));
   applyLibraryFilter();
-  renderCompletedList();
+  renderPlayList();
   renderSideNav();
   window.GamePage?.refresh();
   window.Home?.refresh();
@@ -47,8 +48,8 @@ function renderSideNav() {
     const el = document.getElementById(id);
     if (el) el.textContent = n ? String(n) : "";
   };
-  count("navLibraryCount", libraryGamesCache.length);
-  count("navCompletedCount", completedGamesCache.length);
+  count("navLibraryCount", allLibraryCount());
+  count("navPlayCount", playGames().length);
   renderRecent();
 }
 
@@ -90,77 +91,6 @@ document.addEventListener("click", (e) => {
 function sagaForGame(gameId) {
   const gid = Number(gameId);
   return sagasCache.find((s) => s.gameIds.includes(gid));
-}
-
-// "Juegos pasados" ya no se ordena por nombre: se ordena por fecha de
-// finalización (más reciente arriba). Los juegos de una misma saga no
-// se dispersan por la línea de tiempo — se agrupan en un único bloque,
-// anclado a la fecha en que se completó el PRIMER juego de esa saga
-// (así, si te pasas 2 y 3 mucho después que 1, siguen "arrastrados"
-// junto a 1 en vez de aparecer sueltos por su propia fecha).
-function buildCompletedTimeline(completedGames, sagas) {
-  const gameById = new Map(completedGames.map((g) => [g.id, g]));
-  const sagaOfGame = new Map();
-  sagas.forEach((s) =>
-    s.gameIds.forEach((id) => {
-      if (!sagaOfGame.has(id)) sagaOfGame.set(id, s);
-    })
-  );
-
-  const entries = [];
-  const consumed = new Set();
-
-  completedGames.forEach((g) => {
-    const saga = sagaOfGame.get(g.id);
-    if (saga) {
-      if (consumed.has(saga.id)) return;
-      consumed.add(saga.id);
-      const members = saga.gameIds.map((id) => gameById.get(id)).filter(Boolean);
-      if (!members.length) return;
-      const anchor = Math.min(...members.map((m) => m.completedAt || 0));
-      entries.push({ type: "saga", saga, games: members, date: anchor });
-    } else {
-      entries.push({ type: "game", game: g, date: g.completedAt || 0 });
-    }
-  });
-
-  entries.sort((a, b) => b.date - a.date);
-  return entries;
-}
-
-function renderCompletedList() {
-  const container = document.getElementById("completedList");
-  container.innerHTML = "";
-  const title = document.getElementById("completedTitle");
-  if (title) {
-    const plat = completedGamesCache.filter((g) => g.isPlatinum).length;
-    title.innerHTML = `Juegos pasados (${completedGamesCache.length})${plat ? `<span class="title-chip">${icon("crown")}${plat} ${plat === 1 ? "platino" : "platinos"}</span>` : ""}`;
-  }
-
-  if (!completedGamesCache.length) {
-    container.innerHTML = `
-      <div class="empty-state">
-        <span class="empty-icon">${icon("trophy")}</span>
-        <p class="empty-title">Aún no has completado ningún juego</p>
-        <p class="empty-text">Márcalos desde el menú (···) de cada juego.</p>
-        <button class="primary" onclick="showSection('library', document.querySelectorAll('.topnav-item')[1])">
-          Ir a mi biblioteca
-        </button>
-      </div>
-    `;
-    return;
-  }
-
-  const entries = buildCompletedTimeline(completedGamesCache, sagasCache);
-
-  entries.forEach((entry) => {
-    if (entry.type === "game") {
-      container.appendChild(buildGameCard(entry.game, "completed"));
-      return;
-    }
-    container.appendChild(buildSagaGroup(entry.saga, entry.games, (g) => buildGameCard(g, "completed")));
-  });
-  layoutSagaGrid(container);
 }
 
 function currentGridColumns() {
@@ -364,8 +294,14 @@ function cardActionsHtml(game, mode) {
       ? `
         <div class="dropdown-item" onclick="togglePlatinum('${id}')">${icon("crown")}${game.isPlatinum ? "Quitar platino" : "Marcar platino"}</div>
         ${sagaItem}
-        <div class="dropdown-item" onclick="returnToLibrary('${id}')">${icon("arrowUp")}Volver a biblioteca</div>
-        <div class="dropdown-item is-danger" onclick="removeFromLibrary('${id}')">${icon("trash")}Quitar de pasados</div>`
+        <div class="dropdown-item" onclick="returnToLibrary('${id}')">${icon("arrowUp")}Desmarcar como pasado</div>
+        ${exeItem}
+        <div class="dropdown-item" onclick="openSortKeyEditor('${id}')">${icon("pencil")}Nombre para ordenar</div>
+        <div class="dropdown-item is-danger" onclick="removeFromLibrary('${id}')">${icon("trash")}Quitar de biblioteca</div>`
+      : mode === "play"
+      ? `
+        ${exeItem}
+        <div class="dropdown-item" onclick="window.GamePage?.open('${id}')">${icon("info")}Ver la página del juego</div>`
       : `
         <div class="dropdown-item" onclick="markCompleted('${id}')">${icon("check")}Marcar como pasado</div>
         ${sagaItem}

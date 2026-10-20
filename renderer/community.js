@@ -921,10 +921,10 @@
   }
   const myRatingOf = (localId) => myRatings.get(ratingKey(localId)) || 0;
 
-  // Juegos pasados: tu nota en una esquina de la portada (se pone y se
-  // cambia en la página del juego, en Reseñas).
+  // Juegos de la biblioteca: tu nota en una esquina de la portada (se pone
+  // y se cambia en la página del juego, en Reseñas).
   function decorateCompleted() {
-    const grid = document.getElementById("completedList");
+    const grid = document.getElementById("libraryList");
     if (!grid) return;
     for (const card of grid.querySelectorAll(".game-card[data-game-id]")) {
       const score = myRatingOf(Number(card.dataset.gameId));
@@ -1009,7 +1009,7 @@
       }).observe(el, { childList: true, subtree: true });
       fn();
     };
-    watch("completedList", decorateCompleted);
+    watch("libraryList", decorateCompleted);
   }
 
   window.Community = {
