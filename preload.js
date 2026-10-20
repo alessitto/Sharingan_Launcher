@@ -130,6 +130,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Página del juego: capturas, logros (Steam y emuladores) y mods
   gameMedia: (q) => ipcRenderer.invoke('game:media', q),
+  gameText: (g) => ipcRenderer.invoke('game:text', g),
   gameAchievements: (g) => ipcRenderer.invoke('game:achievements', g),
   gameMods: (g, opts) => ipcRenderer.invoke('game:mods', g, opts),
   nexusSearch: (term) => ipcRenderer.invoke('game:nexusSearch', term),

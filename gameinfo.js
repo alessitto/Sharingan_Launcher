@@ -32,7 +32,7 @@ function createGameInfo({ fetch, igdbQuery, steamKey, steamAppList, Fuse, steamI
     } catch {
       cache = {};
     }
-    for (const k of ["appid", "schema", "global", "nexusGame", "media"]) cache[k] ||= {};
+    for (const k of ["appid", "schema", "global", "nexusGame", "media", "store"]) cache[k] ||= {};
     return cache;
   };
   const save = () => {
@@ -119,6 +119,48 @@ function createGameInfo({ fetch, igdbQuery, steamKey, steamAppList, Fuse, steamI
       storyline: g.storyline || "",
     };
     put("media", id, { data });
+    return data;
+  }
+
+  // ------------------------------------------------------------ Textos en español (Steam)
+  // IGDB solo tiene las descripciones en inglés. La ficha de la tienda de
+  // Steam las da traducidas: se usan si el juego tiene español entre sus
+  // idiomas (si no, Steam devolvería el texto en inglés igualmente).
+  const decode = (s) =>
+    String(s || "")
+      .replace(/&nbsp;/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/&quot;/g, '"')
+      .replace(/&#0?39;|&apos;/g, "'")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)));
+  function htmlToText(html) {
+    return decode(
+      String(html || "")
+        .replace(/<(br|\/p|\/h\d|\/li|\/ul|\/div)\s*\/?>/gi, "\n")
+        .replace(/<li[^>]*>/gi, "\n• ")
+        .replace(/<(h\d|ul|p)[^>]*>/gi, "\n")
+        .replace(/<[^>]+>/g, "")
+    )
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l, i, a) => l || (i && a[i - 1]))
+      .join("\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+  }
+
+  async function storeText(game) {
+    const appid = await resolveAppId(game).catch(() => null);
+    if (!appid) return null;
+    const hit = cached("store", appid, 7 * DAY);
+    if (hit) return hit.data;
+    const j = await getJson(`https://store.steampowered.com/api/appdetails?appids=${appid}&l=spanish`).catch(() => null);
+    const d = j?.[appid]?.success ? j[appid].data : null;
+    const spanish = /español/i.test(d?.supported_languages || "");
+    const data = d && spanish ? { short: decode(d.short_description || "").trim(), about: htmlToText(d.about_the_game || d.detailed_description || "") } : null;
+    put("store", appid, { data });
     return data;
   }
 
@@ -552,6 +594,7 @@ function createGameInfo({ fetch, igdbQuery, steamKey, steamAppList, Fuse, steamI
 
   return {
     media,
+    storeText,
     achievements,
     mods,
     watch,

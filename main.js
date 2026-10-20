@@ -709,7 +709,7 @@ function upsertGameImported(gameObj) {
   }
 
   // 3) De verdad nuevo.
-  g = { id: gameId };
+  g = { id: gameId, addedAt: Date.now() };
   games.push(g);
   Object.assign(g, {
     name: gameObj.name ?? "",
@@ -776,6 +776,7 @@ function upsertOwnedGame(gameObj) {
     installDir: null,
     notInstalled: true,
     sortKey: gameObj.name,
+    addedAt: Date.now(),
   };
   games.push(g);
   return { status: "new", game: g };
@@ -1156,6 +1157,7 @@ ipcMain.handle("games:add", (_e, incoming) => {
       id: gameId,
       executable: null,
       sortKey: baseName,
+      addedAt: Date.now(),
     });
     saveData();
   }
@@ -1556,6 +1558,7 @@ const gameInfo = createGameInfo({
 // Juego de la biblioteca o, si es de Descubrir, lo que manda la ventana.
 const gameFor = (g) => (g && findAnyGame(Number(g.id))) || { id: g?.id, name: String(g?.name || ""), igdbId: Number(g?.igdbId) || null, steamAppId: null };
 ipcMain.handle("game:media", (_e, q) => gameInfo.media({ igdbId: Number(q?.igdbId) || null }).catch(() => null));
+ipcMain.handle("game:text", (_e, g) => gameInfo.storeText(gameFor(g)).catch(() => null));
 ipcMain.handle("game:achievements", (_e, g) => gameInfo.achievements(gameFor(g)).catch(() => ({ ok: false, reason: "network" })));
 ipcMain.handle("game:mods", (_e, g, opts = {}) =>
   gameInfo

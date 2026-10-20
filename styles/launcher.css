@@ -3338,3 +3338,65 @@ button.gp-stat:hover b {
   line-height: 1.5;
   color: var(--ink-300);
 }
+
+/* Biblioteca: título con contador y barra de buscar, filtrar y ordenar */
+.section-title .title-count {
+  margin-left: 10px;
+  padding: 2px 9px;
+  border-radius: 6px;
+  font-family: inherit;
+  font-style: normal;
+  font-size: 0.5em;
+  font-weight: 600;
+  letter-spacing: 0;
+  vertical-align: middle;
+  color: var(--ink-200);
+  background: rgba(var(--fg-rgb), 0.08);
+  font-variant-numeric: tabular-nums;
+}
+
+.lib-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.lib-toolbar .lib-search {
+  flex: 1 1 300px;
+  max-width: 460px;
+}
+
+.lib-toolbar .lib-search input[type="text"] {
+  height: var(--control-h);
+  margin: 0;
+}
+
+.lib-select {
+  height: var(--control-h);
+  min-width: 170px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--ink-700);
+  background: var(--ink-900);
+  color: var(--washi-100);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  outline: none;
+}
+
+.lib-select:focus {
+  border-color: var(--red-500);
+}
+
+:root:not([data-effect]) .lib-select {
+  border-radius: 7px;
+  border-color: var(--ink-800);
+}
+
+.lib-clear[hidden],
+.index-bar[hidden] {
+  display: none;
+}

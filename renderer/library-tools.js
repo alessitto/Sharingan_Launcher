@@ -5,25 +5,141 @@
 // ===============================
 // Filtro biblioteca
 // ===============================
+// Buscar por nombre, tienda, estado y orden. En "A-Z" sin buscar se ven
+// las sagas y el índice de letras; con cualquier otro orden o buscando, la
+// rejilla es plana. Se recuerda entre sesiones (localStorage).
+const LIB_DEFAULT = { q: "", store: "", state: "", sort: "az" };
+let libView = (() => {
+  try {
+    const saved = JSON.parse(localStorage.getItem("libraryView") || "null");
+    if (saved) return { ...LIB_DEFAULT, ...saved, q: "" };
+    // De antes: el botón "Jugables"
+    return { ...LIB_DEFAULT, state: localStorage.getItem("libraryLinkedFilter") === "true" ? "playable" : "" };
+  } catch {
+    return { ...LIB_DEFAULT };
+  }
+})();
+
+function saveLibView() {
+  try {
+    localStorage.setItem("libraryView", JSON.stringify({ ...libView, q: "" }));
+  } catch {}
+}
+
+const normName = (s) =>
+  String(s || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+const isInstalled = (g) => !g.notInstalled && !!(g.installDir || g.executable || canPlay(g));
+const LIB_STATE = {
+  playable: (g) => canPlay(g),
+  installed: isInstalled,
+  notInstalled: (g) => !!g.notInstalled,
+  unplayed: (g) => !(g.playSecs > 0),
+  played: (g) => g.playSecs > 0,
+};
+const LIB_SORT = {
+  recent: (a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0),
+  most: (a, b) => (b.playSecs || 0) - (a.playSecs || 0),
+  added: (a, b) => (b.addedAt || b._order || 0) - (a.addedAt || a._order || 0),
+  release: (a, b) => (b.first_release_date || 0) - (a.first_release_date || 0),
+};
+
+// El mando (X) y los atajos siguen alternando "Jugables".
 function toggleLinkedFilter() {
-  showOnlyLinked = !showOnlyLinked;
-  localStorage.setItem("libraryLinkedFilter", showOnlyLinked);
+  libView.state = libView.state === "playable" ? "" : "playable";
+  saveLibView();
   applyLibraryFilter();
   updateGamepadFocus(true);
 }
 
 function applyLibraryFilter() {
-  const btn = document.getElementById("linkedFilterBtn");
-  btn.classList.toggle("active", showOnlyLinked);
+  const sel = (id, v) => {
+    const el = document.getElementById(id);
+    if (el && el.value !== v) el.value = v;
+  };
+  sel("libStore", libView.store);
+  sel("libState", libView.state);
+  sel("libSort", libView.sort);
+  showOnlyLinked = libView.state === "playable";
 
-  let gamesToShow = libraryGamesCache;
-  if (showOnlyLinked) gamesToShow = libraryGamesCache.filter(canPlay);
+  const q = normName(libView.q.trim());
+  let list = libraryGamesCache.filter(
+    (g) =>
+      (!q || normName(g.name).includes(q) || normName(g.sortKey).includes(q)) &&
+      (!libView.store || (g.platform || "none") === libView.store) &&
+      (!libView.state || LIB_STATE[libView.state]?.(g))
+  );
+  const filtered = !!(q || libView.store || libView.state);
+  document.getElementById("libClear").hidden = !filtered;
 
   const title = document.getElementById("libraryTitle");
-  title.textContent = `Juegos (${gamesToShow.length})`;
+  title.textContent = filtered ? `${list.length} de ${libraryGamesCache.length}` : String(libraryGamesCache.length);
 
-  displayGames("libraryList", gamesToShow, "library");
+  const flat = libView.sort !== "az" || !!q;
+  document.getElementById("libraryIndexBar").hidden = flat || (filtered && !list.length);
+  if (!flat && (list.length || !filtered)) return displayGames("libraryList", list, "library");
+
+  if (LIB_SORT[libView.sort]) list = list.slice().sort(LIB_SORT[libView.sort]);
+  const container = document.getElementById("libraryList");
+  container.innerHTML = "";
+  container.classList.remove("has-sagas-only");
+  if (!list.length) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <span class="empty-icon">${icon("searchX")}</span>
+        <p class="empty-title">Ningún juego coincide</p>
+        <p class="empty-text">Prueba con otro nombre o quita los filtros.</p>
+        <div class="empty-actions"><button class="primary" onclick="clearLibraryFilters()">Quitar filtros</button></div>
+      </div>`;
+    return;
+  }
+  for (const g of list) container.appendChild(buildGameCard(g, "library"));
 }
+
+function clearLibraryFilters() {
+  libView = { ...LIB_DEFAULT, sort: libView.sort };
+  const input = document.getElementById("libSearch");
+  if (input) input.value = "";
+  saveLibView();
+  applyLibraryFilter();
+}
+
+(() => {
+  const input = document.getElementById("libSearch");
+  let t = 0;
+  input?.addEventListener("input", () => {
+    clearTimeout(t);
+    t = setTimeout(() => {
+      libView.q = input.value;
+      applyLibraryFilter();
+      updateGamepadFocus(true);
+    }, 120);
+  });
+  input?.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && input.value) {
+      e.stopPropagation();
+      input.value = "";
+      libView.q = "";
+      applyLibraryFilter();
+    }
+  });
+  for (const [id, key] of [
+    ["libStore", "store"],
+    ["libState", "state"],
+    ["libSort", "sort"],
+  ]) {
+    document.getElementById(id)?.addEventListener("change", (e) => {
+      libView[key] = e.target.value;
+      saveLibView();
+      applyLibraryFilter();
+      updateGamepadFocus(true);
+    });
+  }
+  document.getElementById("libClear")?.addEventListener("click", clearLibraryFilters);
+})();
 
 async function confirmUnlink(id) {
   const ok = await confirmDialog({

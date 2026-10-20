@@ -9,6 +9,7 @@ async function loadLibrary() {
   let { games, completedGames } = await window.electronAPI.getGames();
   sagasCache = (await window.electronAPI.getSagas()) || [];
 
+  if (Array.isArray(games)) games.forEach((g, i) => (g._order = i + 1));
   libraryIds.clear();
   if (Array.isArray(games)) games.forEach((g) => libraryIds.add(g.id));
   if (Array.isArray(completedGames))

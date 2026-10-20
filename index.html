@@ -164,18 +164,8 @@
           <div class="library-header page-head">
             <div class="library-header-title page-head-title">
               <span class="section-eyebrow">Mi biblioteca</span>
-              <h2 class="section-title" id="libraryTitle">Juegos (0)</h2>
+              <h2 class="section-title"><span>Biblioteca</span><em class="title-count" id="libraryTitle">0</em></h2>
             </div>
-
-            <button
-              id="linkedFilterBtn"
-              class="filter-btn"
-              onclick="toggleLinkedFilter()"
-              title="Mostrar solo los juegos que se pueden lanzar"
-            >
-              <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-              Jugables
-            </button>
 
             <button class="filter-btn" onclick="openImportModal()">
               <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
@@ -186,6 +176,37 @@
               <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></svg>
               Sagas
             </button>
+          </div>
+
+          <!-- Buscar, filtrar y ordenar (library-tools.js) -->
+          <div class="lib-toolbar">
+            <label class="search-field lib-search">
+              <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+              <input type="text" id="libSearch" placeholder="Buscar en tu biblioteca..." aria-label="Buscar en tu biblioteca" spellcheck="false" />
+            </label>
+            <select id="libStore" class="lib-select" aria-label="Tienda">
+              <option value="">Todas las tiendas</option>
+              <option value="steam">Steam</option>
+              <option value="epic">Epic Games</option>
+              <option value="gog">GOG</option>
+              <option value="none">Sin tienda</option>
+            </select>
+            <select id="libState" class="lib-select" aria-label="Estado">
+              <option value="">Todos</option>
+              <option value="playable">Jugables</option>
+              <option value="installed">Instalados</option>
+              <option value="notInstalled">Sin instalar</option>
+              <option value="unplayed">Sin jugar</option>
+              <option value="played">Jugados</option>
+            </select>
+            <select id="libSort" class="lib-select" aria-label="Ordenar">
+              <option value="az">A-Z (con sagas)</option>
+              <option value="recent">Jugado recientemente</option>
+              <option value="most">Más jugado</option>
+              <option value="added">Añadido recientemente</option>
+              <option value="release">Lanzamiento</option>
+            </select>
+            <button type="button" class="filter-btn lib-clear" id="libClear" hidden>Quitar filtros</button>
           </div>
 
           <div id="libraryIndexBar" class="index-bar"></div>

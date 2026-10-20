@@ -159,6 +159,15 @@
         if (st.tab === "overview") paintTab();
       })
       .catch(() => {});
+    // Descripción en español (Steam), si la hay
+    window.electronAPI
+      .gameText({ id: g.id, name: g.name, igdbId })
+      .then((t) => {
+        if (!alive(s) || !t?.short) return;
+        st.text = t;
+        if (st.tab === "overview") paintTab();
+      })
+      .catch(() => {});
     window.Community?.avgOf?.(igdbId)
       .then((r) => {
         if (!alive(s)) return;
@@ -437,8 +446,10 @@
             .join("")}</div>${shots.length > 6 ? `<button type="button" class="cm-link gp-more-shots" data-shot="6">Ver las ${shots.length} imágenes</button>` : ""}`
         : `<p class="gp-muted">No hay capturas de este juego.</p>`;
 
-    const summary = d?.summary || g.summary || "";
-    const story = m?.storyline || "";
+    // En español si Steam lo tiene; si no, el de IGDB (en inglés)
+    const es = st.text;
+    const summary = es?.short || d?.summary || g.summary || "";
+    const story = es ? es.about : m?.storyline || "";
     const played = st.owned ? g.playSecs : 0;
     const saga = st.owned ? sagaForGame(st.id) : null;
     const sagaGames = saga ? saga.gameIds.map((gid) => allOwned().find((x) => Number(x.id) === Number(gid))).filter(Boolean) : [];
@@ -449,7 +460,7 @@
           <section class="gp-sec">
             <h2 class="gp-h">Acerca del juego</h2>
             ${summary ? `<p class="gp-summary">${esc(summary)}</p>` : `<p class="gp-muted">No hay descripción de este juego.</p>`}
-            ${story ? `<details class="gp-story"><summary>Historia</summary><p>${esc(story)}</p></details>` : ""}
+            ${story && story !== summary ? `<details class="gp-story"><summary>${es ? "Leer más" : "Historia"}</summary><p>${esc(story)}</p></details>` : ""}
           </section>
           <section class="gp-sec">
             <h2 class="gp-h">Capturas y vídeos</h2>
