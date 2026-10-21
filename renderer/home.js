@@ -165,7 +165,7 @@
           (f) => `
         <button type="button" class="hm-friend" data-profile="${esc(f.username)}">
           ${window.Community.avatar(f.username, "is-md", f)}
-          <span><b>${esc(f.username)}</b><small class="${f.playing ? "is-live" : ""}">${f.playing ? `Jugando a ${esc(f.playing.name)}` : "En línea"}</small></span>
+          <span><b>${esc(f.username)}</b><small class="${f.playing ? "is-live" : f.listening ? "is-listening" : ""}">${f.playing ? `Jugando a ${esc(f.playing.name)}` : f.listening ? `Escuchando ${esc(f.listening.name)}` : "En línea"}</small></span>
         </button>`
         )
         .join("")}</div>`;

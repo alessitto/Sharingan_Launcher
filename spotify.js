@@ -508,6 +508,73 @@ function createSpotify(hooks) {
 
   const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, Math.round(Number(n) || 0)));
 
+  // ------------------------------------------------------------ Listas cortas (buscador, cola, tu top)
+  const smallImg = (imgs) => {
+    const list = [...(imgs || [])].sort((a, b) => (a.width || 0) - (b.width || 0));
+    return (list.find((i) => (i.width || 0) >= 64) || list[list.length - 1] || list[0])?.url || null;
+  };
+  // Canción o episodio
+  const brief = (t) => ({
+    kind: t.type === "episode" ? "episode" : "track",
+    uri: t.uri,
+    name: t.name,
+    artists: (t.artists || []).map((a) => a.name).join(", ") || t.show?.name || "",
+    thumb: smallImg(t.album?.images || t.images || t.show?.images),
+    durationMs: t.duration_ms || 0,
+    url: t.external_urls?.spotify || null,
+  });
+  // Álbum, artista, playlist o podcast (se pone entero)
+  const briefContext = (x, kind) => ({
+    kind,
+    uri: x.uri,
+    name: x.name,
+    sub:
+      kind === "album"
+        ? [(x.artists || []).map((a) => a.name).join(", "), String(x.release_date || "").slice(0, 4)].filter(Boolean).join(" · ")
+        : kind === "playlist"
+          ? x.owner?.display_name || ""
+          : kind === "show"
+            ? x.publisher || ""
+            : "",
+    thumb: smallImg(x.images),
+    url: x.external_urls?.spotify || null,
+  });
+
+  // Reproducir (uris o context_uri); sin nada activo se despierta el primer
+  // dispositivo disponible.
+  async function playBody(body) {
+    try {
+      await call("PUT", "/me/player/play", { body });
+    } catch (err) {
+      if (err.code !== "no_device") throw err;
+      const list = (await call("GET", "/me/player/devices"))?.devices || [];
+      const target = list.find((d) => d.type === "Computer") || list[0];
+      if (!target) throw err;
+      await call("PUT", "/me/player/play", { query: { device_id: target.id }, body });
+    }
+  }
+
+  // Tu top (Estadísticas): artistas y canciones de las últimas 4 semanas, 6
+  // meses o desde siempre. Caché de 30 min por periodo.
+  const topCache = new Map();
+  async function top(range) {
+    const r = ["short_term", "medium_term", "long_term"].includes(range) ? range : "short_term";
+    if (!hasScope("user-top-read")) return { needsScope: true, artists: [], tracks: [] };
+    const hit = topCache.get(r);
+    if (hit && Date.now() - hit.at < 30 * 60 * 1000) return hit.value;
+    const [a, t] = await Promise.all([
+      call("GET", "/me/top/artists", { query: { limit: 10, time_range: r } }),
+      call("GET", "/me/top/tracks", { query: { limit: 10, time_range: r } }),
+    ]);
+    const value = {
+      needsScope: false,
+      artists: (a?.items || []).filter((x) => x?.uri).map((x) => briefContext(x, "artist")),
+      tracks: (t?.items || []).filter((x) => x?.uri).map(brief),
+    };
+    topCache.set(r, { at: Date.now(), value });
+    return value;
+  }
+
   // ¿Existe una app con este Client ID? Se canjea un código inventado: si la
   // app no existe Spotify dice invalid_client; si existe, invalid_grant.
   async function clientExists(id) {
@@ -600,42 +667,50 @@ function createSpotify(hooks) {
       }
       return {};
     },
-    // Buscador de canciones del reproductor.
+    // Buscador del reproductor: canciones, artistas, álbumes, playlists y
+    // podcasts (4.3.3; antes solo canciones).
     search: async (text) => {
       const qtext = String(text || "").trim().slice(0, 100);
-      if (!qtext) return { tracks: [] };
-      const j = await call("GET", "/search", { query: { q: qtext, type: "track", limit: 8 } });
-      const items = (j?.tracks?.items || []).filter(Boolean);
+      if (!qtext) return { tracks: [], artists: [], albums: [], playlists: [], shows: [] };
+      const j = await call("GET", "/search", { query: { q: qtext, type: "track,artist,album,playlist,show", limit: 6 } });
+      const items = (j?.tracks?.items || []).filter((t) => t?.uri);
       searchHits.clear();
-      for (const t of items) if (t.uri) searchHits.set(t.uri, t);
-      const tracks = items.map((t) => {
-        const imgs = t.album?.images || [];
-        return {
-          uri: t.uri,
-          name: t.name,
-          artists: (t.artists || []).map((a) => a.name).join(", "),
-          thumb: (imgs[imgs.length - 1] || imgs[0])?.url || null,
-          durationMs: t.duration_ms || 0,
-        };
-      });
-      return { tracks };
+      for (const t of items) searchHits.set(t.uri, t);
+      const ctx = (list, kind, n) => (list?.items || []).filter((x) => x?.uri).slice(0, n).map((x) => briefContext(x, kind));
+      return {
+        tracks: items.map(brief),
+        artists: ctx(j?.artists, "artist", 4),
+        albums: ctx(j?.albums, "album", 4),
+        playlists: ctx(j?.playlists, "playlist", 4),
+        shows: ctx(j?.shows, "show", 3),
+      };
     },
+    // Poner entero un álbum, artista, playlist o podcast
+    playContext: async (uri) => {
+      if (!/^spotify:(album|artist|playlist|show):[A-Za-z0-9]+$/.test(String(uri || ""))) throw new SpotifyError("bad_request", 400);
+      radio = null;
+      await playBody({ context_uri: uri });
+      return {};
+    },
+    // A continuación (lo que da Spotify: hasta 20)
+    queue: async () => {
+      const j = await call("GET", "/me/player/queue");
+      return { queue: (j?.queue || []).filter((t) => t?.uri).slice(0, 20).map(brief) };
+    },
+    addToQueue: async (uri) => {
+      if (!/^spotify:(track|episode):[A-Za-z0-9]+$/.test(String(uri || ""))) throw new SpotifyError("bad_request", 400);
+      await call("POST", "/me/player/queue", { query: { uri } });
+      // La radio sigue aunque suene algo que has puesto tú
+      radio?.uris.push(uri);
+      return {};
+    },
+    top: async (range) => top(range),
     playTrack: async (uri) => {
       if (!/^spotify:track:[A-Za-z0-9]+$/.test(String(uri || ""))) throw new SpotifyError("bad_request", 400);
       // La elegida y detrás la radio; si no se puede armar, la canción sola.
       const r = await startRadio(uri).catch(() => null);
-      const uris = r ? r.uris : [uri];
       radio = r;
-      try {
-        await call("PUT", "/me/player/play", { body: { uris } });
-      } catch (err) {
-        // Nada activo: se despierta el primer dispositivo disponible.
-        if (err.code !== "no_device") throw err;
-        const list = (await call("GET", "/me/player/devices"))?.devices || [];
-        const target = list.find((d) => d.type === "Computer") || list[0];
-        if (!target) throw err;
-        await call("PUT", "/me/player/play", { query: { device_id: target.id }, body: { uris } });
-      }
+      await playBody({ uris: r ? r.uris : [uri] });
       return {};
     },
     pause: async () => (await call("PUT", "/me/player/pause"), {}),

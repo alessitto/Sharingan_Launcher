@@ -487,7 +487,7 @@ function createCloud(hooks) {
     friendRequest: async (username) => api("friends/request", { body: { username } }),
     friendRespond: async (username, accept) => api("friends/respond", { body: { username, accept: !!accept } }),
     friendRemove: async (username) => api("friends/remove", { body: { username } }),
-    presence: async (playing) => api("presence/set", { body: { playing: playing || null } }),
+    presence: async (playing, listening) => api("presence/set", { body: { playing: playing || null, listening: listening || null } }),
     refreshMe: async () => {
       const res = await api("auth/me");
       settings.cloudUser = res.user;

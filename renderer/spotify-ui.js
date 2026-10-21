@@ -51,6 +51,8 @@
     shrink: '<path d="m14 10 7-7"/><path d="M20 10h-6V4"/><path d="m3 21 7-7"/><path d="M4 14h6v6"/>',
     lyrics: '<path d="M17 6H3"/><path d="M21 12H8"/><path d="M21 18H8"/><path d="M3 12v6"/>',
     search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+    plus: '<path d="M12 5v14"/><path d="M5 12h14"/>',
+    queue: '<path d="M21 15V6"/><path d="M18.5 18a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/><path d="M12 12H3"/><path d="M16 6H3"/><path d="M12 18H3"/>',
     // Asistente
     copy: '<rect width="13" height="13" x="9" y="9" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
     clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
@@ -122,6 +124,20 @@
   let lyricIdx = -2;
   let manualScrollUntil = 0;
   let fsExitAt = 0;
+  // A continuación (4.3.3): va en el mismo panel que la letra y la tapa
+  // mientras está abierta. No se recuerda.
+  let queueOn = false;
+  let queueKey = null; // canción con la que se pidió la cola
+  let queueAt = 0;
+  // Compartir con tus amigos lo que suena (se recuerda; de serie, sí).
+  let shareOn = (() => {
+    try {
+      return localStorage.getItem("spShare") !== "0";
+    } catch {
+      return true;
+    }
+  })();
+  let listenKey = "";
   // Ver la letra o no (se recuerda; de serie, no).
   let lyricsOn = (() => {
     try {
@@ -244,6 +260,7 @@
       if (state?.device && Date.now() < volumeHoldUntil && prevVolume != null) state.device.volume = prevVolume;
       if (state?.device?.volume > 0) lastVolume = state.device.volume;
       render();
+      notifyListening();
     } else if (res.code !== "network") {
       showError(res);
     }
@@ -327,6 +344,7 @@
     }
     q(".sp-search").hidden = next === "setup";
     view.classList.remove("lyrics-on");
+    queueKey = null;
     if (next === "setup") {
       // Sin conectar: asistente (si ya hay Client ID, directo a conectar).
       const step = setupStep || (config.clientId ? 4 : 1);
@@ -386,6 +404,7 @@
               <button type="button" class="sp-ctl sp-mute" data-act="mute"></button>
               <input type="range" class="sp-range sp-vol" min="0" max="100" step="1" value="50" aria-label="Volumen">
             </div>
+            <button type="button" class="sp-ctl sp-toggle sp-queue-btn" data-act="queue" aria-pressed="false" title="A continuación (Q)">${ic("queue")}</button>
             <div class="sp-device">
               <button type="button" class="sp-device-btn" data-act="devices" aria-expanded="false" title="Elegir dispositivo">
                 <span class="sp-device-ic"></span><b></b>${ic("chevron", "sp-chev")}
@@ -465,6 +484,7 @@
     if (devicesOpen) pop.innerHTML = devicesList();
 
     loadLyrics();
+    loadQueue();
     healCd();
   }
 
@@ -630,16 +650,28 @@
   // tiene; si no, el reproductor se queda centrado.
   function lyricsLayout() {
     const has = !!lyrics?.lines?.length;
-    view.classList.toggle("lyrics-on", lyricsOn && has && mode === "player");
+    view.classList.toggle("lyrics-on", (queueOn || (lyricsOn && has)) && mode === "player");
+    const qb = q(".sp-queue-btn");
+    if (qb) {
+      qb.classList.toggle("is-on", queueOn);
+      qb.setAttribute("aria-pressed", String(queueOn));
+      qb.title = queueOn ? "Ocultar a continuación (Q)" : "A continuación (Q)";
+    }
     const b = q(".sp-lyrics-btn");
     if (!b) return;
-    b.classList.toggle("is-on", lyricsOn);
-    b.classList.toggle("is-empty", lyricsOn && !!lyrics && !has);
-    b.setAttribute("aria-pressed", String(lyricsOn));
-    b.title = !lyricsOn ? "Ver la letra (L)" : lyrics && !has ? (lyrics.kind === "instrumental" ? "Instrumental" : "Esta canción no tiene letra") : "Ocultar la letra (L)";
+    const on = lyricsOn && !queueOn;
+    b.classList.toggle("is-on", on);
+    b.classList.toggle("is-empty", on && !!lyrics && !has);
+    b.setAttribute("aria-pressed", String(on));
+    b.title = !on ? "Ver la letra (L)" : lyrics && !has ? (lyrics.kind === "instrumental" ? "Instrumental" : "Esta canción no tiene letra") : "Ocultar la letra (L)";
   }
 
   function toggleLyrics() {
+    // Con la cola abierta, el botón de la letra la quita y enseña la letra
+    if (queueOn) {
+      queueOn = false;
+      lyricsOn = false;
+    }
     lyricsOn = !lyricsOn;
     try {
       localStorage.setItem("spLyrics", lyricsOn ? "1" : "0");
@@ -663,7 +695,7 @@
   async function loadLyrics() {
     const it = state?.item;
     const box = q(".sp-lyrics");
-    if (!box || !lyricsOn) return;
+    if (!box || !lyricsOn || queueOn) return;
     const key = it && state.type !== "episode" ? String(it.id || `${it.artist}|${it.name}`) : "";
     if (key === lyricsKey) return;
     lyricsKey = key;
@@ -681,7 +713,8 @@
     lyricIdx = -2;
     const box = q(".sp-lyrics");
     lyricsLayout();
-    if (!box) return;
+    if (!box || queueOn) return;
+    box.classList.remove("is-queue");
     const msg = (icon, text) => `<div class="sp-lyrics-msg">${ic(icon)}<p>${text}</p></div>`;
     box.classList.remove("is-synced", "is-plain");
     box.scrollTop = 0;
@@ -698,7 +731,7 @@
   }
 
   function syncLyrics(pos, instant = false) {
-    if (lyrics?.kind !== "synced" || !open) return;
+    if (lyrics?.kind !== "synced" || !open || queueOn) return;
     const lines = lyrics.lines;
     const t = pos + LYRICS_LEAD_MS;
     let idx = -1;
@@ -738,6 +771,81 @@
       if (t < 1) glideRaf = requestAnimationFrame(step);
     };
     glideRaf = requestAnimationFrame(step);
+  }
+
+  // ------------------------------------------------------------ A continuación
+  function toggleQueue() {
+    queueOn = !queueOn;
+    queueKey = null;
+    if (queueOn) loadQueue();
+    else {
+      // Vuelve la letra si estaba puesta
+      lyricsKey = null;
+      lyrics = null;
+      loadLyrics();
+    }
+    lyricsLayout();
+  }
+
+  // Se pide al abrirla, al cambiar de canción, cada 15 s y al añadir algo.
+  async function loadQueue(force = false) {
+    if (!queueOn || mode !== "player") return;
+    const key = state?.item?.id || "";
+    if (!force && key === queueKey && performance.now() - queueAt < 15000) return;
+    const first = queueKey === null;
+    queueKey = key;
+    queueAt = performance.now();
+    if (first) paintQueue(null);
+    const res = await sp("queue");
+    if (!queueOn || mode !== "player") return;
+    paintQueue(res.ok ? res.queue : false);
+  }
+
+  function paintQueue(list) {
+    const box = q(".sp-lyrics");
+    if (!box) return;
+    box.classList.remove("is-synced", "is-plain");
+    box.classList.add("is-queue");
+    const msg = (text) => `<div class="sp-lyrics-msg">${ic("queue")}<p>${text}</p></div>`;
+    if (list === null) {
+      box.innerHTML = `<div class="sp-lyrics-msg is-loading"><span class="sp-wait"><i></i><i></i><i></i></span></div>`;
+      return;
+    }
+    if (list === false) return void (box.innerHTML = msg("No se ha podido cargar la cola"));
+    if (!list.length) return void (box.innerHTML = msg("No hay nada a continuación"));
+    const top = box.scrollTop;
+    box.innerHTML = `<div class="sp-q"><h3 class="sp-q-h">A continuación</h3>${list
+      .map(
+        (t, i) => `
+        <div class="sp-q-row">
+          <span class="sp-q-n">${i + 1}</span>
+          <span class="sp-hit-cover">${t.thumb ? `<img src="${esc(t.thumb)}" alt="" loading="lazy">` : ic("music")}</span>
+          <span class="sp-hit-text"><b>${esc(t.name)}</b><small>${esc(t.artists)}</small></span>
+          <span class="sp-hit-time">${fmt(t.durationMs)}</span>
+        </div>`
+      )
+      .join("")}</div>`;
+    box.scrollTop = top;
+  }
+
+  // ------------------------------------------------------------ Para tus amigos
+  // Lo que suena, si se comparte (lo manda social.js con la presencia).
+  function nowListening() {
+    const it = state?.item;
+    if (!shareOn || !connected || !state?.isPlaying || !it || state.type === "ad") return null;
+    return {
+      name: it.name,
+      artists: it.artists,
+      cover: /^https:\/\//.test(it.thumb || "") ? it.thumb : null,
+      url: it.url,
+    };
+  }
+  function notifyListening() {
+    const l = nowListening();
+    const key = l ? `${l.name}|${l.artists}` : "";
+    if (key === listenKey) return;
+    listenKey = key;
+    window.Social?.presenceChanged?.();
   }
 
   // ------------------------------------------------------------ Pintar
@@ -865,27 +973,60 @@
       showError(res);
       return closeSearch(false);
     }
-    searchHits = res.tracks || [];
-    searchOut.innerHTML = searchHits.length
-      ? searchHits
-          .map(
-            (t, i) => `
-          <button type="button" class="sp-hit" data-hit="${i}">
-            <span class="sp-hit-cover">${t.thumb ? `<img src="${esc(t.thumb)}" alt="">` : ic("music")}</span>
-            <span class="sp-hit-text"><b>${esc(t.name)}</b><small>${esc(t.artists)}</small></span>
-            <span class="sp-hit-time">${fmt(t.durationMs)}</span>
-          </button>`
-          )
-          .join("")
+    // Por tipos (4.3.3): canciones (con "a la cola"), artistas, álbumes,
+    // playlists y podcasts. Lo que no es canción se pone entero.
+    const groups = [
+      ["Canciones", res.tracks],
+      ["Artistas", res.artists],
+      ["Álbumes", res.albums],
+      ["Playlists", res.playlists],
+      ["Podcasts", res.shows],
+    ].filter(([, list]) => list?.length);
+    searchHits = groups.flatMap(([, list]) => list);
+    let i = 0;
+    const hit = (t) => {
+      const n = i++;
+      const track = t.kind === "track" || t.kind === "episode";
+      return `
+          <div class="sp-hit-row">
+            <button type="button" class="sp-hit" data-hit="${n}">
+              <span class="sp-hit-cover${t.kind === "artist" ? " is-round" : ""}">${t.thumb ? `<img src="${esc(t.thumb)}" alt="">` : ic("music")}</span>
+              <span class="sp-hit-text"><b>${esc(t.name)}</b><small>${esc(track ? t.artists : t.sub || "")}</small></span>
+              ${track ? `<span class="sp-hit-time">${fmt(t.durationMs)}</span>` : ""}
+            </button>
+            ${track ? `<button type="button" class="sp-hit-q" data-queue="${n}" title="Añadir a la cola">${ic("plus")}</button>` : ""}
+          </div>`;
+    };
+    searchOut.innerHTML = groups.length
+      ? groups.map(([title, list]) => `<p class="sp-hit-h">${title}</p>${list.map(hit).join("")}`).join("")
       : `<p class="sp-hit-empty">Sin resultados</p>`;
     searchOut.hidden = false;
   }
+
+  // Pone lo que sea: canción (con la radio detrás) o álbum, artista,
+  // playlist o podcast entero.
+  const playUri = (t) => (t.kind === "track" || t.kind === "episode" ? run("playTrack", t.uri) : run("playContext", t.uri));
 
   async function playHit(i) {
     const t = searchHits[i];
     if (!t) return;
     closeSearch(true);
-    await run("playTrack", t.uri);
+    await playUri(t);
+  }
+
+  async function queueHit(i, btn) {
+    const t = searchHits[i];
+    if (!t) return;
+    btn.disabled = true;
+    const res = await sp("addToQueue", t.uri);
+    if (!res.ok) {
+      btn.disabled = false;
+      return showError(res);
+    }
+    btn.innerHTML = ic("check");
+    btn.classList.add("is-done");
+    btn.title = "En la cola";
+    if (queueOn) setTimeout(() => loadQueue(true), 600);
   }
 
   searchIn.addEventListener("input", () => {
@@ -899,11 +1040,13 @@
     if (e.key === "Escape") closeSearch(true);
     else if (e.key === "Enter") {
       clearTimeout(searchTimer);
-      if (searchHits.length && !searchOut.hidden) playHit(0);
+      if (searchHits.length && !searchOut.hidden) playHit(Math.max(0, searchHits.findIndex((t) => t.kind === "track")));
       else runSearch();
     }
   });
   searchOut.addEventListener("click", (e) => {
+    const add = e.target.closest("[data-queue]");
+    if (add) return queueHit(Number(add.dataset.queue), add);
     const hit = e.target.closest("[data-hit]");
     if (hit) playHit(Number(hit.dataset.hit));
   });
@@ -922,6 +1065,7 @@
     if (e.target.closest?.("button, input")) return;
     if (e.key === "f" || e.key === "F") toggleFullscreen();
     else if ((e.key === "l" || e.key === "L") && mode === "player") toggleLyrics();
+    else if ((e.key === "q" || e.key === "Q") && mode === "player") toggleQueue();
     else if (e.key === " " && state) {
       e.preventDefault();
       q('[data-act="toggle"]')?.click();
@@ -1014,6 +1158,8 @@
       setOpen(false);
     } else if (act === "lyrics") {
       toggleLyrics();
+    } else if (act === "queue") {
+      toggleQueue();
     } else if (act === "fullscreen") {
       toggleFullscreen();
     } else if (act === "disconnect") {
@@ -1172,6 +1318,20 @@
       } else setOpen(true);
     },
     close: () => open && setOpen(false),
+    // Para Estadísticas: tu top (null si no hay Spotify conectado) y ponerlo
+    connected: () => allowed && connected,
+    top: async (range) => (connected ? sp("top", range) : null),
+    play: (t) => playUri(t),
+    // Para social.js: lo que suena (null si no suena nada o no se comparte)
+    nowListening: () => nowListening(),
+    shareShown: () => shareOn,
+    setShare: (on) => {
+      shareOn = !!on;
+      try {
+        localStorage.setItem("spShare", shareOn ? "1" : "0");
+      } catch {}
+      notifyListening();
+    },
     refresh: () => refreshConfig(),
     buttonShown: () => showBtn,
     showButton: (on) => {

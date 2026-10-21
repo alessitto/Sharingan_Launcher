@@ -3,8 +3,9 @@
 // =====================================================================
 // - Amigos: lista con quién está conectado y a qué juega, solicitudes
 //   (pestaña Amigos de Comunidad) y los conectados en la barra lateral.
-// - Presencia: cada minuto (y al abrir o cerrar un juego) se manda a qué
-//   juegas; solo lo ven tus amigos.
+// - Presencia: cada minuto (y al abrir o cerrar un juego o cambiar de
+//   canción) se manda a qué juegas y qué escuchas en Spotify (4.3.3, se
+//   puede quitar en Ajustes › Spotify); solo lo ven tus amigos.
 // - Perfil público de cualquiera (clic en su nombre en el chat, las
 //   reseñas o los amigos): horas, más jugados, pasados y reseñas.
 // - Cuenta: correo para recuperar la contraseña, perfil privado, descargar
@@ -21,6 +22,11 @@
   const fmtH = (h) => (h >= 10 ? `${Math.round(h).toLocaleString("es-ES")} h` : `${String(h).replace(".", ",")} h`);
 
   let data = { friends: [], incoming: [], outgoing: [] };
+
+  // Lo que hace un amigo, en una línea: jugar va antes que escuchar.
+  const statusText = (f) =>
+    f.playing ? `Jugando a ${f.playing.name}` : f.listening ? `Escuchando ${f.listening.name}${f.listening.artists ? ` · ${f.listening.artists}` : ""}` : f.online ? "En línea" : "";
+  const statusClass = (f) => (f.playing ? "is-playing" : f.listening ? "is-listening" : f.online ? "is-online" : "");
   let pollTimer = 0;
 
   // ------------------------------------------------------------ Amigos
@@ -52,8 +58,8 @@
       .map(
         (f) => `
       <button type="button" class="side-friend" data-profile="${esc(f.username)}" title="${esc(f.username)}">
-        ${avatar(f.username, "is-sm", f)}<i class="side-friend-dot${f.playing ? " is-playing" : ""}"></i>
-        <span><b>${esc(f.username)}</b><small>${f.playing ? `Jugando a ${esc(f.playing.name)}` : "En línea"}</small></span>
+        ${avatar(f.username, "is-sm", f)}<i class="side-friend-dot ${statusClass(f)}"></i>
+        <span><b>${esc(f.username)}</b><small>${esc(statusText(f))}</small></span>
       </button>`
       )
       .join("");
@@ -72,10 +78,16 @@
         <button type="button" class="fr-who" data-profile="${esc(f.username)}">
           ${avatar(f.username, "is-md", f)}
           <span><b>${esc(f.username)}</b>${
-            f.online !== undefined ? `<small class="${f.playing ? "is-playing" : f.online ? "is-online" : ""}">${f.playing ? `Jugando a ${esc(f.playing.name)}` : f.online ? "En línea" : esc(lastSeen(f))}</small>` : ""
+            f.online !== undefined ? `<small class="${statusClass(f)}">${esc(f.online ? statusText(f) : lastSeen(f))}</small>` : ""
           }</span>
         </button>
-        ${f.playing?.cover ? `<img class="fr-game" src="${esc(f.playing.cover)}" alt="" title="${esc(f.playing.name)}">` : ""}
+        ${
+          f.playing?.cover
+            ? `<img class="fr-game" src="${esc(f.playing.cover)}" alt="" title="${esc(f.playing.name)}">`
+            : f.listening?.cover
+              ? `<img class="fr-game is-music" src="${esc(f.listening.cover)}" alt="" title="${esc(f.listening.name)}">`
+              : ""
+        }
         <div class="fr-actions">${actions}</div>
       </div>`;
     body.innerHTML = `
@@ -181,10 +193,11 @@
   async function sendPresence(force) {
     if (!me()) return;
     const p = currentPlaying();
-    const key = JSON.stringify(p);
+    const l = window.SpotifyUI?.nowListening?.() || null;
+    const key = JSON.stringify([p, l]);
     if (!force && key === lastPresence) return;
     lastPresence = key;
-    await api("presence", p);
+    await api("presence", p, l);
   }
 
   function startPolling() {
@@ -212,6 +225,13 @@
     const p = res.profile;
     const since = p.createdAt ? new Date(p.createdAt).toLocaleDateString("es-ES", { month: "long", year: "numeric" }) : "";
     const status = p.playing ? `<span class="up-status is-playing"><i></i>Jugando a ${esc(p.playing.name)}</span>` : p.online ? `<span class="up-status is-online"><i></i>En línea</span>` : "";
+    // Lo que escucha: tarjeta pequeña que abre la canción en Spotify
+    const music = p.listening
+      ? `<button type="button" class="up-music"${p.listening.url ? ` data-url="${esc(p.listening.url)}" title="Abrir en Spotify"` : " disabled"}>
+          ${p.listening.cover ? `<img src="${esc(p.listening.cover)}" alt="">` : `<span class="up-music-ic">${icon("music")}</span>`}
+          <span><small>Escuchando</small><b>${esc(p.listening.name)}</b><small>${esc(p.listening.artists || "")}</small></span>
+        </button>`
+      : "";
     const rel = p.relation;
     const actions =
       rel === "self"
@@ -278,12 +298,14 @@
               <p class="up-name">${esc(p.username)} ${p.admin ? `<span class="cm-admin">${icon("crown")}Admin</span>` : ""}</p>
               <p class="up-meta">${since ? `Miembro desde ${esc(since)}` : ""}${p.private && !p.hidden ? ` · ${icon("user")}Perfil privado` : ""}</p>
               ${status}
+              ${music}
             </div>
             <div class="up-actions">${actions}</div>
           </div>
           ${body}
         </div>`,
-      didOpen: (popup) =>
+      didOpen: (popup) => {
+        popup.querySelector(".up-music[data-url]")?.addEventListener("click", (e) => window.electronAPI.openExternal(e.currentTarget.dataset.url));
         popup.querySelector(".up-actions")?.addEventListener("click", async (e) => {
           const b = e.target.closest("[data-up]");
           if (!b) return;
@@ -299,7 +321,8 @@
           }
           await friendAction(kind, p.username);
           openUserProfile(username);
-        }),
+        });
+      },
     });
   }
 

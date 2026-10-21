@@ -647,6 +647,10 @@ async function renderSpotifySettings(box) {
         <div><p class="settings-data-title">Botón en la barra lateral</p></div>
         <input type="checkbox" class="st-switch" data-sp="button" ${S.buttonShown() ? "checked" : ""}>
       </label>
+      <label class="settings-data-row st-sp-toggle">
+        <div><p class="settings-data-title">Enseñar a tus amigos lo que escuchas</p></div>
+        <input type="checkbox" class="st-switch" data-sp="share" ${S.shareShown() ? "checked" : ""}>
+      </label>
     </div>`;
   box.onclick = async (e) => {
     const act = e.target.closest("button[data-sp]")?.dataset.sp;
@@ -659,6 +663,7 @@ async function renderSpotifySettings(box) {
     }
   };
   box.querySelector('[data-sp="button"]').onchange = (e) => S.showButton(e.target.checked);
+  box.querySelector('[data-sp="share"]').onchange = (e) => S.setShare(e.target.checked);
 }
 
 async function openSettingsModal(start) {

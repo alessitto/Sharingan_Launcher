@@ -8,6 +8,8 @@
 //             avisa de que es aproximado.
 // Gráficos de una sola serie (el acento legible del tema), con tooltip al
 // pasar el ratón. "Tu año en Sharingan" genera una imagen para compartir.
+// "Tu Spotify" (4.3.3): artistas y canciones que más escuchas, solo si hay
+// Spotify conectado y tiene algo que enseñar (si no, ni sale).
 (() => {
   "use strict";
 
@@ -19,6 +21,14 @@
   const WEEK = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
   const WEEK_LONG = ["los lunes", "los martes", "los miércoles", "los jueves", "los viernes", "los sábados", "los domingos"];
   let period = String(new Date().getFullYear());
+  const SP_RANGES = [
+    ["short_term", "4 semanas"],
+    ["medium_term", "6 meses"],
+    ["long_term", "Siempre"],
+  ];
+  let spRange = "short_term";
+  let spSeq = 0;
+  let spItems = []; // lo pintado en "Tu Spotify" (para ponerlo al pulsar)
 
   const allGames = () => [...libraryGamesCache, ...completedGamesCache];
   const hours = (s) => s / 3600;
@@ -214,8 +224,65 @@
       </div>
       ${d.approx ? `<p class="st-foot">${icon("info")}El tiempo de antes de la versión 4.1 se reparte por igual entre los días en que jugaste: esas horas por día y por mes son aproximadas.</p>` : ""}`
       }
+      <div class="st-sp" hidden></div>
       <div class="st-tip" hidden></div>`;
+    paintSpotify();
   }
+
+  // ------------------------------------------------------------ Tu Spotify
+  async function paintSpotify() {
+    const seq = ++spSeq;
+    const S = window.SpotifyUI;
+    const guest = document.body.classList.contains("is-guest");
+    const res = !guest && S?.connected?.() ? await S.top(spRange) : null;
+    const box = root.querySelector(".st-sp");
+    if (seq !== spSeq || !box) return;
+    const artists = res?.ok ? res.artists || [] : [];
+    const tracks = res?.ok ? res.tracks || [] : [];
+    // Sin Spotify, sin permiso o sin nada que enseñar: no sale (si cambia de
+    // periodo y no hay nada, se queda la tarjeta con el aviso)
+    const empty = !artists.length && !tracks.length;
+    if (!res?.ok || res.needsScope || (empty && !box.dataset.shown)) {
+      box.hidden = true;
+      return;
+    }
+    box.dataset.shown = "1";
+    spItems = [...artists, ...tracks];
+    const row = (t, i, n) => `
+      <button type="button" class="st-sp-row" data-sp-item="${i}" title="Poner en Spotify">
+        <span class="st-sp-n">${n}</span>
+        <span class="st-sp-img${t.kind === "artist" ? " is-round" : ""}">${t.thumb ? `<img src="${esc(t.thumb)}" alt="" loading="lazy">` : icon("music")}</span>
+        <span class="st-sp-text"><b>${esc(t.name)}</b>${t.kind === "artist" ? "" : `<small>${esc(t.artists)}</small>`}</span>
+      </button>`;
+    box.innerHTML = `
+      <section class="st-card st-wide">
+        <div class="st-sp-head">
+          <h3 class="st-h">Tu Spotify</h3>
+          <div class="st-sp-ranges" role="tablist">${SP_RANGES.map(
+            ([k, label]) => `<button type="button" class="st-sp-range${k === spRange ? " is-on" : ""}" data-sp-range="${k}" role="tab" aria-selected="${k === spRange}">${label}</button>`
+          ).join("")}</div>
+        </div>
+        ${
+          empty
+            ? `<p class="st-note">Todavía no hay nada en este periodo.</p>`
+            : `<div class="st-sp-cols">
+          <div><h4 class="st-sp-sub">Artistas</h4>${artists.map((t, i) => row(t, i, i + 1)).join("")}</div>
+          <div><h4 class="st-sp-sub">Canciones</h4>${tracks.map((t, i) => row(t, artists.length + i, i + 1)).join("")}</div>
+        </div>`
+        }
+      </section>`;
+    box.hidden = false;
+  }
+
+  root.addEventListener("click", (e) => {
+    const r = e.target.closest("[data-sp-range]");
+    if (r) {
+      spRange = r.dataset.spRange;
+      return paintSpotify();
+    }
+    const it = e.target.closest("[data-sp-item]");
+    if (it) window.SpotifyUI?.play(spItems[Number(it.dataset.spItem)]);
+  });
 
   // ------------------------------------------------------------ Tu año (imagen)
   async function wrapped() {
