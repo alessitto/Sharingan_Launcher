@@ -7,14 +7,14 @@
 //
 //   node tools/econ-data.js
 //
-// Escribe alejandrodev.es/public/sharingan_api/data/econ.json. Hay que
+// Escribe alejandrodev.es/public/sharingan_api/res/econ.json. Hay que
 // volver a generarlo si cambian pokedex.json o los precios de pokepark.js
 // (buyPrice, BERRY_SELL, MEGA_PRICE...), y subirlo con el resto de la web.
 const fs = require("fs");
 const path = require("path");
 
 const dex = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "assets", "pokepark", "pokedex.json"), "utf8"));
-const OUT = path.join(__dirname, "..", "..", "..", "alejandrodev.es", "public", "sharingan_api", "data", "econ.json");
+const OUT = path.join(__dirname, "..", "..", "..", "alejandrodev.es", "public", "sharingan_api", "res", "econ.json");
 
 // --- Precios: lo mismo que buyPrice()/sellPrice() de pokepark.js
 const BALL_PRICE = 200;
