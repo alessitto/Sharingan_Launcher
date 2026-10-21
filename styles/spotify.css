@@ -243,6 +243,23 @@ html.sp-full-open .main-content {
   flex-shrink: 0;
 }
 
+/* Con la barra de título propia, minimizar/maximizar/cerrar de Windows van
+   encima de la app en la franja de arriba: la cabecera empieza debajo y la
+   franja arrastra la ventana (lo que se pulsa, no). En pantalla completa no
+   hay botones de Windows. */
+.sp-full:not(:fullscreen) .sp-full-top {
+  padding-top: calc(var(--titlebar-h, 0px) + 6px);
+  padding-bottom: 10px;
+}
+
+.sp-full-top {
+  -webkit-app-region: drag;
+}
+
+.sp-full-top .sp-search {
+  -webkit-app-region: no-drag;
+}
+
 .sp-brand {
   display: inline-flex;
   align-items: center;
