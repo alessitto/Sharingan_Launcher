@@ -18,6 +18,9 @@
   const POLL_HIDDEN_MS = 20000;
   const POLL_LIMITED_MS = 15000;
   const LYRICS_LEAD_MS = 250; // la línea se enciende un pelín antes de cantarse
+  // Si Spotify deja de decir qué suena (móvil en segundo plano) con algo
+  // sonando, se sigue enseñando hasta que esa canción acabe y esto más.
+  const HOLD_MS = 30000;
 
   // ------------------------------------------------------------ Iconos
   const SPOTIFY_LOGO =
@@ -92,7 +95,10 @@
   let btnKey = "";
   let errorTimer = null;
   let lastCover = null;
+  let pollSeq = 0;
+  let endAskAt = 0; // cuándo se preguntó por última vez al acabar la canción
   let cd3d = null; // CD en 3D montado (cd3d.js)
+  let cd3dFails = 0; // veces seguidas que no se ha podido montar o se ha perdido
   // Roto con un clic largo; sigue roto (aunque cambie la canción o se cierre
   // la pantalla) hasta otro clic largo.
   let cdBroken = false;
@@ -204,13 +210,30 @@
     pollTimer = setTimeout(poll, wait);
   }
 
+  // ¿Sigue valiendo lo que se sabía aunque Spotify ya no diga nada? Solo si
+  // sonaba y la canción aún no habría acabado (más HOLD_MS); en pausa o con
+  // otra cosa sonando, manda lo que diga Spotify.
+  function holds(next) {
+    if (next?.item || (next && !next.isPlaying)) return false;
+    if (!state?.item || !state.isPlaying) return false;
+    return state.progressMs + (performance.now() - fetchedAt) < (state.item.durationMs || 0) + HOLD_MS;
+  }
+
   async function poll() {
     clearTimeout(pollTimer);
     if (!allowed || !connected) return;
+    const seq = ++pollSeq;
     const res = await sp("state");
-    if (res.ok) {
-      const prevVolume = state?.device?.volume;
+    if (seq !== pollSeq) return; // ya hay otra consulta más nueva
+    if (res.ok && holds(res.state)) {
+      render();
+    } else if (res.ok) {
+      const prev = state;
+      const prevVolume = prev?.device?.volume;
       state = res.state;
+      // Solo se sabe la canción (currently-playing): dispositivo, aleatorio
+      // y repetición, los de antes.
+      if (state?.partial && prev) Object.assign(state, { device: prev.device, shuffle: prev.shuffle, repeat: prev.repeat });
       fetchedAt = performance.now();
       if (state?.device && Date.now() < volumeHoldUntil && prevVolume != null) state.device.volume = prevVolume;
       if (state?.device?.volume > 0) lastVolume = state.device.volume;
@@ -286,6 +309,9 @@
 
   function skeleton(next) {
     closeSetup();
+    // El CD 3D se suelta ya (con la ventana oculta no llega a ver que lo han quitado).
+    cd3d?.destroy();
+    cd3d = null;
     mode = next;
     view.dataset.mode = next;
     lastCover = null;
@@ -429,6 +455,7 @@
     if (devicesOpen) pop.innerHTML = devicesList();
 
     loadLyrics();
+    healCd();
   }
 
   // ------------------------------------------------------------ Carátula, vinilo y CD
@@ -453,12 +480,13 @@
     if (!box) return;
     // CD en 3D ya montado: solo cambia la carátula (si no se puede leer, el
     // CD de siempre).
-    if (!rebuild && coverView === "cd" && box.dataset.view === "cd" && cd3d?.el.isConnected) {
+    if (!rebuild && coverView === "cd" && box.dataset.view === "cd" && cd3d?.el.isConnected && !cd3d.lost()) {
       const cd = cd3d;
       cd.setCover(url).then((ok) => {
         if (ok || cd3d !== cd) return;
         cd.destroy();
         cd3d = null;
+        cd3dFails++;
         box.innerHTML = cssCdHtml(state?.item?.cover || null);
       });
       return;
@@ -504,15 +532,16 @@
   }
 
   // CD en 3D (cd3d.js). Mientras carga se ve el hueco vacío; si no se puede,
-  // el CD de siempre.
+  // el CD de siempre (y healCd lo vuelve a intentar).
   async function mountCd3d(box, url) {
     const holder = box.querySelector(".sp-cd3d");
     const fallback = () => {
+      cd3dFails++;
       if (holder.isConnected) box.innerHTML = cssCdHtml(state?.item?.cover || url);
     };
     let cd = null;
     try {
-      cd = (await window.CD3D?.create(holder, { active: () => open })) || null;
+      cd = (await window.CD3D?.create(holder, { active: () => open, onLost: () => setTimeout(healCd, 0) })) || null;
     } catch {
       cd = null;
     }
@@ -521,11 +550,34 @@
     cd3d = cd;
     cd.setPlaying(!!state?.isPlaying);
     if (cdBroken) cd.setBroken(true, true);
-    if (!(await cd.setCover(state?.item?.cover || url)) && cd3d === cd) {
+    const ok = await cd.setCover(state?.item?.cover || null);
+    if (cd3d !== cd) return;
+    if (!ok) {
       cd.destroy();
       cd3d = null;
-      fallback();
+      return fallback();
     }
+    cd3dFails = 0;
+  }
+
+  // El CD 3D se repara solo: con cada estado y al volver a la ventana. Si se
+  // ha perdido WebGL (Windows lo suelta a veces con la ventana en segundo
+  // plano) o se quedó en el CD de siempre, se monta otro (3 intentos
+  // seguidos como mucho); si la carátula no es la que suena, se pone.
+  function healCd() {
+    if (!open || document.hidden || mode !== "player" || coverView !== "cd") return;
+    const box = q(".sp-cover");
+    if (!box || box.dataset.view !== "cd") return;
+    const url = state?.item?.cover || null;
+    if (cd3d && !cd3d.lost()) {
+      cd3d.setCover(url); // no hace nada si ya está puesta o en camino
+      return;
+    }
+    if (!cd3d && box.querySelector(".sp-cd3d")) return; // montándose
+    if (cd3d?.lost()) cd3dFails++;
+    if (cd3dFails > 3) return;
+    lastCover = state?.item?.cover || "none";
+    paintCover(url, true);
   }
 
   function cycleCover() {
@@ -554,9 +606,11 @@
       q(".sp-pos").textContent = fmt(pos);
     }
     syncLyrics(pos);
-    // Se ha acabado la canción: se pregunta ya qué viene.
-    if (state.isPlaying && pos >= state.item.durationMs && performance.now() - fetchedAt > 800) {
-      fetchedAt = performance.now();
+    // Se ha acabado la canción: se pregunta ya qué viene (sin tocar
+    // `fetchedAt`, que es de cuándo llegó el estado).
+    const now = performance.now();
+    if (state.isPlaying && pos >= state.item.durationMs && now - fetchedAt > 800 && now - endAskAt > 2500) {
+      endAskAt = now;
       schedule(300);
     }
   }
@@ -839,7 +893,17 @@
       syncLyrics(position(), true);
     }
   });
-  document.addEventListener("visibilitychange", () => (document.hidden ? schedule() : connected && allowed && schedule(0)));
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) return schedule();
+    if (connected && allowed) schedule(0);
+    healCd();
+  });
+  // Detrás de otras ventanas puede no contar como oculta: al volver, se
+  // pregunta ya si hace rato de la última consulta.
+  window.addEventListener("focus", () => {
+    if (connected && allowed && performance.now() - fetchedAt > 3000) schedule(0);
+    healCd();
+  });
 
   // Si se mueve la letra a mano, se deja de seguir un rato.
   view.addEventListener(

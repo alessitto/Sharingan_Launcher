@@ -402,6 +402,7 @@ function createSpotify(hooks) {
       type: p.currently_playing_type,
       device: p.device ? mapDevice(p.device) : null,
       canSeek: !p.actions?.disallows?.seeking,
+      partial: !!p.partial,
       item: it
         ? {
             id: it.id || it.uri || it.name,
@@ -543,7 +544,15 @@ function createSpotify(hooks) {
       return { connected: false };
     },
     state: async () => {
-      const p = await call("GET", "/me/player", { query: { additional_types: "episode" } });
+      let p = await call("GET", "/me/player", { query: { additional_types: "episode" } });
+      // Con Spotify del móvil en segundo plano, /me/player a veces dice que
+      // no suena nada (204) o no trae la canción aunque siga sonando; lo que
+      // suena se pregunta también aparte. Sin dispositivo ni aleatorio: la
+      // ventana deja los últimos que sabía (`partial`).
+      if (!p?.item) {
+        const cur = await call("GET", "/me/player/currently-playing", { query: { additional_types: "episode" } }).catch(() => null);
+        if (cur?.item) p = { ...(p || { partial: true }), ...cur, device: p?.device || null };
+      }
       keepRadio(p);
       return { state: mapState(p) };
     },

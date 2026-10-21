@@ -10,9 +10,13 @@
 // (mapa de entorno dibujado aquí) y el disco se mece adelante y atrás para
 // que el brillo cambie; mientras suena, además gira.
 //
-// window.CD3D.create(contenedor, { active }) → Promise<controlador | null>
-//   controlador.setCover(url) → Promise<boolean>  (false si no se puede leer)
-//   controlador.setPlaying(bool), controlador.destroy()
+// window.CD3D.create(contenedor, { active, onLost }) → Promise<controlador | null>
+//   controlador.setCover(url) → Promise<boolean>  (false solo si la imagen no
+//     deja leerse por CORS; sin carátula o si no carga, CD plateado y se
+//     reintenta con el siguiente setCover)
+//   controlador.setPlaying(bool), lost(), destroy()
+//   onLost: se ha perdido WebGL (Windows lo puede soltar con la ventana en
+//     segundo plano); quien llama monta otro.
 // null si no hay WebGL o no carga three: quien llama pone el CD de siempre.
 (() => {
   "use strict";
@@ -48,6 +52,18 @@
       img.onerror = () => resolve(null);
       img.src = url;
     });
+
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const RETRY_MS = [0, 1500, 4000]; // si la carátula no carga (red), se reintenta
+
+  // Sin carátula (o sin poder cargarla): disco plateado.
+  const blankPrint = () => {
+    const c = canvas2d(8);
+    const g = c.getContext("2d");
+    g.fillStyle = "#d4d8de";
+    g.fillRect(0, 0, 8, 8);
+    return c;
+  };
 
   // Estudio: degradado con cajas de luz (dos neutras, una cálida y una fría)
   // para que el barniz y el holograma tengan qué reflejar.
@@ -414,7 +430,7 @@
   const easeOut = (t) => 1 - Math.pow(1 - t, 3);
   const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
-  async function create(container, { active = () => true } = {}) {
+  async function create(container, { active = () => true, onLost = null } = {}) {
     let THREE;
     try {
       THREE = await loadThree();
@@ -434,6 +450,13 @@
       return null;
     }
     container.appendChild(canvas);
+    let lost = false;
+    canvas.addEventListener("webglcontextlost", (e) => {
+      e.preventDefault();
+      if (destroyed || lost) return;
+      lost = true;
+      onLost?.();
+    });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.setClearColor(0x000000, 0);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -705,13 +728,29 @@
 
     // Texturas de la carátula
     let maps = null;
-    let coverUrl = null;
-    async function setCover(url) {
+    let coverUrl; // la pedida
+    let shown; // la que está puesta (null = plateado)
+    let job = null;
+    function setCover(url) {
+      url = url || null;
+      if (url === coverUrl && job) return job; // ya está en camino
+      if (url === coverUrl && url === shown) return Promise.resolve(true);
       coverUrl = url;
-      if (!url) return false;
-      const img = await loadImage(url);
-      if (coverUrl !== url || destroyed) return true;
-      if (!img) return false;
+      const p = (job = applyCover(url).finally(() => job === p && (job = null)));
+      return p;
+    }
+    async function applyCover(url) {
+      let img = null;
+      for (let i = 0; url && !img && i < RETRY_MS.length; i++) {
+        if (RETRY_MS[i]) await wait(RETRY_MS[i]);
+        if (coverUrl !== url || destroyed) return true;
+        img = await loadImage(url);
+        if (coverUrl !== url || destroyed) return true;
+      }
+      // Sin carátula o no ha cargado: plateado (shown = null, así el próximo
+      // setCover con esa url lo vuelve a intentar).
+      const got = !!img;
+      if (!img) img = blankPrint();
       let m;
       try {
         m = discMaps(img);
@@ -731,6 +770,7 @@
       Object.assign(front, { map: colorTex, emissiveMap: colorTex, metalnessMap: ormTex, roughnessMap: ormTex, iridescenceMap: ormTex });
       back.map = backShard.map = colorTex;
       front.needsUpdate = back.needsUpdate = backShard.needsUpdate = true;
+      shown = got ? url : null;
       return true;
     }
 
@@ -761,7 +801,7 @@
     let clock = 0;
     let spin = 0;
     const frame = (now) => {
-      if (destroyed) return;
+      if (destroyed || lost) return;
       if (!container.isConnected) return destroy();
       if (!active() || document.hidden) {
         last = now;
@@ -812,7 +852,9 @@
       }
       for (const x of disposables) x.dispose();
       renderer.dispose();
-      renderer.forceContextLoss();
+      try {
+        if (!lost) renderer.forceContextLoss();
+      } catch {}
       canvas.remove();
     }
 
@@ -822,6 +864,7 @@
       setPlaying: (on) => (playing = !!on),
       setBroken,
       isBroken: () => broken,
+      lost: () => lost,
       setCharging: (on) => (charging = on ? performance.now() : 0),
       destroy,
     };
