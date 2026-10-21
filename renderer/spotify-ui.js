@@ -81,6 +81,8 @@
     }
   })();
   let state = null; // lo que suena (o null si no hay nada)
+  let last = null; // sin nada sonando: lo último que has escuchado ({ name, artists, thumb, playedAt })
+  let needsScope = false; // el token es de antes de algún permiso nuevo (hay que reconectar)
   let fetchedAt = 0; // cuándo llegó `state` (para mover la barra entre consultas)
   let devices = null;
   let devicesOpen = false;
@@ -235,6 +237,10 @@
       // y repetición, los de antes.
       if (state?.partial && prev) Object.assign(state, { device: prev.device, shuffle: prev.shuffle, repeat: prev.repeat });
       fetchedAt = performance.now();
+      if (!state) {
+        last = res.last || null;
+        needsScope = !!res.needsScope;
+      }
       if (state?.device && Date.now() < volumeHoldUntil && prevVolume != null) state.device.volume = prevVolume;
       if (state?.device?.volume > 0) lastVolume = state.device.volume;
       render();
@@ -346,10 +352,14 @@
       body.innerHTML = `
         <div class="sp-center sp-idle">
           <p class="sp-center-title">No suena nada</p>
+          <div class="sp-last" aria-live="polite"></div>
           <div class="sp-idle-head"><span class="sp-muted">Elige dónde escuchar</span><button type="button" class="sp-icon-btn" data-act="refresh" title="Actualizar">${ic("refresh")}</button></div>
           <div class="sp-devices"></div>
           ${errorLine}
-          <button type="button" class="sp-link" data-act="disconnect">Desconectar Spotify</button>
+          <div class="sp-idle-links">
+            <button type="button" class="sp-link" data-act="reconnect" title="Para ver lo último que has escuchado y la radio completa" hidden>Reconectar Spotify</button>
+            <button type="button" class="sp-link" data-act="disconnect">Desconectar Spotify</button>
+          </div>
         </div>`;
     } else {
       body.innerHTML = `
@@ -740,7 +750,37 @@
       if (next === "player") lyricsKey = null; // se vuelve a pintar la letra
     }
     if (next === "player") fillPlayer();
-    if (next === "idle") q(".sp-devices").innerHTML = devicesList();
+    if (next === "idle") fillIdle();
+  }
+
+  // Sin nada sonando. Spotify a veces no ve el móvil (con la app en segundo
+  // plano ni sale en dispositivos), pero sí apunta lo que acaba de sonar: si
+  // lo último es de hace poco, seguramente sigue sonando ahí.
+  const LAST_RECENT_MS = 8 * 60 * 1000;
+  const ago = (t) => {
+    const m = Math.floor((Date.now() - t) / 60000);
+    if (m < 1) return "ahora";
+    if (m < 60) return `hace ${m} min`;
+    const h = Math.floor(m / 60);
+    return h < 24 ? `hace ${h} h` : `hace ${Math.floor(h / 24)} d`;
+  };
+  function fillIdle() {
+    q(".sp-devices").innerHTML = devicesList();
+    const recent = !!last && Date.now() - last.playedAt < LAST_RECENT_MS;
+    q(".sp-center-title").textContent = recent ? "Spotify no dice qué suena" : "No suena nada";
+    const box = q(".sp-last");
+    // El hueco está siempre (visibility): no mueve lo de abajo al llegar.
+    box.classList.toggle("is-empty", !last);
+    const key = last ? `${last.name}|${last.artists}|${last.thumb}|${ago(last.playedAt)}` : "";
+    if (box.dataset.key !== key) {
+      box.dataset.key = key;
+      box.innerHTML = last
+        ? `<span class="sp-hit-cover">${last.thumb ? `<img src="${esc(last.thumb)}" alt="">` : ic("music")}</span>
+           <span class="sp-hit-text"><small>Lo último</small><b>${esc(last.name)}</b><small>${esc(last.artists)}</small></span>
+           <span class="sp-hit-time">${esc(ago(last.playedAt))}</span>`
+        : "";
+    }
+    q('[data-act="reconnect"]').hidden = !needsScope;
   }
 
   // ------------------------------------------------------------ Abrir / cerrar
@@ -983,6 +1023,14 @@
       devices = null;
       render();
       schedule();
+    } else if (act === "reconnect") {
+      el.disabled = true;
+      const res = await sp("connect");
+      el.disabled = false;
+      if (!res.ok) return showError(res);
+      needsScope = false;
+      await refreshConfig();
+      poll();
     } else if (act === "refresh") {
       devices = null;
       render();

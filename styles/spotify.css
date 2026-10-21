@@ -936,8 +936,38 @@ html.sp-full-open .main-content {
   text-align: left;
 }
 
-.sp-idle .sp-link {
-  align-self: center;
+.sp-idle-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 16px;
+}
+
+/* Lo último que has escuchado: alto fijo aunque aún no haya llegado */
+.sp-last {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 66px;
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: rgba(var(--fg-rgb), 0.06);
+  text-align: left;
+}
+
+.sp-last.is-empty {
+  visibility: hidden;
+}
+
+.sp-last .sp-hit-cover {
+  width: 50px;
+  height: 50px;
+}
+
+.sp-last .sp-hit-text small:first-child {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .sp-wait {

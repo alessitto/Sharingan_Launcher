@@ -26,7 +26,9 @@ const REDIRECT_URI = `http://127.0.0.1:${PORT}/callback`;
 const CLIENT_ID_RE = /^[0-9a-f]{32}$/;
 // user-library-read y user-top-read (3.9.0) son para la radio del buscador
 // (tus "Me gusta" y lo que más escuchas); sin ellos va solo con la búsqueda.
-const SCOPES = ["user-read-playback-state", "user-modify-playback-state", "user-read-currently-playing", "user-read-private", "user-library-read", "user-top-read"];
+// user-read-recently-played (4.3.2): lo último que has escuchado, para cuando
+// Spotify no dice qué suena (el móvil en segundo plano ni sale en dispositivos).
+const SCOPES = ["user-read-playback-state", "user-modify-playback-state", "user-read-currently-playing", "user-read-private", "user-library-read", "user-top-read", "user-read-recently-played"];
 const ACCOUNTS = "https://accounts.spotify.com";
 const API = "https://api.spotify.com/v1";
 const LOGIN_TIMEOUT_MS = 5 * 60 * 1000;
@@ -388,6 +390,32 @@ function createSpotify(hooks) {
       .finally(() => (r.filling = null));
   }
 
+  // Lo último que has escuchado (Spotify lo apunta al acabar cada canción,
+  // también desde el móvil aunque no salga como dispositivo). Se pregunta como
+  // mucho cada 30 s y solo cuando no se sabe qué suena.
+  let lastCache = null; // { at, value }
+  async function lastPlayed() {
+    if (!hasScope("user-read-recently-played")) return { last: null, needsScope: true };
+    if (lastCache && Date.now() - lastCache.at < 30000) return lastCache.value;
+    const j = await call("GET", "/me/player/recently-played", { query: { limit: 1 } }).catch(() => null);
+    const it = j?.items?.[0];
+    const t = it?.track;
+    const imgs = t?.album?.images || [];
+    const value = {
+      last: t
+        ? {
+            name: t.name,
+            artists: (t.artists || []).map((a) => a.name).join(", "),
+            thumb: (imgs[imgs.length - 1] || imgs[0])?.url || null,
+            playedAt: Date.parse(it.played_at) || 0,
+          }
+        : null,
+      needsScope: false,
+    };
+    lastCache = { at: Date.now(), value };
+    return value;
+  }
+
   // Solo lo que pinta la ventana.
   function mapState(p) {
     if (!p) return null;
@@ -554,7 +582,9 @@ function createSpotify(hooks) {
         if (cur?.item) p = { ...(p || { partial: true }), ...cur, device: p?.device || null };
       }
       keepRadio(p);
-      return { state: mapState(p) };
+      const state = mapState(p);
+      if (state) lastCache = null; // al dejar de saberse, se pregunta otra vez
+      return state ? { state } : { state, ...(await lastPlayed()) };
     },
     devices: async () => ({ devices: ((await call("GET", "/me/player/devices"))?.devices || []).map(mapDevice) }),
     play: async (deviceId) => {
