@@ -841,6 +841,18 @@
   background: rgba(201, 164, 76, 0.2);
 }
 
+/* Ayn Thor (Ajustes > General > Tengo un Ayn Thor) */
+.gp-tag.is-thor {
+  color: #9fd0ff;
+  background: rgba(110, 170, 240, 0.16);
+}
+
+.gp-thor.is-on {
+  color: #9fd0ff;
+  border-color: rgba(110, 170, 240, 0.55);
+  background: rgba(110, 170, 240, 0.12);
+}
+
 .gp-tag.is-muted {
   color: var(--ink-200);
 }

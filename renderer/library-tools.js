@@ -50,7 +50,22 @@ const normName = (s) =>
     .replace(/[\u0300-\u036f]/g, "");
 
 const isInstalled = (g) => !g.notInstalled && !!(g.installDir || g.executable || canPlay(g));
+// Ayn Thor (Ajustes > General): con el ajuste apagado no se ve nada de esto.
+let aynThorEnabled = false;
+function setAynThorEnabled(on) {
+  aynThorEnabled = !!on;
+  const opt = document.querySelector('#libState option[value="aynThor"]');
+  if (opt) opt.hidden = !aynThorEnabled;
+  if (!aynThorEnabled && libView.state === "aynThor") libView.state = "";
+  try {
+    applyLibraryFilter();
+  } catch {
+    // Arranque: la biblioteca aún no está pintada; ya se filtrará al cargar.
+  }
+}
+
 const LIB_STATE = {
+  aynThor: (g) => aynThorEnabled && !!g.aynThor,
   play: isInstalled,
   notInstalled: (g) => !isInstalled(g),
   pending: (g) => !isCompletedGame(g),
@@ -128,7 +143,9 @@ function renderLibraryChips() {
   const plat = completedGamesCache.filter((g) => g.isPlatinum).length;
   const chip = (state, ico, text) =>
     `<button type="button" class="lib-chip${libView.state === state ? " is-on" : ""}" data-state="${state}">${icon(ico)}${text}</button>`;
+  const thor = aynThorEnabled ? allLibraryGames().filter((g) => g.aynThor).length : 0;
   box.innerHTML =
+    (thor ? chip("aynThor", "handheld", `${thor} en el Ayn Thor`) : "") +
     (done ? chip("completed", "check", `${done} ${done === 1 ? "pasado" : "pasados"}`) : "") +
     (plat ? chip("platinum", "crown", `${plat} ${plat === 1 ? "platino" : "platinos"}`) : "");
 }

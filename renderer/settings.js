@@ -195,6 +195,7 @@ async function loadAppSettings() {
     if (settings.gamesPerPage) DISCOVER_PAGE_SIZE = settings.gamesPerPage;
     applyGridColumns(settings.gridColumns);
     applyTheme(settings);
+    setAynThorEnabled(settings.hasAynThor);
   } catch (err) {
     console.error("No se pudieron cargar los ajustes", err);
   }
@@ -341,6 +342,13 @@ const settingsPageHtml = {
         </div>
         <input type="checkbox" class="st-switch" data-pref="minimizeOnLaunch" ${s.minimizeOnLaunch ? "checked" : ""}>
       </label>
+      <label class="settings-data-row">
+        <div>
+          <p class="settings-data-title">Tengo un Ayn Thor</p>
+          <p class="settings-update-text">En cada juego podrás marcar que lo vas a jugar en el Ayn Thor, y filtrarlos en la biblioteca.</p>
+        </div>
+        <input type="checkbox" class="st-switch" data-pref="hasAynThor" ${s.hasAynThor ? "checked" : ""}>
+      </label>
     </div>`,
   stores: () => `<div class="st-stores"></div>`,
   // Tema: colores y estilos en la misma página (con scroll propio).
@@ -432,7 +440,10 @@ const settingsPageHtml = {
 function bindSettingsPage(id, page) {
   if (id === "general") {
     page.querySelectorAll("[data-pref]").forEach((el) =>
-      el.addEventListener("change", () => window.electronAPI.setSettings({ [el.dataset.pref]: el.checked }))
+      el.addEventListener("change", () => {
+        window.electronAPI.setSettings({ [el.dataset.pref]: el.checked });
+        if (el.dataset.pref === "hasAynThor") setAynThorEnabled(el.checked);
+      })
     );
   } else if (id === "shortcuts") {
     window.Shortcuts?.renderSettings(page.querySelector(".st-shortcuts"));
@@ -676,6 +687,7 @@ async function openSettingsModal(start) {
     closeToTray: settings.closeToTray,
     startWithWindows: settings.startWithWindows,
     minimizeOnLaunch: settings.minimizeOnLaunch,
+    hasAynThor: settings.hasAynThor,
   };
 
   await openModal({

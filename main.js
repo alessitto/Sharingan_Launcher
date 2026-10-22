@@ -328,6 +328,7 @@ ipcMain.handle("settings:set", (_e, patch = {}) => {
   // Ventana (Ajustes > General): solo de este PC
   if (patch.closeToTray !== undefined) appSettings.closeToTray = !!patch.closeToTray;
   if (patch.minimizeOnLaunch !== undefined) appSettings.minimizeOnLaunch = !!patch.minimizeOnLaunch;
+  if (patch.hasAynThor !== undefined) appSettings.hasAynThor = !!patch.hasAynThor;
   if (patch.startWithWindows !== undefined) {
     appSettings.startWithWindows = !!patch.startWithWindows;
     applyLoginItem();
@@ -3055,6 +3056,19 @@ function setPlatinum(id, by) {
   return g;
 }
 ipcMain.handle("games:setPlatinum", (_e, id, by) => !!setPlatinum(id, by === "auto" ? "auto" : "manual"));
+
+// -------------------- Ayn Thor --------------------
+// Marca de "lo voy a jugar en el Ayn Thor" (Ajustes > General > Tengo un
+// Ayn Thor). Va en el juego, así viaja con la biblioteca de la cuenta.
+ipcMain.handle("games:setAynThor", (_e, id, on) => {
+  const gameId = Number(id);
+  const g = games.find((x) => x.id === gameId) || completedGames.find((x) => x.id === gameId);
+  if (!g) return false;
+  if (on) g.aynThor = true;
+  else delete g.aynThor;
+  saveData();
+  return true;
+});
 
 // -------------------- IA (Claude) --------------------
 // La clave es del propio usuario y se guarda cifrada con el almacén seguro

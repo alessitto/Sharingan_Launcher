@@ -25,6 +25,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   togglePlatinum: (id) => ipcRenderer.invoke('games:togglePlatinum', id),
   // Platino por tener todos los logros ("auto") o a mano ("manual")
   setPlatinum: (id, by) => ipcRenderer.invoke('games:setPlatinum', id, by),
+  // "Lo voy a jugar en el Ayn Thor" (solo con Ajustes > General > Tengo un Ayn Thor)
+  setAynThor: (id, on) => ipcRenderer.invoke('games:setAynThor', id, on),
   onPlatinum: (cb) => ipcRenderer.on('games:platinum', (_e, g) => cb(g)),
   updateSortKey: (id, sortKey) => ipcRenderer.invoke('games:updateSortKey', { id, sortKey }),
 

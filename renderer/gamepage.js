@@ -279,6 +279,7 @@
     if (st.owned && g.notInstalled) tags.push(`<span class="gp-tag is-muted">${icon("download")}Sin instalar</span>`);
     if (st.owned && STORE_NAMES[g.platform]) tags.push(`<span class="gp-tag is-store">${storeLogo(g.platform)}${STORE_NAMES[g.platform]}</span>`);
     if (playingNow.has(st.id)) tags.push(`<span class="gp-tag is-live"><i></i>Jugando ahora</span>`);
+    if (st.owned && aynThorEnabled && g.aynThor) tags.push(`<span class="gp-tag is-thor">${icon("handheld")}Ayn Thor</span>`);
     head.innerHTML = `
       ${tags.length ? `<div class="gp-tags">${tags.join("")}</div>` : ""}
       <h1 class="gp-title">${esc(g.name)}</h1>
@@ -338,10 +339,15 @@
       : st.done
         ? `<button type="button" class="sl-btn sl-btn-ghost" data-act="platinum">${icon("crown")}${g.isPlatinum ? "Quitar platino" : "Marcar platino"}</button>`
         : `<button type="button" class="sl-btn sl-btn-ghost" data-act="complete">${icon("check")}Marcar como pasado</button>`;
+    const thor =
+      st.owned && aynThorEnabled
+        ? `<button type="button" class="sl-btn sl-btn-ghost gp-thor${g.aynThor ? " is-on" : ""}" data-act="aynthor" aria-pressed="${!!g.aynThor}" title="${g.aynThor ? "Quitar del Ayn Thor" : "Lo voy a jugar en el Ayn Thor"}">${icon("handheld")}${g.aynThor ? "En el Ayn Thor" : "Jugar en el Ayn Thor"}</button>`
+        : "";
     bar.innerHTML = `
       <div class="gp-actions">
         ${primaryHtml()}
         ${second}
+        ${thor}
         ${st.owned ? `<div class="gp-more"><button type="button" class="sl-btn sl-btn-ghost gp-more-btn" data-act="menu" aria-label="Más opciones" title="Más opciones">${icon("more")}</button><div class="gp-menu" hidden>${menuHtml()}</div></div>` : ""}
       </div>
       <div class="gp-stats">${statTiles()}</div>`;
@@ -710,6 +716,7 @@
   }
 
   let draft = null; // { score, comment } mientras escribes
+  let revEditing = false; // reseña ya publicada abierta para editar
   async function loadReviews(s, offset = 0) {
     const id = await ratingIdOf();
     if (!alive(s)) return;
@@ -728,7 +735,10 @@
     } else {
       st.reviews = { ...res, gameId: id, more: res.reviews.length === 30 };
     }
-    if (!offset) draft = null;
+    if (!offset) {
+      draft = null;
+      revEditing = false;
+    }
     paintTabs();
     paintReviews();
   }
@@ -780,7 +790,23 @@
     } else {
       const saved = r.mine || (r.legacy ? { score: window.Community?.myRating?.(r.gameId) || 0, comment: "" } : null);
       draft ||= { score: saved?.score || 0, comment: saved?.comment || "" };
-      mine = `
+      // Publicada y sin editar: se ve como queda, con Editar y Borrar.
+      if (saved?.score && !revEditing) {
+        mine = `
+        <div class="gp-card gp-rev-mine is-published">
+          <div class="gp-rev-mine-head">
+            ${window.Community?.avatar(me.username, "is-md", me) || ""}
+            <div><b>Tu reseña</b><small>Publicada${saved.updatedAt ? ` · ${new Date(saved.updatedAt).toLocaleDateString("es-ES")}` : ""}</small></div>
+            ${starsHtml(saved.score, "gp-rev-stars")}
+          </div>
+          ${saved.comment ? `<p class="gp-rev-body">${esc(saved.comment).replace(/\n/g, "<br>")}</p>` : `<p class="gp-rev-body is-empty">Solo has puntuado.</p>`}
+          <div class="gp-rev-actions">
+            <span class="gp-rev-left"></span>
+            <button type="button" class="sl-btn sl-btn-danger-ghost sl-btn-sm" data-act="rev-delete">${icon("trash")}Borrar</button>
+            <button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-act="rev-edit">${icon("pencil")}Editar</button>
+          </div>
+        </div>`;
+      } else mine = `
         <div class="gp-card gp-rev-mine">
           <div class="gp-rev-mine-head">
             ${window.Community?.avatar(me.username, "is-md", me) || ""}
@@ -792,7 +818,7 @@
           <textarea class="gp-rev-text" maxlength="2000" rows="3" placeholder="¿Qué te ha parecido? (opcional)">${esc(draft.comment)}</textarea>
           <div class="gp-rev-actions">
             <small class="gp-rev-left">${r.legacy ? "El servidor aún no guarda comentarios: de momento solo se publica la nota." : `${2000 - draft.comment.length} caracteres`}</small>
-            ${saved?.score ? `<button type="button" class="sl-btn sl-btn-danger-ghost sl-btn-sm" data-act="rev-delete">${icon("trash")}Borrar</button>` : ""}
+            ${saved?.score ? `<button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-act="rev-cancel">Cancelar</button>` : ""}
             <button type="button" class="sl-btn sl-btn-primary sl-btn-sm" data-act="rev-save" ${draft.score ? "" : "disabled"}>${saved?.score ? "Guardar cambios" : "Publicar"}</button>
           </div>
         </div>`;
@@ -848,6 +874,7 @@
     showNotification(score ? "Reseña publicada." : "Reseña borrada.");
     st.community = await window.Community?.avgOf?.(r.gameId).catch(() => null);
     draft = null;
+    revEditing = false;
     st.reviews = null;
     paintBar();
     paintReviews();
@@ -1222,6 +1249,13 @@
         return;
       case "platinum":
         return togglePlatinum(id);
+      case "aynthor": {
+        const on = !st.game.aynThor;
+        if (!(await window.electronAPI.setAynThor(id, on).catch(() => false))) return showNotification("No se ha podido guardar.", "error");
+        showNotification(on ? `${st.game.name}: para jugar en el Ayn Thor.` : `${st.game.name}: quitado del Ayn Thor.`);
+        await loadLibrary();
+        return;
+      }
       case "saga-in":
         return openAddToSagaModal(id);
       case "saga-out":
@@ -1259,6 +1293,15 @@
         return window.Community?.openAuth("login", "Entra para reseñar juegos.");
       case "rev-save":
         return saveReview(draft?.score || 0);
+      case "rev-edit":
+        revEditing = true;
+        draft = { score: st.reviews?.mine?.score || draft?.score || 0, comment: st.reviews?.mine?.comment || "" };
+        paintReviews();
+        return root.querySelector(".gp-rev-text")?.focus();
+      case "rev-cancel":
+        revEditing = false;
+        draft = null;
+        return paintReviews();
       case "rev-delete": {
         const ok = await confirmDialog({ title: "¿Borrar tu reseña?", text: "Se quitan tu nota y tu comentario.", confirmText: "Borrar", danger: true });
         if (ok) saveReview(0);
