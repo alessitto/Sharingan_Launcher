@@ -21,6 +21,8 @@ win-unpacked/
 # Credenciales reales (IGDB, Steam Web API) - nunca en el repo, es publico.
 # Copia config.example.json como config.json y rellena los valores.
 config.json
+# Este no lleva credenciales (umbrales del semáforo de requisitos) y la app lo necesita.
+!hardware/config.json
 
 # OS files
 .DS_Store

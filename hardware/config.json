@@ -1,0 +1,16 @@
+{
+  "_comment": "Umbrales del semáforo de requisitos. ratio = tu puntuación / la del requisito.",
+  "thresholds": {
+    "_comment": "Verde: cumple los recomendados o ratio frente al mínimo >= green. Amarillo: entre yellow y green (al límite, ±10 %). Rojo: por debajo de yellow.",
+    "green": 1.1,
+    "yellow": 0.9
+  },
+  "laptopGpuFactor": 0.8,
+  "_laptopGpuFactor": "Gráfica de portátil sin dato propio en la base: se usa la de sobremesa × este factor.",
+  "singleChannelBandwidth": 0.5,
+  "_singleChannelBandwidth": "Integradas con la RAM en un solo canal: el ancho de banda se queda en esta fracción (la puntuación baja según el exponente k2 de la base).",
+  "sharedVramFraction": 0.5,
+  "_sharedVramFraction": "VRAM de una integrada: Windows le deja usar hasta esta fracción de la RAM.",
+  "storageMarginGb": 5,
+  "_storageMarginGb": "Espacio libre justo por encima de lo pedido (menos de este margen) = amarillo."
+}
