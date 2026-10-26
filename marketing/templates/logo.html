@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Logotipo</title>
+<link rel="stylesheet" href="../brand/brand.css">
+<style>
+  /* Logotipo y sello sobre transparente. ?v=claro (texto oscuro, para fondos
+     claros) · ?v=sello (solo el sello 写輪眼). */
+  html, body { background: transparent; }
+  body { display: inline-block; padding: 40px; }
+  .lockup { font-size: 120px; }
+  body[data-v="claro"] .lockup { color: #0d0d0d; }
+  body[data-v="claro"] .lockup small { color: #5f5f5f; }
+  .sello { display: none; font-size: 220px; }
+  body[data-v="sello"] .lockup { display: none; }
+  body[data-v="sello"] .sello { display: inline-grid; }
+</style>
+</head>
+<body>
+  <span class="lockup"><img src="../brand/logo/sharingan-mark.png" alt=""><span>Sharingan<small>Launcher</small></span></span>
+  <span class="sello">写輪眼</span>
+  <script src="shared.js"></script>
+</body>
+</html>

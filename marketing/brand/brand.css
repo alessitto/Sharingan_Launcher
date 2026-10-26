@@ -1,0 +1,101 @@
+/* =====================================================================
+   Sharingan Launcher — marca para redes y vídeo
+   =====================================================================
+   Los mismos colores y la misma letra que la app (tema Itachi, estilo
+   Predeterminado), más tres piezas propias de la marca: el rojo del brillo
+   de la intro, el sello 写輪眼 en Shippori Mincho y los tomoe como contador.
+   Las plantillas de marketing/templates/ cargan solo este archivo. */
+
+@font-face { font-family: "Inter"; font-weight: 400; font-display: block; src: url("fonts/Inter-400.woff2") format("woff2"); }
+@font-face { font-family: "Inter"; font-weight: 500; font-display: block; src: url("fonts/Inter-500.woff2") format("woff2"); }
+@font-face { font-family: "Inter"; font-weight: 600; font-display: block; src: url("fonts/Inter-600.woff2") format("woff2"); }
+@font-face { font-family: "Inter"; font-weight: 700; font-display: block; src: url("fonts/Inter-700.woff2") format("woff2"); }
+@font-face { font-family: "Inter"; font-weight: 800; font-display: block; src: url("fonts/Inter-800.woff2") format("woff2"); }
+@font-face { font-family: "Inter"; font-weight: 900; font-display: block; src: url("fonts/Inter-900.woff2") format("woff2"); }
+@font-face { font-family: "Shippori Mincho"; font-weight: 800; font-display: block; src: url("fonts/ShipporiMincho-800.woff2") format("woff2"); }
+
+:root {
+  /* Color: los del tema Itachi de la app + el rojo de la intro */
+  --tinta: #0d0d0d;          /* fondo (ink-950) */
+  --carbon: #151515;         /* superficies (ink-900) */
+  --grafito: #1d1d1d;        /* tarjetas, chips (ink-800) */
+  --borde: #343434;          /* bordes fuertes (ink-600) */
+  --ceniza: #999999;         /* texto secundario (ink-300) */
+  --humo: #cacaca;           /* texto de apoyo (ink-200) */
+  --papel: #fafafa;          /* titulares (washi-50) */
+  --itachi: #a61414;         /* acento de la app: botones, rellenos (red-500) */
+  --sharingan: #e0161e;      /* rojo de brillo de la intro: halos, subrayados, palabra clave */
+  --sangre: #6e0a0d;         /* sombra del rojo (fondo del sello, degradados) */
+  --rojo-texto: #c15b5b;     /* acento cuando es texto pequeño sobre oscuro (accent-text) */
+  --oro: #c9a44c;            /* platino y nada más (gold-400) */
+  --verde: #5f7f47;          /* gratis, conseguido (green-500) */
+
+  --glow: radial-gradient(60% 70% at 72% 50%, rgba(224, 22, 30, 0.34), rgba(110, 10, 13, 0.12) 45%, transparent 70%);
+  --vineta: radial-gradient(120% 90% at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.55));
+
+  /* Letra */
+  --f-ui: "Inter", "Segoe UI", system-ui, sans-serif;
+  --f-sello: "Shippori Mincho", "Yu Mincho", serif;
+
+  /* Forma (las de la app: controles 7 px, portadas 6 px, ventanas 14 px) */
+  --r-control: 7px;
+  --r-portada: 6px;
+  --r-panel: 12px;
+  --r-ventana: 14px;
+
+  /* Movimiento: la curva de la app */
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--tinta);
+  color: var(--papel);
+  font-family: var(--f-ui);
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Grano fino (como el CD y el papel de la app): encima de fondos planos */
+.grano::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.06;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+/* Logotipo: el ojo + "Sharingan" 700 + "Launcher" 400 en ceniza (la barra lateral de la app) */
+.lockup { display: inline-flex; align-items: center; gap: 0.55em; font-weight: 700; letter-spacing: -0.01em; white-space: nowrap; }
+.lockup img { width: 1.75em; height: 1.75em; display: block; }
+.lockup small { font-size: inherit; font-weight: 400; color: var(--ceniza); margin-left: 0.28em; }
+
+/* Sello 写輪眼: cuadrado rojo con los tres kanji en vertical */
+.sello {
+  display: inline-grid;
+  place-items: center;
+  width: 1em;
+  padding: 0.14em 0;
+  background: var(--itachi);
+  color: var(--papel);
+  font-family: var(--f-sello);
+  font-weight: 800;
+  line-height: 1.02;
+  writing-mode: vertical-rl;
+  letter-spacing: 0.04em;
+  border-radius: 0.08em;
+  box-shadow: inset 0 0 0 0.04em rgba(255, 255, 255, 0.16);
+}
+
+/* Tomoe: contador de pasos (shared.js pinta el SVG) */
+.tomoe { display: inline-flex; gap: 0.3em; align-items: center; }
+.tomoe svg { width: 0.9em; height: 0.9em; fill: var(--borde); }
+.tomoe svg.on { fill: var(--sharingan); filter: drop-shadow(0 0 0.25em rgba(224, 22, 30, 0.6)); }
+
+/* Palabra clave en rojo dentro de un titular */
+.rojo { color: var(--sharingan); }
+
+/* Anillo de foco: el borde de 2 px que la app pone en la tarjeta con el ratón encima */
+.anillo { box-shadow: 0 0 0 2px rgba(224, 22, 30, 0.9), 0 24px 60px rgba(0, 0, 0, 0.55); }

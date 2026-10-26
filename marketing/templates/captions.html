@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Subtítulos 1920×1080</title>
+<link rel="stylesheet" href="../brand/brand.css">
+<style>
+  /* Estilo de subtítulos quemados (referencia para CapCut/DaVinci/Premiere):
+     Inter 800 a 64 px, blanco sobre caja negra al 70 %, la palabra que suena
+     en rojo Sharingan. Máximo 2 líneas y 32 caracteres por línea. Parámetro: t. */
+  html, body { background: transparent; }
+  body { width: 1920px; height: 1080px; position: relative; overflow: hidden; }
+  .cap { position: absolute; left: 50%; bottom: 120px; transform: translateX(-50%); max-width: 1300px; text-align: center; }
+  .cap > span {
+    display: inline; padding: 6px 18px; line-height: 1.5;
+    font-size: 64px; font-weight: 800; letter-spacing: -0.015em;
+    background: rgba(0, 0, 0, 0.7); border-radius: 10px;
+    -webkit-box-decoration-break: clone; box-decoration-break: clone;
+  }
+</style>
+</head>
+<body>
+  <div class="cap"><span data-p="t" data-rich>Importa Steam, Epic y GOG *en un clic*</span></div>
+  <script src="shared.js"></script>
+</body>
+</html>

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Banner de YouTube 2560×1440</title>
+<link rel="stylesheet" href="../brand/brand.css">
+<style>
+  /* Banner del canal de YouTube. Todo lo importante va dentro de la zona
+     segura del centro (1546×423), que es lo único que se ve en el móvil. */
+  body { width: 2560px; height: 1440px; position: relative; overflow: hidden; }
+  .bg { position: absolute; inset: 0; background: var(--vineta), radial-gradient(34% 40% at 50% 50%, rgba(224,22,30,.45), rgba(110,10,13,.16) 55%, transparent 80%), var(--tinta); }
+  .strip { position: absolute; top: 300px; width: 1000px; height: 620px; border-radius: 18px; background: center / cover; opacity: .38; filter: saturate(.85); }
+  .s1 { left: -260px; transform: rotate(-4deg); background-image: url("../shots/biblioteca.jpg"); }
+  .s2 { right: -260px; transform: rotate(4deg); background-image: url("../shots/estadisticas.jpg"); }
+  .safe { position: absolute; left: 507px; top: 508px; width: 1546px; height: 423px; display: flex; align-items: center; gap: 56px; padding: 0 40px; }
+  .safe img { width: 300px; height: 300px; filter: drop-shadow(0 0 70px rgba(224,22,30,.6)); }
+  .name { font-size: 104px; font-weight: 800; letter-spacing: -0.035em; line-height: 1; }
+  .name small { font-weight: 400; color: var(--ceniza); }
+  .tag { margin-top: 18px; font-size: 52px; font-weight: 700; letter-spacing: -0.02em; }
+  .meta { margin-top: 22px; display: flex; gap: 18px; font-size: 30px; font-weight: 600; color: var(--humo); }
+  .meta span { padding: 8px 18px; border-radius: var(--r-control); background: rgba(29,29,29,.9); }
+</style>
+</head>
+<body class="grano">
+  <div class="bg"></div>
+  <div class="strip s1"></div><div class="strip s2"></div>
+  <div class="safe">
+    <img src="../brand/logo/sharingan-mark.png" alt="">
+    <div>
+      <div class="name">Sharingan <small>Launcher</small></div>
+      <div class="tag" data-p="t" data-rich>Todos tus juegos. *Un solo ojo.*</div>
+      <div class="meta"><span>Steam</span><span>Epic Games</span><span>GOG</span><span>Gratis · Windows</span></div>
+    </div>
+  </div>
+  <script src="shared.js"></script>
+</body>
+</html>

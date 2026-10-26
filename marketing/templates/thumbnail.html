@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Miniatura 1280×720</title>
+<link rel="stylesheet" href="../brand/brand.css">
+<style>
+  /* Miniatura de YouTube (1280×720). Variantes con ?v=:
+     funcion (por defecto) · numero · versus · serie
+     Parámetros: t (titular, *palabra* en rojo, | salto), k (antetítulo),
+     img (captura), pos (encuadre de la captura, p. ej. "30% 20%"),
+     zoom (1–2.5), n (número en v=numero), u (unidad), paso (serie: 3/1) */
+  body { width: 1280px; height: 720px; overflow: hidden; position: relative; }
+  .bg { position: absolute; inset: 0; background: var(--vineta), radial-gradient(48% 62% at 74% 52%, rgba(224,22,30,.55), rgba(110,10,13,.22) 50%, transparent 75%), var(--tinta); }
+  .shot {
+    position: absolute; top: 92px; right: -70px; width: 760px; height: 470px;
+    border-radius: var(--r-ventana); background: #111 center / cover no-repeat;
+    background-image: url("../shots/inicio.jpg");
+    background-position: var(--pos, 0% 0%); background-size: calc(var(--zoom, 1) * 100%) auto;
+    transform: rotate(-2.5deg);
+  }
+  .shot::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(90deg, rgba(13,13,13,.55), transparent 30%); }
+  .head { position: absolute; left: 64px; top: 64px; display: flex; align-items: center; gap: 16px; font-size: 22px; }
+  .head .lockup { font-size: 22px; }
+  .kicker {
+    position: absolute; left: 64px; top: 190px; max-width: 560px;
+    font-size: 24px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--humo);
+  }
+  .title {
+    position: absolute; left: 60px; top: 232px; width: 600px; height: 340px;
+    font-size: 116px; font-weight: 900; line-height: .9; letter-spacing: -0.04em;
+    text-shadow: 0 6px 30px rgba(0,0,0,.6); overflow: hidden;
+  }
+  .sello-wrap { position: absolute; left: 64px; bottom: 40px; font-size: 30px; }
+  /* v=numero: cifra enorme */
+  .num { display: none; position: absolute; left: 56px; top: 210px; font-weight: 900; letter-spacing: -0.05em; line-height: .85; }
+  .num b { font-size: 250px; color: var(--sharingan); text-shadow: 0 0 60px rgba(224,22,30,.45); }
+  .num small { font-size: 80px; color: var(--papel); margin-left: 8px; }
+  body[data-v="numero"] .num { display: block; }
+  body[data-v="numero"] .title { top: 452px; height: 128px; font-size: 64px; }
+  /* v=versus: tres launchers contra uno */
+  .vs { display: none; position: absolute; left: 64px; top: 236px; gap: 12px; flex-direction: column; }
+  .vs span { display: inline-flex; align-items: center; gap: 12px; width: fit-content; padding: 12px 20px; border-radius: var(--r-control); background: var(--grafito); color: var(--ceniza); font-size: 34px; font-weight: 700; text-decoration: line-through 4px var(--sharingan); }
+  body[data-v="versus"] .vs { display: flex; }
+  body[data-v="versus"] .title { top: 462px; height: 120px; font-size: 76px; }
+  /* v=serie: número de episodio con tomoe */
+  .ep { display: none; position: absolute; right: 48px; bottom: 40px; padding: 14px 20px; border-radius: var(--r-panel); background: rgba(13,13,13,.86); font-size: 30px; font-weight: 800; align-items: center; gap: 14px; }
+  .ep .tomoe { font-size: 34px; }
+  body[data-v="serie"] .ep { display: inline-flex; }
+</style>
+</head>
+<body class="grano">
+  <div class="bg"></div>
+  <div class="shot anillo" data-img="img"></div>
+  <div class="head"><span class="lockup"><img src="../brand/logo/sharingan-mark.png" alt=""><span>Sharingan<small>Launcher</small></span></span></div>
+  <div class="kicker" data-p="k">Steam · Epic · GOG</div>
+  <div class="vs"><span>Steam</span><span>Epic Games</span><span>GOG Galaxy</span></div>
+  <div class="num"><b data-p="n">914</b><small data-p="u">h</small></div>
+  <div class="title" data-p="t" data-fit="56" data-rich>Todos tus juegos en *uno*</div>
+  <div class="sello-wrap"><span class="sello">写輪眼</span></div>
+  <div class="ep"><span data-p="ep">Ep. 1</span><span class="tomoe" data-tomoe="3/1"></span></div>
+  <script src="shared.js"></script>
+  <script>
+    const p = SL.q.get("pos"), z = SL.q.get("zoom");
+    const shot = document.querySelector(".shot");
+    if (p) shot.style.setProperty("--pos", p);
+    if (z) shot.style.setProperty("--zoom", z);
+  </script>
+</body>
+</html>

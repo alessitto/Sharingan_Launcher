@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Banner de Discord 960×540</title>
+<link rel="stylesheet" href="../brand/brand.css">
+<style>
+  /* Banner del servidor de Discord e invitaciones. */
+  body { width: 960px; height: 540px; position: relative; overflow: hidden; }
+  .bg { position: absolute; inset: 0; background: var(--vineta), radial-gradient(50% 70% at 50% 40%, rgba(224,22,30,.45), transparent 75%), var(--tinta); }
+  .wrap { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 22px; text-align: center; }
+  .wrap img { width: 170px; height: 170px; filter: drop-shadow(0 0 40px rgba(224,22,30,.6)); }
+  .n { font-size: 58px; font-weight: 800; letter-spacing: -0.03em; }
+  .n small { font-weight: 400; color: var(--ceniza); }
+  .t { font-size: 28px; font-weight: 600; color: var(--humo); }
+</style>
+</head>
+<body class="grano">
+  <div class="bg"></div>
+  <div class="wrap">
+    <img src="../brand/logo/sharingan-mark.png" alt="">
+    <div class="n">Sharingan <small>Launcher</small></div>
+    <div class="t" data-p="t" data-rich>Comunidad · novedades · *ayuda*</div>
+  </div>
+  <script src="shared.js"></script>
+</body>
+</html>

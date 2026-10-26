@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Capítulo 1920×1080</title>
+<link rel="stylesheet" href="../brand/brand.css">
+<style>
+  /* Cortinilla de capítulo (1–2 s). Parámetros: t (título), k (antetítulo),
+     paso (tomoe encendidos, p. ej. 3/2), img (captura de fondo, difuminada). */
+  body { width: 1920px; height: 1080px; position: relative; overflow: hidden; }
+  .bg { position: absolute; inset: -40px; background: url("../shots/biblioteca.jpg") center / cover; filter: blur(26px) brightness(.32) saturate(.8); }
+  .shade { position: absolute; inset: 0; background: var(--vineta), radial-gradient(50% 60% at 50% 50%, rgba(224,22,30,.28), transparent 70%); }
+  .wrap { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 28px; text-align: center; }
+  .tomoe { font-size: 64px; }
+  .k { font-size: 28px; font-weight: 700; letter-spacing: .3em; text-transform: uppercase; color: var(--humo); }
+  .t { max-width: 1400px; font-size: 140px; font-weight: 900; letter-spacing: -0.045em; line-height: .92; }
+  .sello-wrap { position: absolute; right: 90px; bottom: 70px; font-size: 34px; }
+</style>
+</head>
+<body class="grano">
+  <div class="bg" data-img="img"></div>
+  <div class="shade"></div>
+  <div class="wrap">
+    <span class="tomoe" data-tomoe="3/2"></span>
+    <div class="k" data-p="k">Parte 2</div>
+    <div class="t" data-p="t" data-rich>Tu biblioteca, *ordenada*</div>
+  </div>
+  <div class="sello-wrap"><span class="sello">写輪眼</span></div>
+  <script src="shared.js"></script>
+</body>
+</html>

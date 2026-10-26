@@ -55,7 +55,8 @@
       "**/*",
       "!tools/hw-db/raw/**",
       "!config.json",
-      "!test/**"
+      "!test/**",
+      "!marketing/**"
     ]
   }
 }

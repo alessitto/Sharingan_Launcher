@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Rótulo 1920×1080</title>
+<link rel="stylesheet" href="../brand/brand.css">
+<style>
+  /* Rótulo inferior sobre vídeo (PNG transparente). Parámetros: nombre, cargo.
+     El ojo y la barra roja son la barra lateral de la app: elemento activo. */
+  html, body { background: transparent; }
+  body { width: 1920px; height: 1080px; position: relative; overflow: hidden; }
+  .lt {
+    position: absolute; left: 96px; bottom: 120px;
+    display: flex; align-items: center; gap: 22px;
+    padding: 20px 34px 20px 22px; border-radius: var(--r-panel);
+    background: rgba(13, 13, 13, 0.86); box-shadow: 0 20px 50px rgba(0, 0, 0, .45), inset 0 0 0 1px rgba(255, 255, 255, .06);
+  }
+  .lt::before { content: ""; position: absolute; left: 0; top: 18px; bottom: 18px; width: 5px; border-radius: 0 5px 5px 0; background: var(--sharingan); }
+  .lt img { width: 64px; height: 64px; }
+  .lt b { display: block; font-size: 42px; font-weight: 800; letter-spacing: -0.02em; }
+  .lt small { display: block; margin-top: 2px; font-size: 24px; font-weight: 500; color: var(--humo); }
+</style>
+</head>
+<body>
+  <div class="lt">
+    <img src="../brand/logo/sharingan-mark.png" alt="">
+    <div><b data-p="nombre">Alex</b><small data-p="cargo">Creador de Sharingan Launcher</small></div>
+  </div>
+  <script src="shared.js"></script>
+</body>
+</html>

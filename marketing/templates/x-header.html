@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Cabecera de X 1500×500</title>
+<link rel="stylesheet" href="../brand/brand.css">
+<style>
+  /* Cabecera de X/Twitter (también vale para Bluesky). La foto de perfil tapa
+     la esquina inferior izquierda: ahí no va nada. */
+  body { width: 1500px; height: 500px; position: relative; overflow: hidden; }
+  .bg { position: absolute; inset: 0; background: var(--vineta), radial-gradient(45% 80% at 30% 50%, rgba(224,22,30,.42), transparent 75%), var(--tinta); }
+  .shot { position: absolute; right: -40px; top: 54px; width: 700px; height: 430px; border-radius: 14px; background: url("../shots/inicio.jpg") left top / cover; transform: rotate(-3deg); }
+  .txt { position: absolute; left: 330px; top: 120px; width: 520px; }
+  .t { font-size: 66px; font-weight: 900; letter-spacing: -0.04em; line-height: .95; }
+  .s { margin-top: 18px; font-size: 22px; font-weight: 600; color: var(--humo); }
+  .sello-wrap { position: absolute; left: 240px; top: 120px; font-size: 26px; }
+</style>
+</head>
+<body class="grano">
+  <div class="bg"></div>
+  <div class="shot anillo"></div>
+  <div class="sello-wrap"><span class="sello">写輪眼</span></div>
+  <div class="txt"><div class="t" data-p="t" data-rich>Todos tus juegos. *Un solo ojo.*</div><div class="s">Steam · Epic Games · GOG · gratis para Windows</div></div>
+  <script src="shared.js"></script>
+</body>
+</html>

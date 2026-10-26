@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Cartela de marca 1920×1080</title>
+<link rel="stylesheet" href="../brand/brand.css">
+<style>
+  /* Cartela de marca: cierre del sting y portada de vídeos. Parámetros: t, url. */
+  body { width: 1920px; height: 1080px; position: relative; overflow: hidden; }
+  .bg { position: absolute; inset: 0; background: var(--vineta), radial-gradient(42% 55% at 50% 44%, rgba(224,22,30,.42), rgba(110,10,13,.15) 55%, transparent 80%), var(--tinta); }
+  .wrap { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 34px; text-align: center; }
+  .wrap img { width: 260px; height: 260px; filter: drop-shadow(0 0 70px rgba(224,22,30,.6)); }
+  .n { font-size: 96px; font-weight: 800; letter-spacing: -0.035em; line-height: 1; }
+  .n small { font-weight: 400; color: var(--ceniza); }
+  .t { font-size: 48px; font-weight: 700; letter-spacing: -0.02em; }
+  .u { margin-top: 6px; font-size: 28px; font-weight: 600; color: var(--humo); }
+  .sello-wrap { position: absolute; right: 90px; bottom: 70px; font-size: 34px; }
+</style>
+</head>
+<body class="grano">
+  <div class="bg"></div>
+  <div class="wrap">
+    <img src="../brand/logo/sharingan-mark.png" alt="">
+    <div class="n">Sharingan <small>Launcher</small></div>
+    <div class="t" data-p="t" data-rich>Todos tus juegos. *Un solo ojo.*</div>
+    <div class="u" data-p="url">Gratis para Windows · alejandrodev.es/sharingan_launcher</div>
+  </div>
+  <div class="sello-wrap"><span class="sello">写輪眼</span></div>
+  <script src="shared.js"></script>
+</body>
+</html>

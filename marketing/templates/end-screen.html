@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Pantalla final 1920×1080</title>
+<link rel="stylesheet" href="../brand/brand.css">
+<style>
+  /* Pantalla final de YouTube (los últimos 5–20 s). Los huecos punteados son
+     donde YouTube pone sus elementos: dos vídeos y el botón de suscribirse;
+     en el editor de YouTube se encajan encima. Parámetros: t, url. */
+  body { width: 1920px; height: 1080px; position: relative; overflow: hidden; }
+  .bg { position: absolute; inset: 0; background: var(--vineta), radial-gradient(40% 55% at 22% 50%, rgba(224,22,30,.42), rgba(110,10,13,.16) 55%, transparent 78%), var(--tinta); }
+  .eye { position: absolute; left: 150px; top: 250px; width: 300px; height: 300px; filter: drop-shadow(0 0 60px rgba(224,22,30,.55)); }
+  .t { position: absolute; left: 150px; top: 600px; width: 760px; font-size: 92px; font-weight: 900; line-height: .95; letter-spacing: -0.04em; }
+  .url { position: absolute; left: 150px; top: 820px; font-size: 32px; font-weight: 600; color: var(--humo); }
+  .url b { color: var(--papel); }
+  .slot { position: absolute; border: 3px dashed rgba(255,255,255,.22); border-radius: 12px; display: grid; place-items: center; color: rgba(255,255,255,.35); font-size: 26px; font-weight: 600; }
+  .v1 { left: 1060px; top: 150px; width: 710px; height: 400px; }
+  .v2 { left: 1060px; top: 590px; width: 470px; height: 264px; }
+  .sub { left: 1570px; top: 600px; width: 240px; height: 240px; border-radius: 50%; }
+  .sello-wrap { position: absolute; right: 110px; bottom: 70px; font-size: 34px; }
+</style>
+</head>
+<body class="grano">
+  <div class="bg"></div>
+  <img class="eye" src="../brand/logo/sharingan-mark.png" alt="">
+  <div class="t" data-p="t" data-rich>Descárgalo *gratis*</div>
+  <div class="url">Windows · <b data-p="url">alejandrodev.es/sharingan_launcher</b></div>
+  <div class="slot v1">Vídeo recomendado</div>
+  <div class="slot v2">Otro vídeo</div>
+  <div class="slot sub">Suscribirse</div>
+  <div class="sello-wrap"><span class="sello">写輪眼</span></div>
+  <script src="shared.js"></script>
+</body>
+</html>
