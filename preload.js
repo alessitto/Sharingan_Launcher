@@ -93,10 +93,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openBackupDir: (dir) => ipcRenderer.invoke('saves:openDir', dir),
   onBackupProgress: (cb) => ipcRenderer.on('saves:progress', (_e, p) => cb(p)),
 
-  // IA (Claude)
+  // IA (por la cuenta: API de Sharingan → OmniRoute)
   aiStatus: () => ipcRenderer.invoke('ai:status'),
-  aiSetKey: (key) => ipcRenderer.invoke('ai:setKey', key),
-  aiClearKey: () => ipcRenderer.invoke('ai:clearKey'),
   aiOrderSaga: (sagaId) => ipcRenderer.invoke('ai:orderSaga', sagaId),
   aiRecommend: (opts) => ipcRenderer.invoke('ai:recommend', opts),
 

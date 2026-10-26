@@ -225,6 +225,8 @@ function loadSettings() {
         gridColumns: clampGridColumns(parsed.gridColumns),
         ...clampTheme(parsed.theme, parsed.themeEffect),
       };
+      // Hasta la 4.4.1 cada usuario ponía su clave de Claude: ya no se usa.
+      delete appSettings.aiKey;
     }
   } catch (err) {
     console.error("Error loading settings.json", err);
@@ -246,7 +248,7 @@ function saveSettings() {
 // aspecto y las claves (IA, Spotify, tiendas). En el PC siguen cifradas con
 // safeStorage; a la API van en claro por HTTPS y allí se cifran.
 const PROFILE_PREFS = ["theme", "themeEffect", "gridColumns", "gamesPerPage", "shortcuts", "glassTint"];
-const PROFILE_SECRETS = ["aiKey", "spotifyAuth", "storeAuth"];
+const PROFILE_SECRETS = ["spotifyAuth", "storeAuth"];
 
 function decryptSetting(key) {
   if (!appSettings[key]) return null;
@@ -301,7 +303,6 @@ loadSettings();
 // nunca a la ventana.
 const publicSettings = () => ({
   ...appSettings,
-  aiKey: undefined,
   cloudToken: undefined,
   spotifyAuth: undefined,
   spotifyClientId: undefined,
@@ -3070,42 +3071,11 @@ ipcMain.handle("games:setAynThor", (_e, id, on) => {
   return true;
 });
 
-// -------------------- IA (Claude) --------------------
+// -------------------- IA (API de Sharingan → OmniRoute) --------------------
 // La clave es del propio usuario y se guarda cifrada con el almacén seguro
 // del sistema (DPAPI en Windows) dentro de settings.json.
-function getAiKey() {
-  if (!appSettings.aiKey) return null;
-  try {
-    return safeStorage.decryptString(Buffer.from(appSettings.aiKey, "base64"));
-  } catch {
-    return null;
-  }
-}
-
-ipcMain.handle("ai:status", () => ({ configured: !!getAiKey(), model: ai.MODEL }));
-
-ipcMain.handle("ai:setKey", async (_e, key) => {
-  const k = String(key || "").trim();
-  if (!/^sk-ant-[\w-]{20,}$/.test(k)) return { ok: false, error: "Eso no parece una clave de la API de Claude (empieza por sk-ant-)." };
-  const check = await ai.checkKey(k);
-  if (!check.ok) return check;
-  if (!safeStorage.isEncryptionAvailable()) return { ok: false, error: "Windows no permite guardar la clave cifrada en este equipo." };
-  appSettings.aiKey = safeStorage.encryptString(k).toString("base64");
-  saveSettings();
-  return { ok: true };
-});
-
-ipcMain.handle("ai:clearKey", () => {
-  delete appSettings.aiKey;
-  saveSettings();
-  return { ok: true };
-});
-
-function requireAiKey() {
-  const key = getAiKey();
-  if (!key) throw new ai.AiError("Primero añade tu clave de la API de Claude en Ajustes.");
-  return key;
-}
+// La IA va por la cuenta (ai.js → API de Sharingan → OmniRoute).
+ipcMain.handle("ai:status", () => ({ configured: !!cloud?.loggedIn() }));
 
 const aiResult = async (fn) => {
   try {
@@ -3120,11 +3090,10 @@ const aiResult = async (fn) => {
 // aplica sola: la ventana la enseña y el usuario decide.
 ipcMain.handle("ai:orderSaga", (_e, sagaId) =>
   aiResult(async () => {
-    const key = requireAiKey();
     const saga = sagas.find((x) => x.id === sagaId);
     if (!saga || saga.gameIds.length < 2) throw new ai.AiError("La saga necesita al menos dos juegos.");
     const list = saga.gameIds.map((id) => findAnyGame(id)).filter(Boolean);
-    return ai.orderSaga(key, saga.name, list);
+    return ai.orderSaga(cloud, saga.name, list);
   })
 );
 
@@ -3179,11 +3148,10 @@ async function resolveOnIgdb(recs) {
 
 ipcMain.handle("ai:recommend", (_e, opts = {}) =>
   aiResult(async () => {
-    const key = requireAiKey();
     const owned = [...games, ...completedGames];
     if (!owned.length) throw new ai.AiError("Jarvis necesita algún juego en tu biblioteca o en pasados para conocer tus gustos.");
     const exclude = Array.isArray(opts.exclude) ? opts.exclude.slice(0, 200).map(String) : [];
-    const recs = await ai.recommend(key, {
+    const recs = await ai.recommend(cloud, {
       platinum: completedGames.filter((g) => g.isPlatinum),
       completed: completedGames.filter((g) => !g.isPlatinum),
       library: games,

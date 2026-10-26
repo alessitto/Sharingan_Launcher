@@ -132,7 +132,7 @@ function createCloud(hooks) {
   }
 
   // ------------------------------------------------------------ HTTP
-  async function api(route, { body, query, auth = true } = {}) {
+  async function api(route, { body, query, auth = true, timeout = 20000 } = {}) {
     const url = new URL(API_URL);
     url.searchParams.set("r", route);
     for (const [k, v] of Object.entries(query || {})) url.searchParams.set(k, String(v));
@@ -148,7 +148,7 @@ function createCloud(hooks) {
         method: body ? "POST" : "GET",
         headers,
         body: body ? JSON.stringify(body) : undefined,
-        signal: AbortSignal.timeout(20000),
+        signal: AbortSignal.timeout(timeout),
       });
     } catch {
       throw new CloudError("network", 0);
@@ -578,6 +578,8 @@ function createCloud(hooks) {
     econ,
     describe,
     flush: () => Promise.all([push().catch(() => {}), pushProfile().catch(() => {})]),
+    // IA (ai.js): la API la pasa a OmniRoute; puede tardar más que lo normal.
+    ai: (route, body) => api(route, { body, timeout: 120000 }),
     // Client ID de Spotify del dueño (solo se lo da la API a él).
     spotifyClient: async () => (await api("spotify/client")).clientId || null,
   };

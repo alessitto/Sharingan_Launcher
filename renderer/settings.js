@@ -276,7 +276,6 @@ const SETTINGS_PAGES = [
   { id: "theme", name: "Tema", icon: "palette", account: true },
   { id: "discover", name: "Descubrir", icon: "grid", account: true },
   { id: "spotify", name: "Spotify", icon: "music", account: true },
-  { id: "ai", name: "Inteligencia artificial", icon: "lightbulb", account: true },
   { id: "shortcuts", name: "Atajos de teclado", icon: "keyboard", account: true },
   { id: "data", name: "Datos", icon: "save" },
   { id: "updates", name: "Actualizaciones", icon: "download" },
@@ -406,12 +405,6 @@ const settingsPageHtml = {
       <div class="settings-row-ends"><span>3</span><span>10</span></div>
     </div>`,
   spotify: () => `<div class="st-spotify"></div>`,
-  ai: () => `
-    <div class="settings-ai" id="settingsAi">
-      <p class="settings-update-text">Para Jarvis y el orden de las sagas. Se guarda cifrada.</p>
-      <div class="settings-ai-row" id="settingsAiRow"></div>
-      <p class="settings-ai-msg" id="settingsAiMsg"></p>
-    </div>`,
   data: () => `
     <div class="settings-data">
       <div class="settings-data-row needs-account">
@@ -503,8 +496,6 @@ function bindSettingsPage(id, page) {
     renderStoresSettings(page.querySelector(".st-stores"));
   } else if (id === "spotify") {
     renderSpotifySettings(page.querySelector(".st-spotify"));
-  } else if (id === "ai") {
-    setupAiSettings();
   } else if (id === "data") {
     page.querySelector("#settingsBackupBtn").addEventListener("click", () => openBackupModal());
     page.querySelector("#settingsWipeBtn").addEventListener("click", () => wipeAllData());

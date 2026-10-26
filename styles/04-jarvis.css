@@ -212,52 +212,7 @@
   font-weight: 700;
 }
 
-/* Ajustes > Inteligencia artificial */
-.settings-ai {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.settings-ai-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.settings-ai-input {
-  flex: 1;
-  min-width: 0;
-  height: var(--control-h);
-  padding: 0 16px;
-  border-radius: 999px;
-  border: 1px solid var(--ink-700);
-  background: var(--ink-900);
-  color: var(--washi-100);
-  font: inherit;
-  font-size: 13px;
-  outline: none;
-}
-
-.settings-ai-input:focus {
-  border-color: var(--red-500);
-}
-
-.settings-ai-ok {
-  flex: 1;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--washi-100);
-}
-
-.settings-ai-ok .i {
-  width: 16px;
-  height: 16px;
-  color: var(--green-500);
-}
-
+/* Mensaje bajo un ajuste (lo usa settings.js) */
 .settings-ai-msg {
   margin: 0;
   font-size: 12px;
@@ -283,8 +238,3 @@
   border-radius: 22px;
 }
 
-:root[data-effect="glass"] .settings-ai-input {
-  border: none;
-  background: rgba(118, 118, 128, 0.26);
-  color: var(--washi-50);
-}

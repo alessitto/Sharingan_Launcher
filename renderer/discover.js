@@ -191,18 +191,6 @@ function setJarvisUi(on) {
 
 async function openJarvis(more = false) {
   if (jarvisBusy || isGuest()) return;
-  const status = await window.electronAPI.aiStatus().catch(() => ({ configured: false }));
-  if (!status.configured) {
-    const go = await confirmDialog({
-      title: "Jarvis necesita tu clave de IA",
-      text: "Añade tu clave de API en Ajustes › Inteligencia artificial.",
-      confirmText: "Ir a Ajustes",
-      iconName: "sparkles",
-    });
-    if (go) openSettingsModal();
-    return;
-  }
-
   jarvisBusy = true;
   const search = document.getElementById("searchInput");
   if (search) search.value = "";
@@ -262,52 +250,6 @@ async function openJarvis(more = false) {
 function exitJarvis() {
   if (!jarvisMode) return;
   loadDiscoverGames();
-}
-
-// Ajustes > Inteligencia artificial
-async function setupAiSettings() {
-  const row = document.getElementById("settingsAiRow");
-  const msg = document.getElementById("settingsAiMsg");
-  if (!row) return;
-  const status = await window.electronAPI.aiStatus().catch(() => ({ configured: false }));
-  msg.textContent = "";
-  if (status.configured) {
-    row.innerHTML = `
-      <span class="settings-ai-ok">${icon("check")}Clave guardada · modelo ${escapeHtml(status.model)}</span>
-      <button type="button" class="sl-btn sl-btn-ghost sl-btn-sm" data-ai="clear">Quitar clave</button>`;
-  } else {
-    row.innerHTML = `
-      <input type="password" class="settings-ai-input" placeholder="sk-ant-…" autocomplete="off" spellcheck="false" aria-label="Clave de la API de Claude">
-      <button type="button" class="sl-btn sl-btn-primary" data-ai="save">Guardar</button>`;
-    msg.innerHTML = `Consíguela en <a href="#" data-ai="console">console.anthropic.com</a> (API Keys). Cada uso se cobra en tu cuenta de la API.`;
-  }
-  const container = document.getElementById("settingsAi");
-  container.onclick = async (e) => {
-    const t = e.target.closest("[data-ai]");
-    if (!t) return;
-    e.preventDefault();
-    if (t.dataset.ai === "console") {
-      window.electronAPI.openExternal?.("https://console.anthropic.com/settings/keys");
-    } else if (t.dataset.ai === "clear") {
-      await window.electronAPI.aiClearKey();
-      setupAiSettings();
-    } else if (t.dataset.ai === "save") {
-      const input = row.querySelector(".settings-ai-input");
-      t.disabled = true;
-      msg.textContent = "Comprobando la clave…";
-      const res = await window.electronAPI.aiSetKey(input.value);
-      t.disabled = false;
-      if (res.ok) {
-        setupAiSettings();
-        showNotification("Clave guardada. Jarvis ya está listo.");
-      } else {
-        msg.textContent = res.error;
-      }
-    }
-  };
-  row.querySelector(".settings-ai-input")?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") row.querySelector('[data-ai="save"]')?.click();
-  });
 }
 
 // Lo que ya tienes (biblioteca o pasados) no sale en Descubrir.
